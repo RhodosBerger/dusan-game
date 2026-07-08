@@ -1,0 +1,26 @@
+{
+    "crystal": {
+        "name": "Crystal",
+        "description": "Kontrolne orientovaný hrdina s mocnými efektmi spomalenia a kryštálovými synergámi",
+        "title": "Ľadový mág",
+        "specialAbility": "Manipulácia s ľadom a spomaľovanie nepriateľov",
+        "passiveAbility": "Ľadový bonus k útoku - V prípade že je nepriateľský Hrdina spomalený, najbližší útok ktorý nepriateľa trafí, sposobí 2 poškodenia a spomalenie sa odstráni",
+        "playstyle": ["kontrola", "obranný"]
+    },
+    "toxic": {
+        "name": "Toxic",
+        "description": "Agresívny hrdina zameraný na otravovanie nepriateľov a využívanie hadích jednotiek",
+        "title": "Jedovatý alchymista",
+        "specialAbility": "Vytváranie jedovatých oblastí a ovládanie hadích spojencov",
+        "passiveAbility": "Jedovatý dotyk - Každý útok má 30% šancu umlčať cieľ na 1 ťah",
+        "playstyle": ["agresívny", "kontrolný"]
+    },
+    "druid": {
+        "name": "Druid",
+        "description": "Strážca prírody so zvieracími synergámi, kontrolou pohybu a podporou jednotiek",
+        "title": "Strážca prírody",
+        "specialAbility": "Spoločenstvo zvierat a liečenie prírody",
+        "passiveAbility": "Výzia - 2 vrchné karty tvojho ťahacieho balíčku si vieš ľubovoľne pozerať. Na konci ťahu si vieš odložiť až 3 karty na spodok ťahacieho balíčku",
+        "playstyle": ["synergia", "škálovanie"]
+    }
+}

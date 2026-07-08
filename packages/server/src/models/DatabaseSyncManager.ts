@@ -1,0 +1,274 @@
+declare var require: any;
+const { DatabaseSync } = require('node:sqlite');
+import { Thread } from './Thread';
+
+export interface DBPlayerProfile {
+  id: string;
+  username: string;
+  level: number;
+  xp: number;
+  maxHealth: number;
+  armor: number;
+  luck: number;
+  materials: string; // JSON
+  quests: string; // JSON
+}
+
+export class DatabaseSyncManager {
+  private db: any;
+
+  constructor(dbPath: string = './database.db') {
+    this.db = new DatabaseSync(dbPath);
+    this.initSchema();
+  }
+
+  private initSchema() {
+    // 1. Tabulka hráčov
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS players (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        level INTEGER DEFAULT 1,
+        xp INTEGER DEFAULT 0,
+        max_health INTEGER DEFAULT 15,
+        armor INTEGER DEFAULT 0,
+        luck REAL DEFAULT 0.5,
+        materials TEXT NOT NULL DEFAULT '{}',
+        quests TEXT NOT NULL DEFAULT '[]'
+      )
+    `);
+
+    // 2. Tabulka telemetrie
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS game_events_telemetry (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        telemetry_theory TEXT NOT NULL
+      )
+    `);
+
+    // 3. Tabulka zakúpených itemov (zbraní, nástrojov)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS player_items (
+        id TEXT PRIMARY KEY,
+        player_username TEXT NOT NULL REFERENCES players(username) ON DELETE CASCADE,
+        item_key TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity INTEGER DEFAULT 1,
+        durability INTEGER DEFAULT 100,
+        unlocked_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 4. Tabulka hex logov (RAM / swap adresáre)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS system_memory_registers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER NOT NULL,
+        register_address TEXT NOT NULL,
+        hex_dump TEXT NOT NULL,
+        description TEXT NOT NULL
+      )
+    `);
+
+    // 5. Tabulka kombinatorických akcií a templátov
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS combinatorial_action_registry (
+        id TEXT PRIMARY KEY,
+        combo_name TEXT UNIQUE NOT NULL,
+        card_combination TEXT NOT NULL,
+        base_success_rate REAL NOT NULL,
+        power_rating INTEGER NOT NULL,
+        effects_json TEXT NOT NULL
+      )
+    `);
+
+    // 6. Tabulka uzamknutých systémových registrov pre pasívne buffy
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS locked_system_registers (
+        id TEXT PRIMARY KEY,
+        player_username TEXT NOT NULL REFERENCES players(username) ON DELETE CASCADE,
+        register_address TEXT NOT NULL UNIQUE,
+        buff_type TEXT NOT NULL,
+        buff_value REAL NOT NULL,
+        locked_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  }
+
+  public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic'): DBPlayerProfile {
+    const selectStmt = this.db.prepare('SELECT * FROM players WHERE username = ?');
+    const row = selectStmt.get(username) as DBPlayerProfile | undefined;
+
+    if (row) {
+      return row;
+    }
+
+    // Ak neexistuje, vytvoríme profil
+    const id = `player_${username}_${Date.now()}`;
+    const defaultMaterials = defaultHero === 'crystal' 
+      ? JSON.stringify({ CrystalShard: 5, Spores: 0 })
+      : JSON.stringify({ CrystalShard: 0, Spores: 5 });
+      
+    // Predvolené štartovacie questy pre uloženie
+    const defaultQuests = JSON.stringify([
+      {
+        id: 'q_defeat_npcs',
+        title: 'Lov na procesory',
+        description: 'Poraz 2 NPC nepriateľské jednotky v Aréne.',
+        objectiveType: 'DEFEAT_NPC',
+        targetValue: 2,
+        progress: 0,
+        completed: false,
+        xpReward: 120,
+        materialReward: { type: defaultHero === 'crystal' ? 'CrystalShard' : 'Spores', amount: 5 }
+      },
+      {
+        id: 'q_reach_swamp',
+        title: 'Prieskum Toxických Hlbín',
+        description: 'Vstúp na políčko Toxic Swamp na preskúmanie anomálie.',
+        objectiveType: 'REACH_BIOME',
+        targetValue: 1,
+        targetName: 'TOXIC_SWAMP',
+        progress: 0,
+        completed: false,
+        xpReward: 80,
+        materialReward: { type: 'Spores', amount: 3 }
+      }
+    ]);
+
+    const maxHealth = defaultHero === 'crystal' ? 15 : 12;
+
+    const insertStmt = this.db.prepare(`
+      INSERT INTO players (id, username, level, xp, max_health, armor, luck, materials, quests)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertStmt.run(id, username, 1, 0, maxHealth, 0, 0.5, defaultMaterials, defaultQuests);
+
+    return {
+      id,
+      username,
+      level: 1,
+      xp: 0,
+      maxHealth,
+      armor: 0,
+      luck: 0.5,
+      materials: defaultMaterials,
+      quests: defaultQuests
+    };
+  }
+
+  public savePlayerState(thread: Thread): boolean {
+    if (thread.type !== 'PLAYER') return false;
+
+    const updateStmt = this.db.prepare(`
+      UPDATE players 
+      SET level = ?, xp = ?, max_health = ?, armor = ?, luck = ?, materials = ?, quests = ?
+      WHERE username = ?
+    `);
+
+    try {
+      updateStmt.run(
+        Number(thread.level),
+        Number(thread.xp),
+        Number(thread.maxHealth),
+        Number(thread.armor),
+        Number(thread.luck),                          // ← explicit float cast fixes ERR_INVALID_ARG_TYPE
+        JSON.stringify(thread.materials ?? {}),
+        JSON.stringify(thread.quests ?? []),
+        String(thread.name)
+      );
+      return true;
+    } catch (e) {
+      console.error(`[DB ERROR] Nepodarilo sa uložiť profil hráča ${thread.name}:`, e);
+      return false;
+    }
+  }
+
+  public logTelemetry(sessionId: string, eventType: string, theory: any): void {
+    const insertStmt = this.db.prepare(`
+      INSERT INTO game_events_telemetry (session_id, event_type, telemetry_theory)
+      VALUES (?, ?, ?)
+    `);
+    try {
+      insertStmt.run(sessionId, eventType, JSON.stringify(theory));
+    } catch (e) {
+      console.error('[DB ERROR] Nepodarilo sa uložiť telemetrickú udalosť:', e);
+    }
+  }
+
+  public addPlayerItem(username: string, itemKey: string, category: string): void {
+    const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
+    const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
+
+    if (existing) {
+      const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity + 1 WHERE id = ?');
+      updateStmt.run(existing.id);
+    } else {
+      const id = `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const insertStmt = this.db.prepare('INSERT INTO player_items (id, player_username, item_key, category) VALUES (?, ?, ?, ?)');
+      insertStmt.run(id, username, itemKey, category);
+    }
+  }
+
+  public removePlayerItem(username: string, itemKey: string): boolean {
+    const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
+    const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
+
+    if (!existing) return false;
+
+    if (existing.quantity > 1) {
+      const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity - 1 WHERE id = ?');
+      updateStmt.run(existing.id);
+    } else {
+      const deleteStmt = this.db.prepare('DELETE FROM player_items WHERE id = ?');
+      deleteStmt.run(existing.id);
+    }
+    return true;
+  }
+
+  public getPlayerItems(username: string): { itemKey: string; category: string; quantity: number; durability: number }[] {
+    const selectStmt = this.db.prepare('SELECT item_key as itemKey, category, quantity, durability FROM player_items WHERE player_username = ?');
+    return selectStmt.all(username) as any[];
+  }
+
+  public saveMemoryRegister(address: string, hexDump: string, desc: string): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(Date.now(), address, hexDump, desc);
+  }
+
+  public getMemoryRegisters(): { id: number; timestamp: number; register_address: string; hex_dump: string; description: string }[] {
+    const stmt = this.db.prepare('SELECT * FROM system_memory_registers ORDER BY id DESC');
+    return stmt.all() as any[];
+  }
+
+  public getAllPlayers(): any[] {
+    const stmt = this.db.prepare('SELECT * FROM players ORDER BY created_at DESC');
+    return stmt.all();
+  }
+
+  public lockRegister(username: string, address: string, buffType: string, buffValue: number): void {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO locked_system_registers (id, player_username, register_address, buff_type, buff_value)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const id = `lock_${Date.now()}`;
+    stmt.run(id, username, address, buffType, buffValue);
+  }
+
+  public getLockedRegisters(username: string): { register_address: string; buff_type: string; buff_value: number }[] {
+    const stmt = this.db.prepare(`
+      SELECT register_address, buff_type, buff_value 
+      FROM locked_system_registers 
+      WHERE player_username = ?
+    `);
+    return stmt.all(username) as any[];
+  }
+}

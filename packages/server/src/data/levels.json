@@ -1,0 +1,52 @@
+[
+  {
+    "id": "core_entrance",
+    "name": "The Core Entrance",
+    "difficulty": "easy",
+    "startingEntropy": 0.1,
+    "primaryBiome": "LUSH_FOREST",
+    "hazardsCount": 0,
+    "maxTurns": 10,
+    "description": "Welcome to the Core Entrance. Stable physics, low entropy."
+  },
+  {
+    "id": "toxic_depths",
+    "name": "Toxic Depths",
+    "difficulty": "medium",
+    "startingEntropy": 0.3,
+    "primaryBiome": "TOXIC_SWAMP",
+    "hazardsCount": 2,
+    "maxTurns": 12,
+    "description": "Swamps filled with toxic spores. Keep an eye on friction!"
+  },
+  {
+    "id": "glacier_ridge",
+    "name": "Glacier Ridge",
+    "difficulty": "hard",
+    "startingEntropy": 0.4,
+    "primaryBiome": "GLACIER",
+    "hazardsCount": 3,
+    "maxTurns": 15,
+    "description": "Slippery ice plains. Lower action cost but high rooting hazard."
+  },
+  {
+    "id": "barrens_wastes",
+    "name": "Barrens Wastes",
+    "difficulty": "medium",
+    "startingEntropy": 0.2,
+    "primaryBiome": "BARRENS",
+    "hazardsCount": 1,
+    "maxTurns": 12,
+    "description": "Dust storms and high heat. Keep your cooling active."
+  },
+  {
+    "id": "void_sanctum",
+    "name": "Void Sanctum",
+    "difficulty": "nightmare",
+    "startingEntropy": 0.7,
+    "primaryBiome": "GHOSTLY_VOID",
+    "hazardsCount": 5,
+    "maxTurns": 20,
+    "description": "The final chamber. Extreme entropy and collapsing tiles."
+  }
+]
