@@ -15,6 +15,7 @@ import AestheticCompositor from './AestheticCompositor';
 import VolumetricFog3D from './VolumetricFog3D';
 import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
 import StarfieldBackground from './world/StarfieldBackground';
+import FloatingShards3D from './world/FloatingShards3D';
 import PortalVortex3D from './world/PortalVortex3D';
 import { PORTAL_NODE_ID, computePropPlacements } from '../design/propPlacement';
 import CrystalSpire3D from './world/CrystalSpire3D';
@@ -133,11 +134,12 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const cameraFov = isMobile ? 55 : 45;
 
     return (
-        <div className="w-full h-full relative bg-[#08090e]">
+        <div className="w-full h-full relative bg-[color:var(--space-bg)]">
             <Canvas shadows>
                 <color attach="background" args={[PALETTE.space.background]} />
                 <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
                 <StarfieldBackground />
+                <FloatingShards3D />
 
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
                 <PerspectiveCamera makeDefault position={cameraPosition} fov={cameraFov} near={0.1} far={1000} />
