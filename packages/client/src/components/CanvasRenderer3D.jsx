@@ -190,8 +190,9 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         );
                     })}
 
-                    {/* Rekvizity biómov — deterministicky na "jadre" každého biómu */}
-                    {gridData.filter(n => propPlacements.has(n.id)).map(n => {
+                    {/* Rekvizity biómov — deterministicky na "jadre" každého biómu.
+                        Kolabujúce dlaždice vyfiltruj — rekvizita nesmie visieť nad prázdnom. */}
+                    {gridData.filter(n => propPlacements.has(n.id) && !collapsingNodeIds.includes(n.id)).map(n => {
                         const PropComponent = PROP_COMPONENTS[propPlacements.get(n.id)];
                         if (!PropComponent) return null;
                         return (

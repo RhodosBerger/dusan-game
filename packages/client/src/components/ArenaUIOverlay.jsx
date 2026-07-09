@@ -206,7 +206,7 @@ export default function ArenaUIOverlay({
                                             {crystalPlayer.isSlowed && (
                                                 <button 
                                                     onClick={() => onCureStatus('slowed')}
-                                                    className="bg-[color:var(--panel-bg)] hover:bg-[color:var(--panel-bg)] border border-[color:var(--accent-loot)] text-[color:var(--accent-loot)] text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                                    className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-loot)] text-[color:var(--accent-loot)] text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
                                                     title="Kliknutím vyliečite obetovaním žltej (move) karty"
                                                 >
                                                     🩹 Slowed (Cure)
@@ -265,7 +265,7 @@ export default function ArenaUIOverlay({
                                             {toxicPlayer.isSlowed && (
                                                 <button 
                                                     onClick={() => onCureStatus('slowed')}
-                                                    className="bg-[color:var(--panel-bg)] hover:bg-[color:var(--panel-bg)] border border-[color:var(--accent-loot)] text-[color:var(--accent-loot)] text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                                    className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-loot)] text-[color:var(--accent-loot)] text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
                                                     title="Kliknutím vyliečite obetovaním žltej (move) karty"
                                                 >
                                                     🩹 Slowed (Cure)
@@ -700,7 +700,7 @@ export default function ArenaUIOverlay({
                                     Cieľový hexagón: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
                                     <button 
                                         onClick={handleExecuteClick}
-                                        className="ml-3 bg-[color:var(--panel-bg)] hover:bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-0.5 rounded font-bold transition-colors cursor-pointer"
+                                        className="ml-3 bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-0.5 rounded font-bold transition-colors cursor-pointer"
                                     >
                                         Spustiť [Space] (V={selectedCard.isUltimate ? 6 : 3})
                                     </button>
@@ -781,7 +781,7 @@ export default function ArenaUIOverlay({
                         </div>
                         <button 
                             onClick={() => onMoveHero(selectedNode)}
-                            className="bg-[color:var(--panel-bg)] hover:bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5"
+                            className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5"
                         >
                             🚶 Presunúť hrdinu sem
                         </button>
@@ -896,7 +896,7 @@ export default function ArenaUIOverlay({
                     {isPlayerInTown && (
                         <button 
                             onClick={() => setIsShopOpen(true)}
-                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] hover:bg-[color:var(--panel-bg)] hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all text-[color:var(--accent-magic)] rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
+                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] hover:brightness-125 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all text-[color:var(--accent-magic)] rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
                         >
                             🏬 Town Shop
                         </button>
@@ -1119,7 +1119,7 @@ export default function ArenaUIOverlay({
                                                     disabled={!canAfford}
                                                     className={`text-[10px] font-mono px-3 py-1 rounded font-bold transition-all cursor-pointer ${
                                                         canAfford 
-                                                        ? 'bg-[color:var(--panel-bg)] hover:bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)]' 
+                                                        ? 'bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)]' 
                                                         : 'bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed'
                                                     }`}
                                                 >
