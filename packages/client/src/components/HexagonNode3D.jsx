@@ -2,6 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BiomeEngine, MLTerrainSynthesizer } from '../../../shared/src/index';
+import { PALETTE, BIOME_SPECS, WORLD } from '../design/worldDesign';
 
 function SnowParticles() {
     const pointsRef = useRef();
@@ -292,10 +293,10 @@ function VoidCollapseParticles() {
                     args={[positions, 3]}
                 />
             </bufferGeometry>
-            <pointsMaterial 
-                color="#a855f7" 
-                size={0.095} 
-                transparent 
+            <pointsMaterial
+                color={PALETTE.path.dirt}
+                size={0.095}
+                transparent
                 opacity={0.9}
             />
         </points>
@@ -351,9 +352,9 @@ function LootChest3D() {
             {/* Glowing Aetheric Core lock */}
             <mesh position={[0, -0.19, 0.05]}>
                 <sphereGeometry args={[0.07, 16, 16]} />
-                <meshBasicMaterial color="#00ffff" />
+                <meshBasicMaterial color={PALETTE.accent.magic} />
             </mesh>
-            <pointLight distance={1.8} intensity={0.8} color="#00ffff" />
+            <pointLight distance={1.8} intensity={0.8} color={PALETTE.accent.magic} />
         </group>
     );
 }
@@ -416,7 +417,7 @@ function TownBuilding3D() {
             {/* Tower roof */}
             <mesh position={[0, 0, 0.95]} castShadow>
                 <coneGeometry args={[0.35, 0.4, 6]} />
-                <meshStandardMaterial color="#00ffff" emissive="#004444" roughness={0.2} />
+                <meshStandardMaterial color={PALETTE.accent.magic} emissive="#004444" roughness={0.2} />
             </mesh>
             {/* Surrounding wall pillars */}
             {[-0.5, 0.5].map((x, idx) => (
@@ -427,22 +428,22 @@ function TownBuilding3D() {
                     </mesh>
                     <mesh position={[0, 0, 0.25]}>
                         <coneGeometry args={[0.15, 0.2, 4]} />
-                        <meshBasicMaterial color="#00ffcc" />
+                        <meshBasicMaterial color={PALETTE.accent.magic} />
                     </mesh>
                 </group>
             ))}
             {/* Glowing neon ring */}
             <mesh position={[0, 0, 0.8]} rotation={[0, 0, 0]}>
                 <torusGeometry args={[0.45, 0.03, 8, 24]} />
-                <meshBasicMaterial color="#00ffff" />
+                <meshBasicMaterial color={PALETTE.accent.magic} />
             </mesh>
-            <pointLight distance={3} intensity={0.8} color="#00ffff" position={[0, 0, 1.2]} />
+            <pointLight distance={3} intensity={0.8} color={PALETTE.accent.magic} position={[0, 0, 1.2]} />
         </group>
     );
 }
 
 export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null }) {
-    const meshRef = useRef();
+    const tileRef = useRef();
     const radius = 2.0;
 
     // Generovanie 3D tvaru hexagónu (ExtrudeGeometry pre 3D podstavec)
@@ -477,9 +478,8 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     // Nastavenia pre 3D hrúbku map-tile-u
     const extrudeSettings = { depth: 0.4, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
 
-    // Wireframe neonový edge
     const edgeColor = useMemo(() => {
-        return isSelected ? '#00ffff' : isHovered ? '#00ffcc' : '#3a3a4a';
+        return (isSelected || isHovered) ? PALETTE.accent.magic : PALETTE.rock.undersideDeep;
     }, [isSelected, isHovered]);
 
     const [flash, setFlash] = React.useState(false);
@@ -505,78 +505,66 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     }, [node.macroIndex, node.subIndex]);
 
     useFrame((state) => {
-        if (!meshRef.current) return;
+        if (!tileRef.current) return;
         const time = state.clock.elapsedTime;
-        
+
+        const targetLift = (isHovered || isSelected) && !isCollapsing ? 0.25 : 0;
+        tileRef.current.position.z = THREE.MathUtils.lerp(tileRef.current.position.z, targetLift, 0.15);
+
         if (isCollapsing) {
-            meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, -4.5, 0.04);
+            tileRef.current.position.y = THREE.MathUtils.lerp(tileRef.current.position.y, -4.5, 0.04);
         } else {
-            // Procedural slide-up entry rise animation
             if (time < spawnDelay) {
-                meshRef.current.position.y = -5;
+                tileRef.current.position.y = -5;
             } else {
                 const entryProgress = Math.min(1.0, (time - spawnDelay) * 2.0);
                 const baseHeight = THREE.MathUtils.lerp(-5, 0, entryProgress);
-                
-                // Add a gentle idle wave ripple animation scaled by global entropy
                 const waveFreq = 2.0 + entropy * 1.5;
                 const waveAmp = 0.02 + entropy * 0.06;
                 const idleOffset = Math.sin(time * waveFreq + (node.position[0] + node.position[2]) * 0.45) * waveAmp;
-                
-                meshRef.current.position.y = baseHeight + idleOffset;
+                tileRef.current.position.y = baseHeight + idleOffset;
             }
         }
     });
 
     // Výpočet dynamického ligtingu na základe ML Light Emission a Biómu
     const emissiveColor = useMemo(() => {
-        if (isCollapsing) {
-            return new THREE.Color('#4a0082').multiplyScalar(0.3);
-        }
-        if (flash) {
-            const flashColor = '#00ffff';
-            return new THREE.Color(flashColor).multiplyScalar(5.0);
-        }
-        if (isHovered) {
-            return '#002233';
-        }
+        if (isCollapsing) return new THREE.Color(PALETTE.rock.undersideDeep);
+        if (flash) return new THREE.Color(PALETTE.portal.core).multiplyScalar(3.0);
+        if (isHovered) return new THREE.Color(PALETTE.accent.magic).multiplyScalar(0.12);
         if (mlInfo.lightEmission > 0.4) {
-            if (biomeInfo.biome === 'TOXIC_SWAMP') return new THREE.Color('#330044').multiplyScalar(mlInfo.lightEmission * 0.7);
-            if (biomeInfo.biome === 'GLACIER') return new THREE.Color('#002233').multiplyScalar(mlInfo.lightEmission * 0.7);
-            if (biomeInfo.biome === 'BARRENS') return new THREE.Color('#331100').multiplyScalar(mlInfo.lightEmission * 0.7);
+            if (biomeInfo.biome === 'TOXIC_SWAMP') {
+                return new THREE.Color(BIOME_SPECS.TOXIC_SWAMP.accent).multiplyScalar(mlInfo.lightEmission * 0.15);
+            }
+            if (biomeInfo.biome === 'GLACIER') {
+                return new THREE.Color(BIOME_SPECS.GLACIER.accent).multiplyScalar(mlInfo.lightEmission * 0.10);
+            }
         }
-        return '#000000';
+        return new THREE.Color('#000000');
     }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, isCollapsing]);
 
-    // Úprava farby pre saturáciu
+    // Textúra sa maliarsky tónuje k `base` farbe biómu
     const baseTint = useMemo(() => {
-        if (isCollapsing) {
-            return new THREE.Color('#100518');
+        if (isCollapsing) return new THREE.Color(PALETTE.rock.underside);
+        if (isSelected) return new THREE.Color(PALETTE.accent.magic);
+        if (isHovered) {
+            return new THREE.Color('#ffffff').lerp(new THREE.Color(PALETTE.accent.magic), 0.25);
         }
-        
-        const selectColor = '#00ffff';
-        const hoverColor = '#a0d8f0';
-
-        if (isSelected) return new THREE.Color(selectColor);
-        if (isHovered) return new THREE.Color(hoverColor);
-
-        const base = new THREE.Color('#ffffff');
-
-        // Mierne saturovanie farby podľa ML výstupu
+        const spec = BIOME_SPECS[biomeInfo.biome];
+        const base = new THREE.Color('#ffffff').lerp(new THREE.Color(spec.base), 0.45);
         if (mlInfo.colorSaturation < 0.5) {
             base.lerp(new THREE.Color('#888888'), 0.5 - mlInfo.colorSaturation);
         }
         return base;
-  }, [isSelected, isHovered, mlInfo.colorSaturation, isCollapsing]);
+    }, [isSelected, isHovered, mlInfo.colorSaturation, biomeInfo.biome, isCollapsing]);
 
     const materialProps = useMemo(() => {
         const defaultProps = {
             map: textures[biomeInfo.biome] || null,
             color: baseTint,
-            roughness: 0.6,
-            metalness: 0.8,
+            roughness: WORLD.tileRoughness,
+            metalness: WORLD.tileMetalness,
             emissive: emissiveColor,
-            wireframe: false
         };
 
         if (!activeTelemetry) return defaultProps;
@@ -587,35 +575,28 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
         if (pattern === 'glitch_grid_noise') {
             return {
                 ...defaultProps,
-                roughness: 0.1,
-                metalness: 1.0,
-                color: baseTint.clone().lerp(new THREE.Color('#00ffff'), 0.3 * vibrancy),
-                wireframe: true
+                roughness: 0.5,
+                color: baseTint.clone().lerp(new THREE.Color(PALETTE.accent.magic), 0.2 * vibrancy),
             };
         }
         if (pattern === 'crystal_vein_specular') {
             return {
                 ...defaultProps,
-                roughness: 0.0,
-                metalness: 1.0,
-                color: baseTint.clone().lerp(new THREE.Color('#df73ff'), 0.4 * vibrancy)
+                roughness: 0.4,
+                color: baseTint.clone().lerp(new THREE.Color(BIOME_SPECS.GLACIER.accent), 0.25 * vibrancy),
             };
         }
         if (pattern === 'moss_dense_bump') {
             return {
                 ...defaultProps,
                 roughness: 1.0,
-                metalness: 0.0,
-                color: baseTint.clone().lerp(new THREE.Color('#2d5a27'), 0.4 * vibrancy)
+                color: baseTint.clone().lerp(new THREE.Color(BIOME_SPECS.LUSH_FOREST.base), 0.35 * vibrancy),
             };
         }
         if (pattern === 'void_particle_noise') {
             return {
                 ...defaultProps,
-                roughness: 0.8,
-                metalness: 0.2,
-                color: baseTint.clone().lerp(new THREE.Color('#12011a'), 0.4 * vibrancy),
-                emissive: new THREE.Color(emissiveColor).clone().add(new THREE.Color('#c084fc').multiplyScalar(0.5 * vibrancy))
+                color: baseTint.clone().lerp(new THREE.Color(PALETTE.rock.undersideDeep), 0.35 * vibrancy),
             };
         }
 
@@ -630,17 +611,17 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             onPointerOut={(e) => { e.stopPropagation(); onHover(null); }}
             onClick={(e) => { e.stopPropagation(); onClick(node); }}
         >
-            {/* ANCHOR: A_BASE - PBR 3D Podstavec (Map Tile) so stiahnutou AI textúrou */}
-            <mesh ref={meshRef} castShadow receiveShadow frustumCulled={false}>
-                <extrudeGeometry args={[hexShape, extrudeSettings]} />
-                <meshStandardMaterial {...materialProps} />
-            </mesh>
-
-            {/* Wireframe Neon Edge pre každý jeden sub-hex */}
-            <lineSegments position={[0, 0, 0.41]}>
-                <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
-                <lineBasicMaterial color={edgeColor} linewidth={1} />
-            </lineSegments>
+            {/* Dlaždica + hrana + (Task 6: podsada) — animovaná ako celok */}
+            <group ref={tileRef}>
+                <mesh castShadow receiveShadow frustumCulled={false}>
+                    <extrudeGeometry args={[hexShape, extrudeSettings]} />
+                    <meshStandardMaterial {...materialProps} />
+                </mesh>
+                <lineSegments position={[0, 0, 0.41]}>
+                    <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
+                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : 0.45} />
+                </lineSegments>
+            </group>
 
             {/* Časticové efekty biómov */}
             {biomeInfo.biome === 'GLACIER' && !isCollapsing && <SnowParticles />}
@@ -657,7 +638,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             {isSelected && (
                 <mesh position={[0, 0, 2.4]} rotation={[Math.PI / 2, 0, 0]}>
                     <torusGeometry args={[0.25, 0.04, 8, 32]} />
-                    <meshBasicMaterial color="#00ffff" wireframe />
+                    <meshBasicMaterial color={PALETTE.accent.magic} wireframe />
                 </mesh>
             )}
         </group>
