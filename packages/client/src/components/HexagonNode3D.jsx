@@ -307,9 +307,16 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
         return defaultProps;
     }, [activeTelemetry, baseTint, emissiveColor, biomeInfo.biome]);
 
+    // Kamenná podsada: okrajové hexy visia hlbšie — dojem odlomeného ostrova.
+    const undersideDepth = useMemo(() => {
+        const dist = Math.hypot(node.position[0], node.position[2]) / 14; // 14 ≈ polomer arény
+        const jitter = ((node.macroIndex * 7 + node.subIndex) % 5) * 0.15;
+        return 1.6 + dist * 2.2 + jitter;
+    }, [node.position, node.macroIndex, node.subIndex]);
+
     return (
-        <group 
-            position={node.position} 
+        <group
+            position={node.position}
             rotation={[-Math.PI / 2, 0, 0]} // Otočenie v trojrozmernom priestore (X, Z je plocha)
             onPointerOver={(e) => { e.stopPropagation(); onHover(node); }}
             onPointerOut={(e) => { e.stopPropagation(); onHover(null); }}
@@ -325,6 +332,17 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
                     <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
                     <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : 0.45} />
                 </lineSegments>
+
+                {/* Skalná podsada — 6-boký zužujúci sa "stalaktit" pod dlaždicou */}
+                <mesh position={[0, 0, -undersideDepth / 2 + 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+                    <cylinderGeometry args={[radius * 0.92, 0.18, undersideDepth, 6, 1, false, Math.PI / 6]} />
+                    <meshStandardMaterial
+                        color={PALETTE.rock.underside}
+                        roughness={1}
+                        metalness={0}
+                        flatShading
+                    />
+                </mesh>
             </group>
 
             {/* Časticové efekty biómov */}
