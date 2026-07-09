@@ -50,10 +50,9 @@ export class SovereignTelemetrySpawner {
             sentinel.maxHealth = 25;
             sentinel.baseDamage = 5;
             sentinel.armor = 2;
-            sentinel.position = { meta: 0, hex: 1 }; // Glacier sector
             
             if (!engine.threads.some(t => t.id === sentinelId)) {
-               engine.threads.push(sentinel);
+               engine.spawnThread(sentinel, 0, 1);
             }
 
             engine.traceLog.push({
@@ -90,16 +89,25 @@ export class SovereignTelemetrySpawner {
       sentinel.maxHealth = 20;
       sentinel.baseDamage = 4;
       sentinel.armor = 3; // high armor/immunity
-      sentinel.position = { meta: 0, hex: 1 };
+      
+      let spawnedHex = 1;
       if (!engine.threads.some(t => t.id === sentinelId)) {
-        engine.threads.push(sentinel);
+        let success = engine.spawnThread(sentinel, 0, 1);
+        if (!success) {
+          success = engine.spawnThread(sentinel, 0, 2);
+          if (success) spawnedHex = 2;
+        }
+        if (!success) {
+          success = engine.spawnThread(sentinel, 0, 3);
+          if (success) spawnedHex = 3;
+        }
       }
       this.activeEvents.push({
         id: sentinelId,
         type: 'ELITE_NPC',
         name: sentinel.name,
         meta: 0,
-        hex: 1,
+        hex: spawnedHex,
         description: 'Faraday Sentinel spawned to counteract BURST_DAMAGE player archetype.'
       });
     } else if (archetype === 'FAST_MOVER') {
@@ -123,11 +131,10 @@ export class SovereignTelemetrySpawner {
       npc.maxHealth = npc.health;
       npc.baseDamage = Math.round(4 + stats.averagePlayerLevel);
       npc.armor = 1;
-      npc.position = { meta: 0, hex: 4 }; // Swamp region
       
       // Add to engine threads if not already present
       if (!engine.threads.some(t => t.id === id)) {
-        engine.threads.push(npc);
+        engine.spawnThread(npc, 0, 4);
       }
 
       this.activeEvents.push({

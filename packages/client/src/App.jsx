@@ -22,6 +22,7 @@ function App() {
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [aestheticTheme, setAestheticTheme] = useState('CYBER_NEON');
+  const [gameMode, setGameMode] = useState('SANDBOX');
   const [matchId, setMatchId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [shakeIntensity, setShakeIntensity] = useState(0);
@@ -64,7 +65,11 @@ function App() {
 
     // Odber stavu pripojenia
     const unsubscribeConn = connectionEngine.subscribeToConnection((connState) => {
-      setIsSandbox(connState === 'SANDBOX_FALLBACK' || connState === 'DISCONNECTED');
+      const sandbox = connState === 'SANDBOX_FALLBACK' || connState === 'DISCONNECTED';
+      setIsSandbox(sandbox);
+      if (sandbox) {
+        setGameMode('SANDBOX');
+      }
     });
 
     // Pripojenie socketu pri štarte (ak sme v live režime)
@@ -78,6 +83,9 @@ function App() {
       setIsSearching(false);
       if (payload.theme) {
         setAestheticTheme(payload.theme);
+      }
+      if (payload.mode) {
+        setGameMode(payload.mode);
       }
     };
 
@@ -425,6 +433,7 @@ function App() {
         map={gameState?.map}
         terrainTelemetry={terrainTelemetry}
         ultimateFlash={ultimateFlash}
+        gameMode={gameMode}
       />
       
       {/* Cyber-Glassmorphism Tailwind UI */}

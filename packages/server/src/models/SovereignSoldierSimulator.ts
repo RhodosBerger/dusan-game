@@ -23,9 +23,8 @@ export class SovereignSoldierSimulator {
     monsterNpc.health = 10;
     monsterNpc.maxHealth = 10;
     monsterNpc.baseDamage = 3;
-    monsterNpc.position = { meta: chunkId, hex: hexId };
     
-    engine.threads.push(monsterNpc);
+    engine.spawnThread(monsterNpc, chunkId, hexId);
     engine.traceLog.push({
       type: 'Spawn',
       threadId: npcId,
@@ -84,10 +83,10 @@ export class SovereignSoldierSimulator {
       c.blocks.map(b => ({
         chunkId: c.id,
         blockId: b.id,
-        walkable: true,
-        energyCostMultiplier: 1.0,
-        lootProbability: 0.1,
-        hazardIndex: b.hazardIndex || 0.0
+        walkable: b.walkable !== false,
+        energyCostMultiplier: b.energyCostMultiplier ?? 1.0,
+        lootProbability: b.lootProbability ?? 0.1,
+        hazardIndex: b.hazardIndex ?? 0.0
       }))
     );
 

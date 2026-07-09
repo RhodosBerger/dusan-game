@@ -4,7 +4,7 @@ import { Thread } from './Thread';
 declare var require: any;
 declare var process: any;
 declare var __dirname: string;
-const { execSync } = require('child_process');
+const { exec, execSync } = require('child_process');
 const path = require('path');
 
 export interface TacticalSpawnPayload {
@@ -19,11 +19,11 @@ export interface TacticalSpawnPayload {
 }
 
 export class TacticalGenerativeCoordinator {
-  static generateTacticalInstance(
+  static async generateTacticalInstance(
     engine: SovereignEngine, 
     threadId: string, 
     tacticPrompt: string
-  ): TacticalSpawnPayload {
+  ): Promise<TacticalSpawnPayload> {
     const thread = engine.threads.find(t => t.id === threadId);
     
     // Default values if thread is missing
@@ -38,15 +38,32 @@ export class TacticalGenerativeCoordinator {
     const venvPython = path.join(__dirname, '../../.venv/bin/python3');
     const spawnerScript = path.join(__dirname, '../ml/tactical_spawner.py');
 
-    const safeExecSyncJson = (command: string): any => {
-      const raw = execSync(command).toString().trim();
-      const jsonStart = raw.indexOf('{');
-      const jsonEnd = raw.lastIndexOf('}');
-      if (jsonStart === -1 || jsonEnd === -1) {
-        throw new Error(`No JSON object found in output: ${raw}`);
-      }
-      return JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
+    const runSpawnerAsync = (command: string): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        exec(command, (error: any, stdout: string) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          try {
+            const raw = stdout.trim();
+            const jsonStart = raw.indexOf('{');
+            const jsonEnd = raw.lastIndexOf('}');
+            if (jsonStart === -1 || jsonEnd === -1) {
+              reject(new Error(`No JSON object found in output: ${raw}`));
+              return;
+            }
+            resolve(JSON.parse(raw.slice(jsonStart, jsonEnd + 1)));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
     };
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('TIMEOUT')), 250);
+    });
 
     try {
       const payload = JSON.stringify({
@@ -57,7 +74,10 @@ export class TacticalGenerativeCoordinator {
       });
 
       const cmd = `"${venvPython}" "${spawnerScript}" '${payload}'`;
-      const output = safeExecSyncJson(cmd);
+      const output = await Promise.race([
+        runSpawnerAsync(cmd),
+        timeoutPromise
+      ]);
 
       if (output.status === 'SUCCESS') {
         // Register the spawned object in the actual engine game board map!

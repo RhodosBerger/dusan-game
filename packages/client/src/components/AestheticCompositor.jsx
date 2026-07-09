@@ -51,7 +51,19 @@ export default function AestheticCompositor({ entropy = 0.4, terrainTelemetry = 
 
     return (
         <>
-            {/* Bloom and ChromaticAberration disabled to prevent postprocessing blur and fringe */}
+            {/* Foton pre svetlo (Photon Light Engine) */}
+            <Bloom 
+                luminanceThreshold={0.15} 
+                luminanceSmoothing={0.9} 
+                height={300} 
+                intensity={params.bloomIntensity} 
+            />
+            
+            {/* Molekulárna štruktúra ako chémia rastrového prevedenia (Molecular Chemistry Raster) */}
+            <ChromaticAberration 
+                offset={[params.aberrationOffset, params.aberrationOffset]} 
+            />
+
             {params.glitchActive && (
                 <Glitch
                     delay={[1.0, 2.5]}

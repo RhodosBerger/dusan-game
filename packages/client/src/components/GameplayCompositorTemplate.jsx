@@ -19,6 +19,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
     const [tacticPrompt, setTacticPrompt] = useState('aggression');
     const [mlResult, setMlResult] = useState(null);
     const [mlLoading, setMlLoading] = useState(false);
+    const [generatedInstances, setGeneratedInstances] = useState([]);
 
     // Admin Logic Console States
     const [accessPoints, setAccessPoints] = useState([]);
@@ -28,11 +29,35 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
         lowHealth: true,
         highEntropy: false,
         activeTurn: true,
-        dangerZone: true
+        dangerZone: true,
+        isStealthActive: true,
+        hasSensorTrap: true,
+        triggerTrap: false,
+        hasActiveShield: true,
+        damageIncoming: true,
+        damageAbsorbed: true
     });
     const [logicEvaluationResult, setLogicEvaluationResult] = useState(null);
     const [adminDocs, setAdminDocs] = useState('');
     const [showDocs, setShowDocs] = useState(false);
+
+    const fetchCompositions = () => {
+        fetch('http://localhost:3001/api/admin/compositions')
+            .then(res => res.json())
+            .then(data => setGeneratedInstances(data))
+            .catch(() => {});
+    };
+
+    const deleteComposition = async (id) => {
+        try {
+            await fetch(`http://localhost:3001/api/admin/compositions/${id}`, {
+                method: 'DELETE'
+            });
+            fetchCompositions();
+        } catch (e) {
+            console.error('Failed to delete composition', e);
+        }
+    };
 
     const refreshDiagnostics = () => {
         setExpressStatus('CHECKING');
@@ -107,6 +132,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
         refreshDiagnostics();
         fetchAccessPoints();
         fetchAdminDocs();
+        fetchCompositions();
     }, [activeThreadId]);
 
     const activeHero = useMemo(() => {
@@ -125,6 +151,9 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
             });
             const data = await res.json();
             setMlResult(data);
+            if (data && data.success) {
+                fetchCompositions();
+            }
             
             // Refresh telemetry
             const telRes = await fetch('http://localhost:3001/api/telemetry');
@@ -144,7 +173,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
                 
                 {/* Tab selector */}
                 <div className="flex gap-1 border-b border-slate-800 pb-2">
-                    {['compositor', 'diagnostics', 'ml_spawner', 'database', 'logic_console'].map((tab) => (
+                    {['compositor', 'diagnostics', 'cms_spawner', 'database', 'logic_console'].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -154,7 +183,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
                                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
                             }`}
                         >
-                            {tab.replace('_', ' ')}
+                            {tab === 'cms_spawner' ? 'CMS Spawner' : tab.replace('_', ' ')}
                         </button>
                     ))}
                 </div>
@@ -320,22 +349,20 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
                     </div>
                 )}
 
-                {activeTab === 'ml_spawner' && (
+                {activeTab === 'cms_spawner' && (
                     <div className="flex flex-col gap-2.5">
-                        <h3 className="text-purple-400 font-bold uppercase tracking-wider text-[10px]">🧠 ML Spawner Pipeline</h3>
-                        <p className="text-[10px] text-slate-400">Adaptively spawns chests or traps using the Python ML script:</p>
+                        <h3 className="text-purple-400 font-bold uppercase tracking-wider text-[10px]">🎚️ CMS & Semantic Coordinator</h3>
+                        <p className="text-[10px] text-slate-400">Renders arrays, loops, and logic checks for procedural composition nodes:</p>
                         
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[9px] text-slate-400">Tactical Intent Prompt:</label>
-                            <select 
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] text-slate-400">Semantic Coordinator Prompt:</label>
+                            <input 
+                                type="text"
                                 value={tacticPrompt} 
                                 onChange={(e) => setTacticPrompt(e.target.value)}
-                                className="bg-slate-950 border border-slate-800 p-1.5 rounded text-[10px] text-white focus:outline-none focus:border-purple-500"
-                            >
-                                <option value="aggression">aggression (Spawns Trap/Slime)</option>
-                                <option value="stealth">stealth (Spawns Camouflage Decoy)</option>
-                                <option value="defense">defense (Spawns Protective Barrier)</option>
-                            </select>
+                                placeholder="Type context (aggression, stealth, defense)..."
+                                className="bg-slate-950 border border-slate-800 p-1.5 rounded text-[10px] text-white focus:outline-none focus:border-purple-500 w-full"
+                            />
                         </div>
 
                         <button
@@ -343,37 +370,61 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
                             disabled={mlLoading}
                             className="w-full py-1.5 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:bg-slate-800 text-white rounded font-bold uppercase text-[10px] tracking-wider transition-all"
                         >
-                            {mlLoading ? '🤖 Synthesizing...' : '🚀 Generate & Spawn'}
+                            {mlLoading ? '🤖 Synthesizing CMS...' : '🚀 Coordinate & Display'}
                         </button>
 
-                        {mlResult && (
-                            <div className="bg-slate-950/60 border border-slate-850 p-2 rounded text-[9px] overflow-x-auto flex flex-col gap-1">
-                                <div className="font-bold uppercase text-[9px] text-pink-400">Response payload:</div>
-                                <div className="flex justify-between">
-                                    <span>Success:</span>
-                                    <span className={mlResult.success ? 'text-green-400' : 'text-red-400'}>{String(mlResult.success)}</span>
+                        {/* Loops & Arrays of Compositions */}
+                        <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-900 pt-2">
+                            <span className="text-cyan-400 font-bold uppercase tracking-wider text-[8px]">📋 Generated Compositions Array</span>
+                            
+                            {generatedInstances.length > 0 ? (
+                                <div className="flex flex-col gap-2 max-h-[140px] overflow-y-auto pr-1">
+                                    {generatedInstances.map((inst, index) => {
+                                        // Condition checks representing semantic structures
+                                        const isHazard = inst.actionType.includes('trap') || inst.actionType.includes('mine');
+                                        const isBarrier = inst.actionType.includes('barrier') || inst.actionType.includes('shield');
+                                        const isStealth = inst.actionType.includes('invisibility') || inst.actionType.includes('smoke');
+                                        const isHighPower = inst.powerRating > 2.0;
+
+                                        return (
+                                            <div key={inst.id || index} className="p-2 bg-slate-950/60 border border-slate-850 rounded text-[9px] flex flex-col gap-1">
+                                                <div className="flex justify-between font-bold">
+                                                    <span className="text-cyan-300 truncate">{inst.actionType}</span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-slate-500">{new Date(inst.timestamp).toLocaleTimeString()}</span>
+                                                        <button 
+                                                            onClick={() => deleteComposition(inst.id)} 
+                                                            className="text-red-500 hover:text-red-400 font-bold cursor-pointer"
+                                                            title="Delete composition"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="text-slate-400 leading-tight">"{inst.description}"</div>
+                                                <div className="flex flex-wrap gap-1 mt-1 font-mono text-[8px]">
+                                                    <span className="px-1 rounded bg-slate-800 text-slate-300">Chunk {inst.coordinates.meta}:{inst.coordinates.hex}</span>
+                                                    <span className={`px-1 rounded font-bold ${isHighPower ? 'bg-amber-950 text-amber-400' : 'bg-slate-800 text-slate-500'}`}>Rating: {inst.powerRating.toFixed(1)}</span>
+                                                    {isHazard && <span className="px-1 rounded bg-red-950 text-red-400 font-bold">HAZARD_MINE</span>}
+                                                    {isBarrier && <span className="px-1 rounded bg-blue-950 text-blue-400 font-bold">BARRIER_SHIELD</span>}
+                                                    {isStealth && <span className="px-1 rounded bg-teal-950 text-teal-400 font-bold">STEALTH_SHROUD</span>}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                                {mlResult.actionType && (
-                                    <>
-                                        <div className="flex justify-between">
-                                            <span>Action:</span>
-                                            <span className="text-cyan-300 font-bold">{mlResult.actionType}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Target Hex:</span>
-                                            <span>Chunk {mlResult.coordinates?.meta}, Hex {mlResult.coordinates?.hex}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Power Rating:</span>
-                                            <span className="text-yellow-400 font-bold">{mlResult.powerRating?.toFixed(2)}</span>
-                                        </div>
-                                        <div className="text-slate-400 italic text-[9px] mt-1 pt-1 border-t border-slate-900">
-                                            "{mlResult.description}"
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
+                            ) : (
+                                <span className="text-[9px] text-slate-600 italic">No generated nodes to loop through. Trigger spawner above.</span>
+                            )}
+                        </div>
+
+                        {/* DevOps Pipeline Modulations */}
+                        <div className="mt-2 p-2 bg-slate-950/40 border border-slate-900 rounded text-[8px] text-slate-500 flex flex-col gap-1 leading-normal">
+                            <span className="text-pink-400 font-bold uppercase tracking-wider text-[8px]">⚙️ DevOps Pipeline Modulations</span>
+                            <div>• <span className="text-slate-400">Dev:</span> Synchronous execution of local Python script in virtual environment.</div>
+                            <div>• <span className="text-slate-400">Staging:</span> 150ms request timeout simulation; fails back to static template array.</div>
+                            <div>• <span className="text-slate-400">Prod:</span> Asynchronous microservice orchestration; bypasses Python CLI bottleneck if latency exceeds 250ms.</div>
+                        </div>
                     </div>
                 )}
 
@@ -449,6 +500,10 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
                                     onChange={(e) => setFormula(e.target.value)}
                                     className="bg-slate-950 border border-slate-800 px-1 py-0.5 rounded text-[9px] text-white focus:outline-none"
                                 />
+                                <div className="flex gap-2 text-[7px] text-slate-400 mt-0.5">
+                                    <span className="cursor-pointer hover:text-white underline" onClick={() => setFormula('isStealthActive ^ hasSensorTrap => !triggerTrap')}>Preset 1 (Stealth Trap)</span>
+                                    <span className="cursor-pointer hover:text-white underline" onClick={() => setFormula('hasActiveShield ^ damageIncoming => damageAbsorbed')}>Preset 2 (Active Shield)</span>
+                                </div>
                             </div>
 
                             <div className="flex flex-wrap gap-1.5 mt-1">

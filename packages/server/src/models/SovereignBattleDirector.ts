@@ -140,9 +140,7 @@ export class SovereignBattleDirector {
       eliteNpc.maxHealth = 25;
       eliteNpc.baseDamage = 6;
       eliteNpc.armor = 2;
-      eliteNpc.position = { meta: 0, hex: 1 }; // Spawns near gate
-      
-      engine.threads.push(eliteNpc);
+      engine.spawnThread(eliteNpc, 0, 1);
 
       engine.traceLog.push({
         type: 'Spawn',

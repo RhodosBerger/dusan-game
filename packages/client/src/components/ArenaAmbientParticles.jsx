@@ -22,7 +22,7 @@ function getThemeColor(aestheticTheme, entropy) {
     return new THREE.Color(r, g, b);
 }
 
-export default function ArenaAmbientParticles({ aestheticTheme = 'CYBER_NEON', entropy = 0.4 }) {
+export default function ArenaAmbientParticles({ aestheticTheme = 'CYBER_NEON', entropy = 0.4, hazardIndex = 0.4 }) {
     const pointsRef = useRef();
 
     // Each particle has: position (x, y, z), velocity (dx, dy, dz), phase offset
@@ -85,8 +85,8 @@ export default function ArenaAmbientParticles({ aestheticTheme = 'CYBER_NEON', e
         if (pointsRef.current.material) {
             pointsRef.current.material.color.lerp(col, 0.02);
             // Opacity pulses gently
-            const baseFade = 0.25 + entropy * 0.2;
-            pointsRef.current.material.opacity = baseFade + 0.1 * Math.sin(time * 1.5);
+            const baseFade = 0.25 + entropy * 0.2 + hazardIndex * 0.25;
+            pointsRef.current.material.opacity = Math.min(0.9, baseFade + 0.1 * Math.sin(time * 1.5));
         }
     });
 
@@ -102,7 +102,7 @@ export default function ArenaAmbientParticles({ aestheticTheme = 'CYBER_NEON', e
             </bufferGeometry>
             <pointsMaterial
                 color={initialColor}
-                size={0.065}
+                size={0.065 + hazardIndex * 0.045}
                 transparent
                 opacity={0.3}
                 depthWrite={false}

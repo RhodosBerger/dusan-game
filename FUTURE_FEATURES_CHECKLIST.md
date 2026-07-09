@@ -53,16 +53,16 @@ Tento dokument mapuje pripravované herné funkcie (Features) a definuje, na ak�
 
 Nasledujúce položky sú zoradené podľa ich štrukturálnej priority (od základov po finálne ML funkcie):
 
-*   `[ ]` **Fáza 1: Lokálne Overovanie Pravidiel (Pravidlá & Limity)**
-    *   `[ ]` Implementovať bitovú masku `HeroStateFlags` v `SovereignEngine.ts`.
-    *   `[ ]` Pridať overovacie guardy pre zákaz hrania kariet pri aktívnych stavoch.
-    *   `[ ]` Pridať test vzdialenosti na hexagonálnej sieti v `HexMath3D.js` pre overenie dosahu útokov.
-*   `[ ]` **Fáza 2: Databázová Integrácia (Perzistencia)**
-    *   `[ ]` Nasadiť SQLite / PostgreSQL DDL schému (vytvoriť tabuľky `players`, `game_events_telemetry`).
-    *   `[ ]` Vytvoriť a prepojiť súbor `DatabaseSyncManager.ts` v backend package pre ukladanie inventára.
-*   `[ ]` **Fáza 3: Herné udalosti a Úlohy (Quests & Inventory)**
-    *   `[ ]` Vytvoriť Quest Listener, ktorý reaguje na signály `state_resolved` z Connection Engine.
-    *   `[ ]` Implementovať UI pre zobrazenie questov a inventára v bočnom HUD paneli klienta.
-*   `[ ]` **Fáza 4: ML Analýza a Balans (Telemetry)**
-    *   `[ ]` Prepojiť `GameplayTelemetryRandomizer.ts` so zberom reálnych dát z produkcie.
-    *   `[ ]` Spustiť K-Means clustering a anomálnu detekciu na vygenerovaných dátach na optimalizáciu napätia ($V$) a odporu ($R$) kariet.
+*   `[x]` **Fáza 1: Lokálne Overovanie Pravidiel (Pravidlá & Limity)**
+    *   `[x]` Implementovať bitovú masku `HeroStateFlags` v `SovereignEngine.ts`.
+    *   `[x]` Pridať overovacie guardy pre zákaz hrania kariet pri aktívnych stavoch.
+    *   `[x]` Pridať test vzdialenosti na hexagonálnej sieti v `HexMath3D.js` pre overenie dosahu útokov.
+*   `[x]` **Fáza 2: Databázová Integrácia (Perzistencia)**
+    *   `[x]` Nasadiť SQLite / PostgreSQL DDL schému (vytvoriť tabuľky `players`, `game_events_telemetry`).
+    *   `[x]` Vytvoriť a prepojiť súbor `DatabaseSyncManager.ts` v backend package pre ukladanie inventára.
+*   `[x]` **Fáza 3: Herné udalosti a Úlohy (Quests & Inventory)**
+    *   `[x]` Vytvoriť Quest Listener, ktorý reaguje na signály `state_resolved` z Connection Engine.
+    *   `[x]` Implementovať UI pre zobrazenie questov a inventára v bočnom HUD paneli klienta.
+*   `[x]` **Fáza 4: ML Analýza a Balans (Telemetry)**
+    *   `[x]` Prepojiť `GameplayTelemetryRandomizer.ts` so zberom reálnych dát z produkcie.
+    *   `[x]` Spustiť K-Means clustering a anomálnu detekciu na vygenerovaných dátach na optimalizáciu napätia ($V$) a odporu ($R$) kariet.

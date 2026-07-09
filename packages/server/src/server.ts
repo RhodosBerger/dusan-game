@@ -239,7 +239,7 @@ io.on('connection', (socket) => {
         interval: matchInterval
       });
 
-      io.to(roomName).emit('match_started', { matchId, theme: p1.theme });
+      io.to(roomName).emit('match_started', { matchId, theme: p1.theme, mode: 'PVP' });
       io.to(roomName).emit('initial_map', matchEngine.getStaticMapState());
       io.to(roomName).emit('state_resolved', matchEngine.getState());
       console.log(`[LOBBY] PvP Match ${matchId} started between ${p1.name} and ${p2.name}.`);
@@ -329,7 +329,7 @@ io.on('connection', (socket) => {
       aiThreadId: aiHero
     });
 
-    socket.emit('match_started', { matchId, theme: payload.theme });
+    socket.emit('match_started', { matchId, theme: payload.theme, mode: 'AI' });
     io.to(roomName).emit('initial_map', matchEngine.getStaticMapState());
     saveEngineState(matchEngine, matchId);
     io.to(roomName).emit('state_resolved', matchEngine.getState());
@@ -1282,6 +1282,35 @@ app.post('/api/admin/logic/evaluate', (req, res) => {
   res.json(evaluation);
 });
 
+app.post('/api/admin/compositions', (req, res) => {
+  try {
+    const inst = req.body;
+    dbSync.saveComposition(inst);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/compositions', (req, res) => {
+  try {
+    const list = dbSync.getCompositions();
+    res.json(list);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/compositions/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    dbSync.deleteComposition(id);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/battle/resolve', (req, res) => {
   try {
     const { playerId, npcId } = req.body;
@@ -1424,15 +1453,29 @@ app.post('/api/combinatorics/detect', (req, res) => {
   }
 });
 
-app.post('/api/scenarios/generate-tactical-instance', (req, res) => {
+app.post('/api/scenarios/generate-tactical-instance', async (req, res) => {
   try {
     const { threadId, tacticPrompt } = req.body;
     const targetEngine = defaultEngine;
-    const result = TacticalGenerativeCoordinator.generateTacticalInstance(
+    const result = await TacticalGenerativeCoordinator.generateTacticalInstance(
       targetEngine, 
       threadId, 
       tacticPrompt || 'stealth'
     );
+
+    // Auto-save to SQLite compositions if successful
+    if (result.success) {
+      dbSync.saveComposition({
+        id: `comp_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        prompt: tacticPrompt || 'stealth',
+        actionType: result.actionType,
+        coordinates: result.coordinates,
+        powerRating: result.powerRating,
+        description: result.description,
+        timestamp: Date.now()
+      });
+    }
+
     res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });

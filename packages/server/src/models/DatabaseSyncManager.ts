@@ -97,6 +97,60 @@ export class DatabaseSyncManager {
         locked_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 7. Tabulka procedurálnych kompozícií
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS procedural_compositions (
+        id TEXT PRIMARY KEY,
+        prompt TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        meta_id INTEGER NOT NULL,
+        hex_id INTEGER NOT NULL,
+        power_rating REAL NOT NULL,
+        description TEXT,
+        created_at INTEGER NOT NULL
+      )
+    `);
+  }
+
+  public saveComposition(inst: any): void {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO procedural_compositions (id, prompt, action_type, meta_id, hex_id, power_rating, description, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const id = inst.id || `comp_${Date.now()}`;
+    stmt.run(
+      id,
+      inst.prompt || inst.tacticPrompt || 'stealth',
+      inst.actionType,
+      inst.coordinates?.meta ?? 0,
+      inst.coordinates?.hex ?? 0,
+      inst.powerRating ?? 1.0,
+      inst.description || '',
+      inst.timestamp || Date.now()
+    );
+  }
+
+  public getCompositions(): any[] {
+    const stmt = this.db.prepare('SELECT * FROM procedural_compositions ORDER BY created_at DESC');
+    const rows = stmt.all() as any[];
+    return rows.map(r => ({
+      id: r.id,
+      prompt: r.prompt,
+      actionType: r.action_type,
+      coordinates: {
+        meta: r.meta_id,
+        hex: r.hex_id
+      },
+      powerRating: r.power_rating,
+      description: r.description,
+      timestamp: r.created_at
+    }));
+  }
+
+  public deleteComposition(id: string): void {
+    const stmt = this.db.prepare('DELETE FROM procedural_compositions WHERE id = ?');
+    stmt.run(id);
   }
 
   public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic'): DBPlayerProfile {

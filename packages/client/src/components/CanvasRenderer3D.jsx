@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer, Glitch, Bloom, ChromaticAberration } from '@react-three/postprocessing';
 import { GlitchMode } from 'postprocessing';
+import * as THREE from 'three';
 import { generate3DGrid } from '../utils/HexMath3D';
 import HexagonNode3D from './HexagonNode3D';
 import MetapositionBorder3D from './MetapositionBorder3D';
@@ -82,7 +83,86 @@ function UltimateOrbVFX({ active }) {
     );
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], aestheticTheme = 'CYBER_NEON', shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false }) {
+function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate }) {
+    const { camera, controls } = useThree();
+    const desiredTarget = useRef(new THREE.Vector3(0, 0, 0));
+
+    // Vyhľadanie aktívneho hrdinu
+    const activePlayer = useMemo(() => {
+        return threads.find(t => t.type === 'PLAYER' && t.health > 0) || null;
+    }, [threads]);
+
+    // Zistenie aktívneho biomu pre efekty kamery
+    const activeBiome = useMemo(() => {
+        if (!map || map.length === 0) return 'LUSH_FOREST';
+        const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
+        if (targetThread && targetThread.position) {
+            const chunk = map.find(c => c.id === targetThread.position.meta);
+            const block = chunk?.blocks?.find(b => b.id === targetThread.position.hex);
+            return block?.biome || 'LUSH_FOREST';
+        }
+        return 'LUSH_FOREST';
+    }, [map, threads]);
+
+    useEffect(() => {
+        if (gameMode === 'SANDBOX') {
+            desiredTarget.current.set(0, 0, 0);
+        } else {
+            // Sledovanie aktívneho hráča alebo NPC na ťahu
+            const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
+            if (targetThread && targetThread.position) {
+                const node = gridData.find(
+                    n => n.macroIndex === targetThread.position.meta && n.subIndex === targetThread.position.hex
+                );
+                if (node) {
+                    desiredTarget.current.set(node.position[0], node.position[1], node.position[2]);
+                }
+            } else {
+                desiredTarget.current.set(0, 0, 0);
+            }
+        }
+    }, [gameMode, threads, gridData, activePlayer]);
+
+    useFrame((state, delta) => {
+        // 1. Plynulý LERP stredu záujmu
+        if (controls) {
+            controls.target.lerp(desiredTarget.current, delta * 3.5);
+            controls.update();
+        }
+
+        // 2. Úprava FOV (zorného uhla) pre detailný zoom a taktický prehľad
+        let targetFov = isUltimate ? 34 : (gameMode === 'SANDBOX' ? 45 : 38);
+        if (gameMode !== 'SANDBOX' && !isUltimate) {
+            if (activeBiome === 'TOXIC_SWAMP') {
+                targetFov = 34; // Zoomed-in
+            } else if (activeBiome === 'GLACIER') {
+                targetFov = 48; // Wide-angle
+            }
+        }
+
+        if (Math.abs(camera.fov - targetFov) > 0.1) {
+            camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, delta * 4.0);
+            camera.updateProjectionMatrix();
+        }
+
+        // 3. Dynamické trasenie kamery (Camera Shake) s vysokou responzivitou
+        if (shakeIntensity > 0) {
+            camera.position.x += (Math.random() - 0.5) * shakeIntensity * 0.15;
+            camera.position.y += (Math.random() - 0.5) * shakeIntensity * 0.15;
+            camera.position.z += (Math.random() - 0.5) * shakeIntensity * 0.15;
+        }
+
+        // 4. Pomalý automatický oblet v Sandbox móde pre udržanie dynamiky scény
+        if (gameMode === 'SANDBOX' && !isUltimate) {
+            const time = state.clock.getElapsedTime();
+            desiredTarget.current.set(Math.sin(time * 0.25) * 1.5, 0, Math.cos(time * 0.25) * 1.5);
+        }
+    });
+
+    return null;
+}
+
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], aestheticTheme = 'CYBER_NEON', shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX' }) {
     const gridData = useMemo(() => generate3DGrid(), []);
     
     // Calculate which node IDs are collapsing this turn
@@ -112,6 +192,22 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
     const cameraFov = isMobile ? 55 : 45;
 
+    // Calculate current average hazard index based on the active threads' locations
+    const currentHazardIndex = useMemo(() => {
+        if (!map || map.length === 0) return 0.4;
+        const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
+        if (targetThread && targetThread.position) {
+            const chunk = map.find(c => c.id === targetThread.position.meta);
+            const block = chunk?.blocks?.find(b => b.id === targetThread.position.hex);
+            if (block?.biome === 'TOXIC_SWAMP') return 0.8;
+            if (block?.biome === 'DESERT') return 0.6;
+            if (block?.biome === 'GLACIER') return 0.4;
+            if (block?.biome === 'BARRENS') return 0.5;
+            return 0.3; // LUSH_FOREST
+        }
+        return 0.4;
+    }, [map, threads]);
+
     return (
         <div className="w-full h-full relative bg-[#0a0a0f]">
             <Canvas shadows>
@@ -122,6 +218,16 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     maxPolarAngle={Math.PI / 2.5} // Zamedzí pohľadu z podlahy
                     minDistance={2} 
                     maxDistance={150} 
+                />
+
+                {/* Dynamické riadenie kamery na základe herného režimu */}
+                <DynamicCameraController 
+                    gameMode={gameMode} 
+                    threads={threads} 
+                    gridData={gridData} 
+                    map={map}
+                    shakeIntensity={shakeIntensity} 
+                    isUltimate={ultimateFlash} 
                 />
 
                 {/* Dynamické PBR Osvetlenie */}
@@ -178,7 +284,11 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     })}
 
                     {/* Floating mana particles across the whole arena */}
-                    <ArenaAmbientParticles aestheticTheme={aestheticTheme} entropy={entropy} />
+                    <ArenaAmbientParticles 
+                        aestheticTheme={aestheticTheme} 
+                        entropy={entropy} 
+                        hazardIndex={currentHazardIndex}
+                    />
 
                     {/* Volumetric Fog Layer disabled for sharp visual focus */}
 
