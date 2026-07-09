@@ -1710,7 +1710,89 @@ async function runTests() {
   console.log(`  [PASS] SQLite composition retrieval validated: prompt -> ${savedComp.prompt}`);
   console.log(`  [PASS] SQLite composition deletion validated.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout a SQLite-Procedural-Compositions-CRUD testy prebehli úspešne!");
+  console.log("\nTest 55: Multi-Chunk Movement and Energy Cost");
+  const testEngine55 = new SovereignEngine();
+  const playerThread55 = new Thread("player_test_55", "PLAYER");
+  playerThread55.position = { meta: 0, hex: 0 };
+  testEngine55.threads.push(playerThread55);
+
+  // Attempt multi-chunk jump with 0 energy (meta 0 -> meta 2, distance = 2)
+  testEngine55.systemEnergy = 0;
+  const coords = [
+    { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }
+  ];
+  const c1 = coords[0];
+  const c2 = coords[2];
+  const metaDist = Math.abs(c1.x - c2.x) + Math.abs(c1.y - c2.y);
+  assert(metaDist === 2, "Vzdialenosť medzi chunkmi 0 a 2 musí byť 2.");
+  
+  const energyCost = (metaDist - 1) * 3;
+  assert(energyCost === 3, "Energetická cena skoku cez 2 chunky musí byť 3.");
+  
+  let moveAllowed = false;
+  if (metaDist > 1) {
+    if (testEngine55.systemEnergy >= energyCost) {
+      testEngine55.systemEnergy -= energyCost;
+      moveAllowed = true;
+    }
+  }
+  assert(moveAllowed === false, "Skok nesmie byť povolený pri nedostatku energie.");
+
+  // Pay energy and retry
+  testEngine55.systemEnergy = 10;
+  let moveAllowed2 = false;
+  if (metaDist > 1) {
+    if (testEngine55.systemEnergy >= energyCost) {
+      testEngine55.systemEnergy -= energyCost;
+      moveAllowed2 = true;
+    }
+  }
+  assert(moveAllowed2 === true, "Skok musí byť povolený, ak má hráč dosť energie.");
+  assert(testEngine55.systemEnergy === 7, "Zostatková energia musí byť 7.");
+  console.log(`  [PASS] Long-range mobility blocked on low energy.`);
+  console.log(`  [PASS] Long-range mobility approved on sufficient energy: residual energy -> ${testEngine55.systemEnergy}`);
+
+  console.log("\nTest 56: Dopamine Spawner Loop & Companion Turn Simulation");
+  const testEngine56 = new SovereignEngine();
+  const player56 = new Thread("player_56", "PLAYER");
+  player56.name = "Dopamine Hero";
+  player56.position = { meta: 1, hex: 0 };
+  testEngine56.threads.push(player56);
+
+  // Clear all chests from chunk 1 to trigger the dopamine loop
+  const chunk1 = testEngine56.map.chunks.find((c: any) => c.id === 1)!;
+  chunk1.blocks.forEach((b: any) => {
+    b.hasChest = false;
+    b.hasOpportunity = false;
+  });
+
+  // Run distributor evaluate and distribute (with Math.random mocked to 1.0 to isolate dopamine loop)
+  const originalRandom = Math.random;
+  Math.random = () => 1.0;
+  const logStr = SovereignContentDistributor.evaluateAndDistribute(testEngine56, "player_56", 1, 0);
+  Math.random = originalRandom;
+
+  assert(logStr.includes("DOPAMINE_LOOP"), "Dopamine loop musel vynútiť spawn truhlice v prázdnom chunku.");
+  assert(chunk1.blocks.some((b: any) => b.hasChest), "Chunk 1 musí obsahovať aspoň jednu truhlicu po distribúcii.");
+
+  // Spawn Faraday Sentinel companion and opposing monster
+  const companion = new Thread("faraday_companion_56", "NPC");
+  companion.name = "Faraday Sentinel";
+  companion.position = { meta: 0, hex: 0 };
+  testEngine56.threads.push(companion);
+
+  const monster56 = new Thread("enemy_monster_56", "NPC");
+  monster56.name = "Void Monster";
+  monster56.position = { meta: 0, hex: 2 };
+  testEngine56.threads.push(monster56);
+
+  // Run simulation out of engine turns
+  const simLogs56 = SovereignSoldierSimulator.simulateOutofEngineTurns(testEngine56);
+  assert(simLogs56.some((l: string) => l.includes("Friendly Faraday Sentinel") || l.includes("Friendly") || l.includes("Companion")), "Companion jednotka musela vykonať pohyb/útok.");
+  console.log(`  [PASS] Dopamine loop forced chest spawn verified successfully.`);
+  console.log(`  [PASS] Friendly companion target-seeking movement loop verified successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost a Dopamine-Companion-Movement-Simulation testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

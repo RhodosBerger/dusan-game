@@ -93,59 +93,169 @@ export class SovereignSoldierSimulator {
     for (const npc of npcThreads) {
       if (!npc.position || npc.position.meta === null || npc.position.hex === null) continue;
 
-      let closestPlayer: Thread | null = null;
-      let minDistance = Infinity;
+      const isFriendly = npc.name.includes('Sentinel') || npc.name.includes('Companion') || npc.id.includes('faraday') || npc.id.includes('vision');
 
-      for (const player of playerThreads) {
-        if (!player.position || player.position.meta === null || player.position.hex === null) continue;
-        if (player.isStealthed) continue;
-        
-        const path = Pathfinder.findPath(
-          npc.position.meta!,
-          npc.position.hex!,
-          player.position.meta!,
-          player.position.hex!,
-          blocksList
+      if (isFriendly) {
+        // Friendly companion logic: find closest enemy NPC to attack or move towards
+        const enemyNpcs = engine.threads.filter(t => 
+          t.type === 'NPC' && 
+          t.id !== npc.id && 
+          !t.name.includes('Sentinel') && 
+          !t.name.includes('Companion') && 
+          !t.id.includes('faraday') && 
+          !t.id.includes('vision')
         );
+        let closestEnemy: Thread | null = null;
+        let minDistance = Infinity;
 
-        if (path) {
-          const dist = path.length - 1;
-          if (dist < minDistance) {
-            minDistance = dist;
-            closestPlayer = player;
-          }
-        }
-      }
+        for (const enemy of enemyNpcs) {
+          if (!enemy.position || enemy.position.meta === null || enemy.position.hex === null) continue;
 
-      if (closestPlayer && closestPlayer.position) {
-        if (minDistance === 1) {
-          // Attack close player
-          const damageDealt = Math.max(1, (npc.baseDamage || 3) - (closestPlayer.armor || 0));
-          closestPlayer.health = Math.max(0, closestPlayer.health - damageDealt);
-          actionLogs.push(`[SIMULATION] NPC ${npc.id} attacked ${closestPlayer.id} dealing ${damageDealt} damage.`);
-          
-          engine.traceLog.push({
-            type: 'Combat',
-            attackerId: npc.id,
-            targetId: closestPlayer.id,
-            damage: damageDealt,
-            armor: closestPlayer.armor,
-            timestamp: Date.now(),
-            message: `Opponent NPC ${npc.name} attacked player ${closestPlayer.name} dealing ${damageDealt} DMG.`
-          } as any);
-        } else {
-          // Move closer to player
           const path = Pathfinder.findPath(
             npc.position.meta!,
             npc.position.hex!,
-            closestPlayer.position.meta!,
-            closestPlayer.position.hex!,
+            enemy.position.meta!,
+            enemy.position.hex!,
             blocksList
           );
-          if (path && path.length > 2) {
-            const nextNode = path[1];
-            npc.position = { meta: nextNode.chunkId, hex: nextNode.blockId };
-            actionLogs.push(`[SIMULATION] NPC ${npc.id} moved closer to player to M${nextNode.chunkId}_S${nextNode.blockId}.`);
+
+          if (path) {
+            const dist = path.length - 1;
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestEnemy = enemy;
+            }
+          }
+        }
+
+        if (closestEnemy && closestEnemy.position) {
+          if (minDistance === 1) {
+            // Attack enemy
+            const damageDealt = Math.max(1, (npc.baseDamage || 4) - (closestEnemy.armor || 0));
+            closestEnemy.health = Math.max(0, closestEnemy.health - damageDealt);
+            actionLogs.push(`[SIMULATION_FRIENDLY] Friendly ${npc.name} (${npc.id}) attacked enemy ${closestEnemy.name} dealing ${damageDealt} damage.`);
+            
+            engine.traceLog.push({
+              type: 'Combat',
+              attackerId: npc.id,
+              targetId: closestEnemy.id,
+              damage: damageDealt,
+              armor: closestEnemy.armor,
+              timestamp: Date.now(),
+              message: `Friendly ${npc.name} attacked enemy ${closestEnemy.name} dealing ${damageDealt} DMG.`
+            } as any);
+          } else {
+            // Move closer to enemy
+            const path = Pathfinder.findPath(
+              npc.position.meta!,
+              npc.position.hex!,
+              closestEnemy.position.meta!,
+              closestEnemy.position.hex!,
+              blocksList
+            );
+            if (path && path.length > 2) {
+              const nextNode = path[1];
+              npc.position = { meta: nextNode.chunkId, hex: nextNode.blockId };
+              actionLogs.push(`[SIMULATION_FRIENDLY] Friendly ${npc.name} moved closer to enemy at M${nextNode.chunkId}_S${nextNode.blockId}.`);
+            }
+          }
+        } else {
+          // No enemies on board: follow the player to defend them!
+          let closestPlayer: Thread | null = null;
+          let playerMinDist = Infinity;
+
+          for (const player of playerThreads) {
+            if (!player.position || player.position.meta === null || player.position.hex === null) continue;
+
+            const path = Pathfinder.findPath(
+              npc.position.meta!,
+              npc.position.hex!,
+              player.position.meta!,
+              player.position.hex!,
+              blocksList
+            );
+
+            if (path) {
+              const dist = path.length - 1;
+              if (dist < playerMinDist) {
+                playerMinDist = dist;
+                closestPlayer = player;
+              }
+            }
+          }
+
+          if (closestPlayer && closestPlayer.position && playerMinDist > 1) {
+            // Move closer to player
+            const path = Pathfinder.findPath(
+              npc.position.meta!,
+              npc.position.hex!,
+              closestPlayer.position.meta!,
+              closestPlayer.position.hex!,
+              blocksList
+            );
+            if (path && path.length > 2) {
+              const nextNode = path[1];
+              npc.position = { meta: nextNode.chunkId, hex: nextNode.blockId };
+              actionLogs.push(`[SIMULATION_FRIENDLY] Companion ${npc.name} followed player to M${nextNode.chunkId}_S${nextNode.blockId}.`);
+            }
+          }
+        }
+      } else {
+        // Enemy monster logic
+        let closestPlayer: Thread | null = null;
+        let minDistance = Infinity;
+
+        for (const player of playerThreads) {
+          if (!player.position || player.position.meta === null || player.position.hex === null) continue;
+          if (player.isStealthed) continue;
+          
+          const path = Pathfinder.findPath(
+            npc.position.meta!,
+            npc.position.hex!,
+            player.position.meta!,
+            player.position.hex!,
+            blocksList
+          );
+
+          if (path) {
+            const dist = path.length - 1;
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestPlayer = player;
+            }
+          }
+        }
+
+        if (closestPlayer && closestPlayer.position) {
+          if (minDistance === 1) {
+            // Attack close player
+            const damageDealt = Math.max(1, (npc.baseDamage || 3) - (closestPlayer.armor || 0));
+            closestPlayer.health = Math.max(0, closestPlayer.health - damageDealt);
+            actionLogs.push(`[SIMULATION] NPC ${npc.id} attacked ${closestPlayer.id} dealing ${damageDealt} damage.`);
+            
+            engine.traceLog.push({
+              type: 'Combat',
+              attackerId: npc.id,
+              targetId: closestPlayer.id,
+              damage: damageDealt,
+              armor: closestPlayer.armor,
+              timestamp: Date.now(),
+              message: `Opponent NPC ${npc.name} attacked player ${closestPlayer.name} dealing ${damageDealt} DMG.`
+            } as any);
+          } else {
+            // Move closer to player
+            const path = Pathfinder.findPath(
+              npc.position.meta!,
+              npc.position.hex!,
+              closestPlayer.position.meta!,
+              closestPlayer.position.hex!,
+              blocksList
+            );
+            if (path && path.length > 2) {
+              const nextNode = path[1];
+              npc.position = { meta: nextNode.chunkId, hex: nextNode.blockId };
+              actionLogs.push(`[SIMULATION] NPC ${npc.id} moved closer to player to M${nextNode.chunkId}_S${nextNode.blockId}.`);
+            }
           }
         }
       }

@@ -152,6 +152,31 @@ export class SovereignContentDistributor {
       }
     }
 
+    // Dopamine balancing loop: Ensure at least one loot chest/opportunity exists in this chunk to drive progress
+    const currentChunk = engine.map.chunks.find(c => c.id === chunkId);
+    if (currentChunk) {
+      const existingChests = currentChunk.blocks.filter(b => b.hasChest || b.hasOpportunity).length;
+      if (existingChests === 0) {
+        const freeBlock = currentChunk.blocks.find(b => 
+          b.walkable !== false && 
+          b.id !== hexId && 
+          !engine.threads.some(t => t.position && t.position.meta === chunkId && t.position.hex === b.id)
+        );
+        if (freeBlock) {
+          freeBlock.hasChest = true;
+          logs += ` [DOPAMINE_LOOP] Forced spawn of a loot chest in Chunk ${chunkId} Hex ${freeBlock.id} to ensure gameplay progress.`;
+          engine.traceLog.push({
+            type: 'Spawn',
+            threadId: 'dopamine_chest',
+            chunkId,
+            blockId: freeBlock.id,
+            timestamp: Date.now(),
+            message: `Dopamine loot chest spawned at Chunk ${chunkId} Hex ${freeBlock.id}`
+          } as any);
+        }
+      }
+    }
+
     // Trigger quest progress update for REACH_BIOME
     QuestTriggerManager.updateQuestProgress(
       thread,

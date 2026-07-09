@@ -678,8 +678,14 @@ io.on('connection', (socket) => {
       const c2 = coords[payload.targetHex.meta] || { x: 0, y: 0 };
       const metaDist = Math.abs(c1.x - c2.x) + Math.abs(c1.y - c2.y);
       if (metaDist > 1) {
-        console.log(`[POHYB BLOK] Príliš ďaleko (vzdialenosť metapozícií ${metaDist} > 1).`);
-        return;
+        const energyCost = (metaDist - 1) * 3;
+        if (engine.systemEnergy >= energyCost) {
+          engine.systemEnergy -= energyCost;
+          console.log(`[POHYB JUMP] Long range jump to M${payload.targetHex.meta} cost ${energyCost} energy. System energy left: ${engine.systemEnergy}`);
+        } else {
+          console.log(`[POHYB BLOK] Príliš ďaleko (vzdialenosť metapozícií ${metaDist} > 1) a nedostatočná energia (potrebné ${energyCost}, k dispozícii ${engine.systemEnergy}).`);
+          return;
+        }
       }
     }
 
