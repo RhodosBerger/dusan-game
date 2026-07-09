@@ -3,6 +3,15 @@
 @import "tailwindcss";
 
 :root {
+  /* Painted Realm — tokeny zrkadlia packages/client/src/design/worldDesign.js */
+  --space-bg: #08090e;
+  --panel-bg: rgba(17, 21, 33, 0.85);      /* rock.underside + alpha */
+  --panel-border: rgba(45, 211, 241, 0.25); /* accent.magic + alpha */
+  --accent-magic: #2dd3f1;
+  --accent-enemy: #c46884;
+  --accent-danger: #7b2e8d;
+  --accent-loot: #acf227;
+
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;

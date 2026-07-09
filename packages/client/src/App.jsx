@@ -21,7 +21,6 @@ function App() {
   const [entropy, setEntropy] = useState(0.4);
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [aestheticTheme, setAestheticTheme] = useState('CYBER_NEON');
   const [gameMode, setGameMode] = useState('SANDBOX');
   const [matchId, setMatchId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -81,9 +80,6 @@ function App() {
       console.log('Match started payload received:', payload);
       setMatchId(payload.matchId);
       setIsSearching(false);
-      if (payload.theme) {
-        setAestheticTheme(payload.theme);
-      }
       if (payload.mode) {
         setGameMode(payload.mode);
       }
@@ -427,7 +423,6 @@ function App() {
         threads={gameState?.threads || []}
         selectedNode={selectedNode}
         onNodeClick={handleNodeClick}
-        aestheticTheme={aestheticTheme}
         shakeIntensity={shakeIntensity}
         turnsElapsed={gameState?.turnsElapsed || 1}
         map={gameState?.map}
@@ -452,8 +447,6 @@ function App() {
         isSandbox={isSandbox}
         setIsSandbox={setIsSandbox}
         actionLogs={actionLogs}
-        aestheticTheme={aestheticTheme}
-        setAestheticTheme={setAestheticTheme}
         onCureStatus={handleCureStatus}
         onBuyItem={handleBuyItem}
         onSellItem={handleSellItem}

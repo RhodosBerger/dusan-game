@@ -25,10 +25,6 @@ const HexagonNode = ({ hex, metaId }) => {
     g.endFill();
   }, []);
 
-    // Voliteľné: farebné odlíšenie hranice metapozícií
-    // (Zatiaľ kreslíme rovnako pre všetky, ale neskôr sa tu dá dynamicky meniť štýl)
-  }, []);
-
   // Vykreslenie stredovej bodky pre A_CENTER, aby bolo vidieť, kde je kotva (iba pre vývoj)
   const drawCenterDebug = React.useCallback((g) => {
     g.clear();

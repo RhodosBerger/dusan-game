@@ -80,8 +80,6 @@ export default function ArenaUIOverlay({
     isSandbox, 
     setIsSandbox, 
     actionLogs = [],
-    aestheticTheme = 'CYBER_NEON',
-    setAestheticTheme,
     onCureStatus,
     onBuyItem,
     onSellItem,
@@ -156,10 +154,10 @@ export default function ArenaUIOverlay({
 
     const renderTelemetry = (isMobile = false) => {
         return (
-            <div className="bg-[#0e0e16]/80 border border-[#00ffff]/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="bg-[color:var(--panel-bg)] border border-[color:var(--panel-border)] text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, telemetry: !prev.telemetry }))}
-                    className={`text-[10px] text-[#00ffff] tracking-widest font-mono uppercase mb-1 flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
+                    className={`text-[10px] text-[color:var(--accent-magic)] tracking-widest font-mono uppercase mb-1 flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
                 >
                     <span>Telemetry {!isMobile && (collapsed.telemetry ? '▶' : '▼')}</span>
                     <span className="text-purple-400 font-bold">V2</span>
@@ -180,7 +178,7 @@ export default function ArenaUIOverlay({
                         <div className="mt-3 flex flex-col gap-2.5 text-xs font-mono">
                             {/* Crystal Player Telemetry */}
                             <div className="border-b border-slate-800/60 pb-1.5">
-                                <div className="flex justify-between text-cyan-400 font-bold">
+                                <div className="flex justify-between text-[color:var(--accent-magic)] font-bold">
                                     <span>CRYSTAL (King AI):</span>
                                     <span>{crystalPlayer ? `${crystalPlayer.health} / ${crystalPlayer.maxHealth || 15} HP` : 'Deallocated'}</span>
                                 </div>
@@ -190,7 +188,7 @@ export default function ArenaUIOverlay({
                                             <span>LVL {crystalPlayer.level || 1} (XP: {crystalPlayer.xp || 0} / {(crystalPlayer.level || 1) * 100})</span>
                                             <span>Luck: {(crystalPlayer.luck ?? 0.5).toFixed(2)}</span>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-x-2 text-[9px] text-cyan-500/80 mt-1">
+                                        <div className="grid grid-cols-2 gap-x-2 text-[9px] text-[color:var(--accent-magic)] mt-1">
                                             <span>Dosah Útoku: {crystalPlayer.attackReach}</span>
                                             <span>Dosah Kúzla: {crystalPlayer.spellReach}</span>
                                             <span>Max Ruka: {crystalPlayer.handLimit} (Vlajky: {crystalPlayer.axiomaticFlags})</span>
@@ -208,7 +206,7 @@ export default function ArenaUIOverlay({
                                             {crystalPlayer.isSlowed && (
                                                 <button 
                                                     onClick={() => onCureStatus('slowed')}
-                                                    className="bg-amber-950/70 hover:bg-amber-900 border border-amber-500/30 text-amber-400 text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                                    className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-loot)] text-[color:var(--accent-loot)] text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
                                                     title="Kliknutím vyliečite obetovaním žltej (move) karty"
                                                 >
                                                     🩹 Slowed (Cure)
@@ -267,7 +265,7 @@ export default function ArenaUIOverlay({
                                             {toxicPlayer.isSlowed && (
                                                 <button 
                                                     onClick={() => onCureStatus('slowed')}
-                                                    className="bg-amber-950/70 hover:bg-amber-900 border border-amber-500/30 text-amber-400 text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                                    className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-loot)] text-[color:var(--accent-loot)] text-[8px] font-mono px-1.5 py-0.5 rounded cursor-pointer transition-colors"
                                                     title="Kliknutím vyliečite obetovaním žltej (move) karty"
                                                 >
                                                     🩹 Slowed (Cure)
@@ -297,7 +295,7 @@ export default function ArenaUIOverlay({
                             </div>
                             <div className="flex justify-between mt-1 pt-1 border-t border-slate-800">
                                 <span>SYSTEM ENERGY:</span>
-                                <span className={(gameState?.systemEnergy || 0) > 80 ? "text-red-400 animate-pulse font-bold" : "text-amber-400"}>
+                                <span className={(gameState?.systemEnergy || 0) > 80 ? "text-red-400 animate-pulse font-bold" : "text-[color:var(--accent-loot)]"}>
                                     {(gameState?.systemEnergy || 0).toFixed(1)} / 100.0
                                 </span>
                             </div>
@@ -310,13 +308,13 @@ export default function ArenaUIOverlay({
                             </span>
                         </div>
                         <div className="w-full bg-slate-800 h-1.5 mt-1 rounded-full overflow-hidden">
-                            <div className="bg-gradient-to-r from-cyan-500 to-purple-600 h-full transition-all duration-300" style={{ width: `${entropy * 100}%` }}></div>
+                            <div className="bg-gradient-to-r from-[color:var(--accent-magic)] to-[color:var(--accent-danger)] h-full transition-all duration-300" style={{ width: `${entropy * 100}%` }}></div>
                         </div>
                         {goTelemetry && (
                             <div className="mt-2.5 pt-2 border-t border-slate-800/80 font-mono text-[9px] flex flex-col gap-1 text-slate-400">
-                                <div className="flex justify-between font-bold text-[#00ffff] items-center">
+                                <div className="flex justify-between font-bold text-[color:var(--accent-magic)] items-center">
                                     <span>📡 AETHERIC GPS SIGNAL:</span>
-                                    <span className="bg-cyan-950 text-cyan-400 text-[8px] px-1 rounded font-bold uppercase tracking-wider">CONNECTED</span>
+                                    <span className="bg-[color:var(--panel-bg)] text-[color:var(--accent-magic)] text-[8px] px-1 rounded font-bold uppercase tracking-wider">CONNECTED</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Combat Events (Time/Place):</span>
@@ -348,7 +346,7 @@ export default function ArenaUIOverlay({
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Dopamine Reward:</span>
-                                    <span className="text-white font-bold text-[#00ffff]">{terrainTelemetry.difficulty.dopamineRewardMultiplier}x XP/Loot</span>
+                                    <span className="text-white font-bold text-[color:var(--accent-magic)]">{terrainTelemetry.difficulty.dopamineRewardMultiplier}x XP/Loot</span>
                                 </div>
                                 <div className="text-[8px] text-purple-400/80 leading-tight italic mt-0.5">
                                     {terrainTelemetry.directionalFlow}
@@ -363,7 +361,7 @@ export default function ArenaUIOverlay({
 
     const renderSandbox = (isMobile = false) => {
         return (
-            <div className="bg-[#0e0e16]/80 border border-slate-700/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="bg-[color:var(--panel-bg)] border border-slate-700/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, sandbox: !prev.sandbox }))}
                     className={`text-[10px] text-slate-400 tracking-wider font-mono uppercase flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -395,27 +393,11 @@ export default function ArenaUIOverlay({
                                 step="0.05" 
                                 value={entropy} 
                                 onChange={(e) => setEntropy(parseFloat(e.target.value))}
-                                className="w-full accent-cyan-500 cursor-pointer"
+                                className="w-full accent-[color:var(--accent-magic)] cursor-pointer"
                             />
                         </div>
 
-                        <div className="flex flex-col gap-1 mt-3 pt-2 border-t border-slate-800">
-                            <label className="text-[10px] font-mono text-slate-400">
-                                Estetická téma mapy:
-                            </label>
-                            <select 
-                                value={aestheticTheme}
-                                onChange={(e) => setAestheticTheme(e.target.value)}
-                                className="bg-[#09090f] text-xs font-mono text-cyan-400 border border-slate-700/50 rounded py-1 px-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer w-full"
-                            >
-                                <option value="CYBER_NEON">🧬 Cyber-Neon (Default)</option>
-                                <option value="MONOCHROME_RETRO">📟 Monochrome Retro</option>
-                                <option value="VIBRANT_BAROQUE">⚜️ Golden Baroque</option>
-                                <option value="GHOSTLY_VOID">🌌 Ghostly Void</option>
-                            </select>
-                        </div>
-
-                        <button 
+                        <button
                             onClick={onResetSimulation}
                             className="w-full mt-3 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50 py-1 rounded text-xs font-mono cursor-pointer transition-colors"
                         >
@@ -437,7 +419,7 @@ export default function ArenaUIOverlay({
     const renderQuests = (isMobile = false) => {
         if (!activePlayer || !activePlayer.quests || activePlayer.quests.length === 0) return null;
         return (
-            <div className="bg-[#0e0e16]/80 border border-[#a855f7]/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="bg-[color:var(--panel-bg)] border border-[#a855f7]/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, quests: !prev.quests }))}
                     className={`text-[10px] text-[#a855f7] tracking-widest font-mono uppercase flex justify-between items-center font-bold ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -464,7 +446,7 @@ export default function ArenaUIOverlay({
                                     objectiveBadge = <span className="text-[7.5px] bg-red-950/80 text-red-400 px-1.5 py-0.5 rounded border border-red-500/20 font-bold uppercase mr-1">⚔️ NPC Defeat</span>;
                                     break;
                                 case 'HARVEST_MATERIAL':
-                                    objectiveBadge = <span className="text-[7.5px] bg-amber-950/80 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/20 font-bold uppercase mr-1">⛏️ Collect</span>;
+                                    objectiveBadge = <span className="text-[7.5px] bg-[color:var(--panel-bg)] text-[color:var(--accent-loot)] px-1.5 py-0.5 rounded border border-[color:var(--accent-loot)] font-bold uppercase mr-1">⛏️ Collect</span>;
                                     break;
                                 case 'REACH_BIOME':
                                     objectiveBadge = <span className="text-[7.5px] bg-blue-950/80 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 font-bold uppercase mr-1">🗺️ Explore</span>;
@@ -506,14 +488,14 @@ export default function ArenaUIOverlay({
                                         <span>{quest.progress} / {quest.targetValue}</span>
                                     </div>
                                     <div className="text-[8px] text-slate-400 mt-1 flex justify-between font-mono">
-                                        <span className="text-cyan-400 font-bold">+{quest.xpReward} XP</span>
+                                        <span className="text-[color:var(--accent-magic)] font-bold">+{quest.xpReward} XP</span>
                                         {quest.materialReward && (
                                             <span className="text-purple-400 font-bold">+{quest.materialReward.amount} {quest.materialReward.type}</span>
                                         )}
                                     </div>
                                     {isSemantic && semanticSector?.dialogue?.generated_dialogue && (
                                         <div className="mt-2.5 p-2 bg-purple-950/40 border border-purple-500/20 rounded text-[9px] text-purple-300 leading-tight italic font-mono flex flex-col gap-1">
-                                            <span className="text-[8px] text-[#00ffff] font-bold uppercase not-italic">💬 {semanticSector.dialogue.archetype} DIALOGUE:</span>
+                                            <span className="text-[8px] text-[color:var(--accent-magic)] font-bold uppercase not-italic">💬 {semanticSector.dialogue.archetype} DIALOGUE:</span>
                                             "{semanticSector.dialogue.generated_dialogue}"
                                         </div>
                                     )}
@@ -547,8 +529,8 @@ export default function ArenaUIOverlay({
                                     key={idx} 
                                     className={
                                         log.includes('Zlyhalo') || log.includes('purged') ? 'text-red-400' :
-                                        log.includes('Vyhodnotenie') || log.includes('Ohm') ? 'text-amber-400' :
-                                        log.includes('Pohyb') || log.includes('Úspešné') ? 'text-cyan-400' : 'text-slate-300'
+                                        log.includes('Vyhodnotenie') || log.includes('Ohm') ? 'text-[color:var(--accent-loot)]' :
+                                        log.includes('Pohyb') || log.includes('Úspešné') ? 'text-[color:var(--accent-magic)]' : 'text-slate-300'
                                     }
                                 >
                                     &gt; {log}
@@ -563,7 +545,7 @@ export default function ArenaUIOverlay({
 
     const renderCompositor = (isMobile = false) => {
         return (
-            <div className="bg-[#0e0e16]/80 border border-purple-500/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="bg-[color:var(--panel-bg)] border border-purple-500/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, compositor: !prev.compositor }))}
                     className={`text-[10px] text-purple-400 tracking-widest font-mono uppercase mb-1 flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -624,7 +606,7 @@ export default function ArenaUIOverlay({
                                 ⚠️ PRICHÁDZAJÚCI ÚTOK (INTERRUPT)
                             </span>
                             <div className="text-xs md:text-sm font-bold text-slate-200 mt-0.5">
-                                <span className="text-cyan-400">{attackerName}</span> použil <span className="text-purple-400">{cardMeta?.name || currentAction?.instruction?.name || 'Útok'}</span>
+                                <span className="text-[color:var(--accent-magic)]">{attackerName}</span> použil <span className="text-purple-400">{cardMeta?.name || currentAction?.instruction?.name || 'Útok'}</span>
                             </div>
                             <div className="text-[9px] md:text-[10px] text-slate-400 mt-0.5">
                                 Hrozba: <span className="text-red-400 font-bold">-{currentAction?.instruction?.damage || 1} HP</span> | Vyžaduje sa reakčná karta na obranu!
@@ -645,12 +627,12 @@ export default function ArenaUIOverlay({
             {/* Mobile/Tablet Compact Top Bar */}
             <div className="w-full flex lg:hidden justify-between items-center bg-[#0e0e16]/90 border border-slate-800/80 p-3 rounded-2xl backdrop-blur-xl shadow-xl pointer-events-auto gap-3 text-white font-mono text-[10px] md:text-xs">
                 <div className="flex items-center gap-2">
-                    <span className="text-cyan-400 font-bold">💎 {crystalPlayer ? crystalPlayer.health : 0} HP</span>
+                    <span className="text-[color:var(--accent-magic)] font-bold">💎 {crystalPlayer ? crystalPlayer.health : 0} HP</span>
                     <span className="text-slate-600">|</span>
                     <span className="text-purple-400 font-bold">🧪 {toxicPlayer ? toxicPlayer.health : 0} HP</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="text-amber-400 font-bold">⚡ {(gameState?.systemEnergy || 0).toFixed(0)}%</span>
+                    <span className="text-[color:var(--accent-loot)] font-bold">⚡ {(gameState?.systemEnergy || 0).toFixed(0)}%</span>
                     <span className="text-slate-600">|</span>
                     <span className={entropy > 0.7 ? "text-red-400 animate-pulse font-bold" : "text-green-400 font-bold"}>🌀 {(entropy * 100).toFixed(0)}%</span>
                 </div>
@@ -709,16 +691,16 @@ export default function ArenaUIOverlay({
             <div className="self-center flex flex-col items-center gap-2 pointer-events-auto">
                 {selectedCard && (
                     <div className="flex flex-col gap-2">
-                        <div className="bg-[#0e0e16]/80 border border-cyan-500/50 text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1 min-w-[280px]">
+                        <div className="bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1 min-w-[280px]">
                             <div>
-                                Vybratá inštrukcia: <span className="text-cyan-400 font-bold">{getCardMetadata(selectedCard.id).name}</span>
+                                Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
                             </div>
                             {selectedNode ? (
                                 <div>
                                     Cieľový hexagón: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
                                     <button 
                                         onClick={handleExecuteClick}
-                                        className="ml-3 bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 px-3 py-0.5 rounded font-bold transition-colors cursor-pointer"
+                                        className="ml-3 bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-0.5 rounded font-bold transition-colors cursor-pointer"
                                     >
                                         Spustiť [Space] (V={selectedCard.isUltimate ? 6 : 3})
                                     </button>
@@ -736,8 +718,8 @@ export default function ArenaUIOverlay({
                                 📊 Taktický Fyzikálny Spektrometer
                             </div>
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-left">
-                                 <div>Napätie (V): <span className="text-cyan-400 font-bold"><AnimatedNumber value={currentV} suffix=" V" /></span></div>
-                                 <div>Odpor (R): <span className="text-amber-400 font-bold"><AnimatedNumber value={currentR} suffix=" Ω" /></span></div>
+                                 <div>Napätie (V): <span className="text-[color:var(--accent-magic)] font-bold"><AnimatedNumber value={currentV} suffix=" V" /></span></div>
+                                 <div>Odpor (R): <span className="text-[color:var(--accent-loot)] font-bold"><AnimatedNumber value={currentR} suffix=" Ω" /></span></div>
                                  <div className={currentI >= 1.0 
                                      ? "text-green-400 font-bold drop-shadow-[0_0_8px_rgba(57,255,20,0.6)] animate-pulse" 
                                      : "text-red-400 font-bold animate-pulse border border-red-500/30 px-1 rounded bg-red-950/20"
@@ -766,14 +748,14 @@ export default function ArenaUIOverlay({
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Kinetické vytesnenie:</span>
-                                        <span className="text-cyan-400 font-bold uppercase">
+                                        <span className="text-[color:var(--accent-magic)] font-bold uppercase">
                                             {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType === 'none' ? 'Bez posunu' : 
                                              `${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType} ${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementDistance} hex`}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Udelený stav:</span>
-                                        <span className="text-amber-400 font-bold uppercase">
+                                        <span className="text-[color:var(--accent-loot)] font-bold uppercase">
                                             {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).statusApplied}
                                         </span>
                                     </div>
@@ -790,7 +772,7 @@ export default function ArenaUIOverlay({
                 )}
 
                 {!selectedCard && selectedNode && (
-                    <div className="bg-[#0e0e16]/80 border border-slate-700/50 text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1.5 min-w-[250px]">
+                    <div className="bg-[color:var(--panel-bg)] border border-slate-700/50 text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1.5 min-w-[250px]">
                         <div>
                             Vybrané políčko: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
                         </div>
@@ -799,7 +781,7 @@ export default function ArenaUIOverlay({
                         </div>
                         <button 
                             onClick={() => onMoveHero(selectedNode)}
-                            className="bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 px-3 py-1 rounded font-bold transition-colors cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5"
+                            className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5"
                         >
                             🚶 Presunúť hrdinu sem
                         </button>
@@ -814,8 +796,8 @@ export default function ArenaUIOverlay({
                 </div>
                 {activePlayer && (
                     <div className="flex flex-wrap gap-3 md:gap-4 text-[10px] md:text-xs font-mono text-slate-300 bg-black/80 px-4 py-2 rounded-xl border border-slate-800 shadow-lg justify-center items-center">
-                        <span className="text-cyan-400 font-bold">❤️ HP: {activePlayer.health}/{activePlayer.maxHealth || 15}</span>
-                        <span className="text-amber-400">⚔️ Dosah Útoku: {activePlayer.attackReach}</span>
+                        <span className="text-[color:var(--accent-magic)] font-bold">❤️ HP: {activePlayer.health}/{activePlayer.maxHealth || 15}</span>
+                        <span className="text-[color:var(--accent-loot)]">⚔️ Dosah Útoku: {activePlayer.attackReach}</span>
                         <span className="text-purple-400">🔮 Dosah Kúzla: {activePlayer.spellReach}</span>
                         <span className="text-green-400">👟 Pohyb: {activePlayer.movementBase}</span>
                         <span className="text-blue-400">🎴 Limit ruky: {activePlayer.handLimit} (Vlajky: {activePlayer.axiomaticFlags})</span>
@@ -824,7 +806,7 @@ export default function ArenaUIOverlay({
                         <span className="text-slate-400 font-bold">{activePlayer.freeMovementUsed ? "🚫 Ťah využitý" : "🚶 Voľný pohyb"}</span>
                     </div>
                 )}
-                <div className="bg-[#0e0e16]/80 border border-slate-700/50 p-3 md:p-4 rounded-2xl flex gap-2.5 md:gap-3 backdrop-blur-xl shadow-2xl max-w-full overflow-x-auto custom-scrollbar">
+                <div className="bg-[color:var(--panel-bg)] border border-slate-700/50 p-3 md:p-4 rounded-2xl flex gap-2.5 md:gap-3 backdrop-blur-xl shadow-2xl max-w-full overflow-x-auto custom-scrollbar">
                     {cards.length === 0 ? (
                         <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>
                     ) : (
@@ -842,8 +824,8 @@ export default function ArenaUIOverlay({
                             if (isHovered) {
                                 if (isUlt) {
                                     inlineStyle = {
-                                        boxShadow: '0 0 35px rgba(255, 215, 0, 0.9), inset 0 0 15px rgba(255, 215, 0, 0.3)',
-                                        borderColor: '#ffd700',
+                                        boxShadow: '0 0 35px rgba(172, 242, 39, 0.9), inset 0 0 15px rgba(172, 242, 39, 0.3)',
+                                        borderColor: 'var(--accent-loot)',
                                         transform: 'translateY(-20px) scale(1.05)',
                                     };
                                 } else if (card.id.includes('crystal') || card.id.includes('laser') || card.id.includes('shield') || card.id.includes('pulse')) {
@@ -891,7 +873,7 @@ export default function ArenaUIOverlay({
                                     } ${isReactive ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''} ${isCasting ? 'card-cast-lift' : ''}`}
                                 >
                                     {/* Hotkey Indicator Badge */}
-                                    <div className="absolute -top-1.5 -left-1.5 bg-[#14141e]/95 border border-[#00ffff]/40 text-[#00ffff] text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-lg pointer-events-none z-20">
+                                    <div className="absolute -top-1.5 -left-1.5 bg-[#14141e]/95 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-lg pointer-events-none z-20">
                                         {idx + 1}
                                     </div>
                                     {isReactive && (
@@ -899,10 +881,10 @@ export default function ArenaUIOverlay({
                                             ⚡ REACT
                                         </div>
                                     )}
-                                    <div className="text-[7px] md:text-[8px] font-mono text-cyan-400 uppercase tracking-wider">{meta.type}</div>
+                                    <div className="text-[7px] md:text-[8px] font-mono text-[color:var(--accent-magic)] uppercase tracking-wider">{meta.type}</div>
                                     <div className="text-[10px] md:text-xs font-bold text-center mt-1 text-slate-200 truncate">{meta.name}</div>
                                     <div className="text-[8px] md:text-[9px] text-slate-400 text-center font-mono leading-tight line-clamp-3">{meta.desc}</div>
-                                    <div className="bg-cyan-950/60 text-[7px] md:text-[8px] text-center font-mono text-cyan-300 py-0.5 md:py-1 rounded border border-cyan-500/20">
+                                    <div className="bg-[color:var(--panel-bg)] text-[7px] md:text-[8px] text-center font-mono text-[color:var(--accent-magic)] py-0.5 md:py-1 rounded border border-[color:var(--accent-magic)]">
                                         {card.isUltimate ? 'Ultimate' : 'Normal'}
                                     </div>
                                 </div>
@@ -914,7 +896,7 @@ export default function ArenaUIOverlay({
                     {isPlayerInTown && (
                         <button 
                             onClick={() => setIsShopOpen(true)}
-                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-cyan-950/50 border border-cyan-400/50 hover:bg-cyan-900/70 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all text-cyan-300 rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
+                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] hover:brightness-125 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all text-[color:var(--accent-magic)] rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
                         >
                             🏬 Town Shop
                         </button>
@@ -924,7 +906,7 @@ export default function ArenaUIOverlay({
                         onClick={onToggleStealth}
                         className={`h-36 md:h-44 w-12 md:w-16 flex-shrink-0 border transition-all rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer ${
                             isStealthed 
-                                ? 'bg-[#00ffff]/15 border-[#00ffff] text-[#00ffff] shadow-[0_0_15px_rgba(0,229,255,0.45)] font-extrabold' 
+                                ? 'bg-[color:var(--panel-border)] border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] shadow-[0_0_15px_rgba(0,229,255,0.45)] font-extrabold' 
                                 : 'bg-slate-950/40 border-slate-700/60 text-slate-400 hover:bg-slate-900/60 hover:text-slate-350'
                         }`}
                     >
@@ -960,7 +942,7 @@ export default function ArenaUIOverlay({
 
                     {/* Sekcia 1: Plány a Misie */}
                     <div className="bg-[#0e0e16]/60 border border-slate-800 p-4 rounded-xl">
-                        <h3 className="text-xs font-bold text-cyan-400 uppercase mb-2 font-mono flex items-center gap-1.5">
+                        <h3 className="text-xs font-bold text-[color:var(--accent-magic)] uppercase mb-2 font-mono flex items-center gap-1.5">
                             <span>🎯</span> HERNÉ CIELE (SYSTEM GOALS)
                         </h3>
                         <ul className="flex flex-col gap-2 text-[10px] font-mono">
@@ -1019,7 +1001,7 @@ export default function ArenaUIOverlay({
 
                     {/* Sekcia 3: Herný Kódex */}
                     <div className="bg-[#0e0e16]/60 border border-slate-800 p-4 rounded-xl">
-                        <h3 className="text-xs font-bold text-amber-500 uppercase mb-2 font-mono flex items-center gap-1.5">
+                        <h3 className="text-xs font-bold text-[color:var(--accent-loot)] uppercase mb-2 font-mono flex items-center gap-1.5">
                             <span>🛡</span> CLAN ART STYLES
                         </h3>
                         <p className="text-[10px] font-mono text-slate-400 leading-relaxed">
@@ -1032,14 +1014,14 @@ export default function ArenaUIOverlay({
             {/* Town Shop Modal */}
             {isShopOpen && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center pointer-events-auto z-50 p-4">
-                    <div className="bg-[#0b0b12]/95 border border-cyan-500/40 rounded-2xl w-full max-w-2xl p-6 shadow-[0_0_40px_rgba(6,182,212,0.15)] max-h-[85vh] overflow-y-auto text-left">
+                    <div className="bg-[#0b0b12]/95 border border-[color:var(--accent-magic)] rounded-2xl w-full max-w-2xl p-6 shadow-[0_0_40px_rgba(6,182,212,0.15)] max-h-[85vh] overflow-y-auto text-left">
                         {/* Header */}
                         <div className="flex justify-between items-start border-b border-slate-800 pb-3 mb-4">
                             <div>
                                 <h2 className="text-xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
                                     <span>🏬</span> Mesto a Obchod (Town Shop)
                                 </h2>
-                                <p className="text-[10px] text-cyan-400 font-mono mt-0.5">
+                                <p className="text-[10px] text-[color:var(--accent-magic)] font-mono mt-0.5">
                                     Miesto pre nákup a predaj zbraní, nástrojov a surovín. pozícia: M0_S0
                                 </p>
                             </div>
@@ -1054,7 +1036,7 @@ export default function ArenaUIOverlay({
                         {/* Player Currencies */}
                         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 mb-5 flex justify-around text-xs font-mono">
                             <div>
-                                <span className="text-cyan-400 font-bold">Crystal Shards:</span>{' '}
+                                <span className="text-[color:var(--accent-magic)] font-bold">Crystal Shards:</span>{' '}
                                 <span className="text-white font-bold">{activePlayer?.materials?.CrystalShard || 0}</span>
                             </div>
                             <div>
@@ -1062,7 +1044,7 @@ export default function ArenaUIOverlay({
                                 <span className="text-white font-bold">{activePlayer?.materials?.Spores || 0}</span>
                             </div>
                             <div>
-                                <span className="text-amber-400 font-bold">Essence:</span>{' '}
+                                <span className="text-[color:var(--accent-loot)] font-bold">Essence:</span>{' '}
                                 <span className="text-white font-bold">{activePlayer?.materials?.Essence || 0}</span>
                             </div>
                             <div>
@@ -1108,8 +1090,8 @@ export default function ArenaUIOverlay({
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {Object.values(ITEMS_CATALOG).map((item, idx) => {
-                                    const costColor = item.buyCost.material === 'CrystalShard' ? 'text-cyan-400' :
-                                                      item.buyCost.material === 'Spores' ? 'text-purple-400' : 'text-amber-400';
+                                    const costColor = item.buyCost.material === 'CrystalShard' ? 'text-[color:var(--accent-magic)]' :
+                                                      item.buyCost.material === 'Spores' ? 'text-purple-400' : 'text-[color:var(--accent-loot)]';
                                     const balance = activePlayer?.materials?.[item.buyCost.material] || 0;
                                     const canAfford = balance >= item.buyCost.amount;
 
@@ -1137,7 +1119,7 @@ export default function ArenaUIOverlay({
                                                     disabled={!canAfford}
                                                     className={`text-[10px] font-mono px-3 py-1 rounded font-bold transition-all cursor-pointer ${
                                                         canAfford 
-                                                        ? 'bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-300' 
+                                                        ? 'bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)]' 
                                                         : 'bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed'
                                                     }`}
                                                 >

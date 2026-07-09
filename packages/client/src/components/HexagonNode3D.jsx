@@ -2,306 +2,11 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BiomeEngine, MLTerrainSynthesizer } from '../../../shared/src/index';
-
-function SnowParticles() {
-    const pointsRef = useRef();
-    const count = 12;
-    
-    const [positions, speeds] = useMemo(() => {
-        const pos = new Float32Array(count * 3);
-        const spd = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.random() * 1.4;
-            pos[i * 3] = r * Math.cos(angle);
-            pos[i * 3 + 1] = r * Math.sin(angle);
-            pos[i * 3 + 2] = Math.random() * 3.5;
-            spd[i] = 0.015 + Math.random() * 0.02;
-        }
-        return [pos, spd];
-    }, []);
-
-    useFrame(() => {
-        if (!pointsRef.current) return;
-        const posAttr = pointsRef.current.geometry.attributes.position;
-        for (let i = 0; i < count; i++) {
-            let z = posAttr.getZ(i);
-            z -= speeds[i];
-            if (z < 0.2) z = 3.5;
-            posAttr.setZ(i, z);
-        }
-        posAttr.needsUpdate = true;
-    });
-
-    return (
-        <points ref={pointsRef} position={[0, 0, 0]}>
-            <bufferGeometry>
-                <bufferAttribute 
-                    attach="attributes-position"
-                    args={[positions, 3]}
-                />
-            </bufferGeometry>
-            <pointsMaterial 
-                color="#ffffff" 
-                size={0.06} 
-                transparent 
-                opacity={0.8}
-            />
-        </points>
-    );
-}
-
-function SwampVapors() {
-    const pointsRef = useRef();
-    const count = 8;
-    
-    const [positions, speeds] = useMemo(() => {
-        const pos = new Float32Array(count * 3);
-        const spd = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.random() * 1.1;
-            pos[i * 3] = r * Math.cos(angle);
-            pos[i * 3 + 1] = r * Math.sin(angle);
-            pos[i * 3 + 2] = Math.random() * 2.0;
-            spd[i] = 0.008 + Math.random() * 0.012;
-        }
-        return [pos, spd];
-    }, []);
-
-    useFrame(() => {
-        if (!pointsRef.current) return;
-        const posAttr = pointsRef.current.geometry.attributes.position;
-        for (let i = 0; i < count; i++) {
-            let z = posAttr.getZ(i);
-            z += speeds[i];
-            if (z > 2.0) z = 0.2;
-            posAttr.setZ(i, z);
-        }
-        posAttr.needsUpdate = true;
-    });
-
-    return (
-        <points ref={pointsRef} position={[0, 0, 0]}>
-            <bufferGeometry>
-                <bufferAttribute 
-                    attach="attributes-position"
-                    args={[positions, 3]}
-                />
-            </bufferGeometry>
-            <pointsMaterial 
-                color="#c77dff" 
-                size={0.1} 
-                transparent 
-                opacity={0.6}
-            />
-        </points>
-    );
-}
-
-function DesertHeatParticles() {
-    const pointsRef = useRef();
-    const count = 10;
-    
-    const [positions, speeds] = useMemo(() => {
-        const pos = new Float32Array(count * 3);
-        const spd = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.random() * 1.1;
-            pos[i * 3] = r * Math.cos(angle);
-            pos[i * 3 + 1] = r * Math.sin(angle);
-            pos[i * 3 + 2] = Math.random() * 2.5;
-            spd[i] = 0.012 + Math.random() * 0.018;
-        }
-        return [pos, spd];
-    }, []);
-
-    useFrame(() => {
-        if (!pointsRef.current) return;
-        const posAttr = pointsRef.current.geometry.attributes.position;
-        for (let i = 0; i < count; i++) {
-            let z = posAttr.getZ(i);
-            z += speeds[i];
-            if (z > 2.5) z = 0.1;
-            posAttr.setZ(i, z);
-        }
-        posAttr.needsUpdate = true;
-    });
-
-    return (
-        <points ref={pointsRef} position={[0, 0, 0]}>
-            <bufferGeometry>
-                <bufferAttribute 
-                    attach="attributes-position"
-                    args={[positions, 3]}
-                />
-            </bufferGeometry>
-            <pointsMaterial 
-                color="#ffaa44" 
-                size={0.08} 
-                transparent 
-                opacity={0.7}
-            />
-        </points>
-    );
-}
-
-function BarrensDustDevil() {
-    const pointsRef = useRef();
-    const count = 12;
-    const angles = useMemo(() => new Float32Array(count).map(() => Math.random() * Math.PI * 2), []);
-    const radii = useMemo(() => new Float32Array(count).map(() => 0.1 + Math.random() * 0.7), []);
-    const heights = useMemo(() => new Float32Array(count).map(() => Math.random() * 2.5), []);
-    
-    const initialPositions = useMemo(() => {
-        const pos = new Float32Array(count * 3);
-        for (let i = 0; i < count; i++) {
-            pos[i * 3] = radii[i] * Math.cos(angles[i]);
-            pos[i * 3 + 1] = radii[i] * Math.sin(angles[i]);
-            pos[i * 3 + 2] = heights[i];
-        }
-        return pos;
-    }, [angles, radii, heights]);
-
-    useFrame((state) => {
-        if (!pointsRef.current) return;
-        const posAttr = pointsRef.current.geometry.attributes.position;
-        const time = state.clock.elapsedTime;
-        for (let i = 0; i < count; i++) {
-            const currentAngle = angles[i] + time * 3.5;
-            const currentRadius = radii[i] * (1.0 + heights[i] * 0.25);
-            posAttr.setX(i, currentRadius * Math.cos(currentAngle));
-            posAttr.setY(i, currentRadius * Math.sin(currentAngle));
-            
-            let z = posAttr.getZ(i) + 0.015;
-            if (z > 2.5) z = 0.1;
-            posAttr.setZ(i, z);
-        }
-        posAttr.needsUpdate = true;
-    });
-
-    return (
-        <points ref={pointsRef} position={[0, 0, 0]}>
-            <bufferGeometry>
-                <bufferAttribute 
-                    attach="attributes-position"
-                    args={[initialPositions, 3]}
-                />
-            </bufferGeometry>
-            <pointsMaterial 
-                color="#bfa37a" 
-                size={0.09} 
-                transparent 
-                opacity={0.6}
-            />
-        </points>
-    );
-}
-
-function ForestFireflies({ entropy }) {
-    const pointsRef = useRef();
-    const count = 5;
-    
-    const [positions, phases, speeds] = useMemo(() => {
-        const pos = new Float32Array(count * 3);
-        const phs = new Float32Array(count);
-        const spd = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.random() * 1.3;
-            pos[i * 3] = r * Math.cos(angle);
-            pos[i * 3 + 1] = r * Math.sin(angle);
-            pos[i * 3 + 2] = 0.5 + Math.random() * 1.8;
-            phs[i] = Math.random() * Math.PI * 2;
-            spd[i] = 0.8 + Math.random() * 1.2;
-        }
-        return [pos, phs, spd];
-    }, []);
-
-    useFrame((state) => {
-        if (!pointsRef.current) return;
-        const posAttr = pointsRef.current.geometry.attributes.position;
-        const time = state.clock.elapsedTime;
-        for (let i = 0; i < count; i++) {
-            const ph = phases[i];
-            const sp = speeds[i];
-            posAttr.setX(i, positions[i * 3] + Math.sin(time * sp + ph) * 0.18);
-            posAttr.setY(i, positions[i * 3 + 1] + Math.cos(time * sp * 0.8 + ph) * 0.18);
-            posAttr.setZ(i, positions[i * 3 + 2] + Math.sin(time * sp * 1.2 + ph) * 0.12);
-        }
-        posAttr.needsUpdate = true;
-        
-        if (pointsRef.current.material) {
-            pointsRef.current.material.opacity = 0.4 + 0.5 * Math.abs(Math.sin(time * 2.5));
-        }
-    });
-
-    return (
-        <points ref={pointsRef} position={[0, 0, 0]}>
-            <bufferGeometry>
-                <bufferAttribute 
-                    attach="attributes-position"
-                    args={[positions, 3]}
-                />
-            </bufferGeometry>
-            <pointsMaterial 
-                color="#ffffaa" 
-                size={0.12} 
-                transparent 
-                opacity={0.8}
-            />
-        </points>
-    );
-}
-
-function VoidCollapseParticles() {
-    const pointsRef = useRef();
-    const count = 15;
-    
-    const [positions, speeds] = useMemo(() => {
-        const pos = new Float32Array(count * 3);
-        const spd = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.random() * 1.3;
-            pos[i * 3] = r * Math.cos(angle);
-            pos[i * 3 + 1] = r * Math.sin(angle);
-            pos[i * 3 + 2] = Math.random() * 3.5;
-            spd[i] = 0.02 + Math.random() * 0.03;
-        }
-        return [pos, spd];
-    }, []);
-
-    useFrame(() => {
-        if (!pointsRef.current) return;
-        const posAttr = pointsRef.current.geometry.attributes.position;
-        for (let i = 0; i < count; i++) {
-            let z = posAttr.getZ(i) + speeds[i];
-            if (z > 3.5) z = 0.1;
-            posAttr.setZ(i, z);
-        }
-        posAttr.needsUpdate = true;
-    });
-
-    return (
-        <points ref={pointsRef} position={[0, 0, 0]}>
-            <bufferGeometry>
-                <bufferAttribute 
-                    attach="attributes-position"
-                    args={[positions, 3]}
-                />
-            </bufferGeometry>
-            <pointsMaterial 
-                color="#a855f7" 
-                size={0.095} 
-                transparent 
-                opacity={0.9}
-            />
-        </points>
-    );
-}
-
+import { PALETTE, BIOME_SPECS, WORLD } from '../design/worldDesign';
+import {
+    SnowParticles, SwampVapors, DesertHeatParticles,
+    BarrensDustDevil, ForestFireflies, VoidCollapseParticles,
+} from './world/BiomeParticles';
 
 // Načítanie textúr terénu raz globálne
 const textureLoader = new THREE.TextureLoader();
@@ -351,9 +56,9 @@ function LootChest3D() {
             {/* Glowing Aetheric Core lock */}
             <mesh position={[0, -0.19, 0.05]}>
                 <sphereGeometry args={[0.07, 16, 16]} />
-                <meshBasicMaterial color="#00ffff" />
+                <meshBasicMaterial color={PALETTE.accent.magic} />
             </mesh>
-            <pointLight distance={1.8} intensity={0.8} color="#00ffff" />
+            <pointLight distance={1.8} intensity={0.8} color={PALETTE.accent.magic} />
         </group>
     );
 }
@@ -416,7 +121,7 @@ function TownBuilding3D() {
             {/* Tower roof */}
             <mesh position={[0, 0, 0.95]} castShadow>
                 <coneGeometry args={[0.35, 0.4, 6]} />
-                <meshStandardMaterial color="#00ffff" emissive="#004444" roughness={0.2} />
+                <meshStandardMaterial color={PALETTE.accent.magic} emissive="#004444" roughness={0.2} />
             </mesh>
             {/* Surrounding wall pillars */}
             {[-0.5, 0.5].map((x, idx) => (
@@ -427,22 +132,22 @@ function TownBuilding3D() {
                     </mesh>
                     <mesh position={[0, 0, 0.25]}>
                         <coneGeometry args={[0.15, 0.2, 4]} />
-                        <meshBasicMaterial color="#00ffcc" />
+                        <meshBasicMaterial color={PALETTE.accent.magic} />
                     </mesh>
                 </group>
             ))}
             {/* Glowing neon ring */}
             <mesh position={[0, 0, 0.8]} rotation={[0, 0, 0]}>
                 <torusGeometry args={[0.45, 0.03, 8, 24]} />
-                <meshBasicMaterial color="#00ffff" />
+                <meshBasicMaterial color={PALETTE.accent.magic} />
             </mesh>
-            <pointLight distance={3} intensity={0.8} color="#00ffff" position={[0, 0, 1.2]} />
+            <pointLight distance={3} intensity={0.8} color={PALETTE.accent.magic} position={[0, 0, 1.2]} />
         </group>
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, aestheticTheme = 'CYBER_NEON', isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null }) {
-    const meshRef = useRef();
+export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null }) {
+    const tileRef = useRef();
     const radius = 2.0;
 
     // Generovanie 3D tvaru hexagónu (ExtrudeGeometry pre 3D podstavec)
@@ -477,19 +182,9 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     // Nastavenia pre 3D hrúbku map-tile-u
     const extrudeSettings = { depth: 0.4, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
 
-    // Wireframe neonový edge
     const edgeColor = useMemo(() => {
-        if (aestheticTheme === 'MONOCHROME_RETRO') {
-            return isSelected ? '#00ff88' : isHovered ? '#00cc66' : '#14331e';
-        }
-        if (aestheticTheme === 'VIBRANT_BAROQUE') {
-            return isSelected ? '#fbbf24' : isHovered ? '#f59e0b' : '#5c4308';
-        }
-        if (aestheticTheme === 'GHOSTLY_VOID') {
-            return isSelected ? '#c084fc' : isHovered ? '#a855f7' : '#3b1c5c';
-        }
-        return isSelected ? '#00ffff' : isHovered ? '#00ffcc' : '#3a3a4a';
-    }, [isSelected, isHovered, aestheticTheme]);
+        return (isSelected || isHovered) ? PALETTE.accent.magic : PALETTE.rock.undersideDeep;
+    }, [isSelected, isHovered]);
 
     const [flash, setFlash] = React.useState(false);
 
@@ -514,109 +209,66 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     }, [node.macroIndex, node.subIndex]);
 
     useFrame((state) => {
-        if (!meshRef.current) return;
+        if (!tileRef.current) return;
         const time = state.clock.elapsedTime;
-        
+
+        const targetLift = (isHovered || isSelected) && !isCollapsing ? 0.25 : 0;
+        tileRef.current.position.z = THREE.MathUtils.lerp(tileRef.current.position.z, targetLift, 0.15);
+
         if (isCollapsing) {
-            meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, -4.5, 0.04);
+            tileRef.current.position.y = THREE.MathUtils.lerp(tileRef.current.position.y, -4.5, 0.04);
         } else {
-            // Procedural slide-up entry rise animation
             if (time < spawnDelay) {
-                meshRef.current.position.y = -5;
+                tileRef.current.position.y = -5;
             } else {
                 const entryProgress = Math.min(1.0, (time - spawnDelay) * 2.0);
                 const baseHeight = THREE.MathUtils.lerp(-5, 0, entryProgress);
-                
-                // Add a gentle idle wave ripple animation scaled by global entropy
                 const waveFreq = 2.0 + entropy * 1.5;
                 const waveAmp = 0.02 + entropy * 0.06;
                 const idleOffset = Math.sin(time * waveFreq + (node.position[0] + node.position[2]) * 0.45) * waveAmp;
-                
-                meshRef.current.position.y = baseHeight + idleOffset;
+                tileRef.current.position.y = baseHeight + idleOffset;
             }
         }
     });
 
     // Výpočet dynamického ligtingu na základe ML Light Emission a Biómu
     const emissiveColor = useMemo(() => {
-        if (isCollapsing) {
-            return new THREE.Color('#4a0082').multiplyScalar(0.3);
-        }
-        if (flash) {
-            const flashColor = aestheticTheme === 'MONOCHROME_RETRO' ? '#00ff88' :
-                               aestheticTheme === 'VIBRANT_BAROQUE' ? '#fbbf24' :
-                               aestheticTheme === 'GHOSTLY_VOID' ? '#c084fc' : '#00ffff';
-            return new THREE.Color(flashColor).multiplyScalar(5.0);
-        }
-        if (isHovered) {
-            if (aestheticTheme === 'MONOCHROME_RETRO') return '#001a08';
-            if (aestheticTheme === 'VIBRANT_BAROQUE') return '#221100';
-            if (aestheticTheme === 'GHOSTLY_VOID') return '#110022';
-            return '#002233';
-        }
+        if (isCollapsing) return new THREE.Color(PALETTE.rock.undersideDeep);
+        if (flash) return new THREE.Color(PALETTE.portal.core).multiplyScalar(3.0);
+        if (isHovered) return new THREE.Color(PALETTE.accent.magic).multiplyScalar(0.12);
         if (mlInfo.lightEmission > 0.4) {
-            if (aestheticTheme === 'MONOCHROME_RETRO') {
-                return new THREE.Color('#00220a').multiplyScalar(mlInfo.lightEmission * 0.4);
+            if (biomeInfo.biome === 'TOXIC_SWAMP') {
+                return new THREE.Color(BIOME_SPECS.TOXIC_SWAMP.accent).multiplyScalar(mlInfo.lightEmission * 0.15);
             }
-            if (aestheticTheme === 'VIBRANT_BAROQUE') {
-                return new THREE.Color('#ffaa00').multiplyScalar(mlInfo.lightEmission * 0.5);
+            if (biomeInfo.biome === 'GLACIER') {
+                return new THREE.Color(BIOME_SPECS.GLACIER.accent).multiplyScalar(mlInfo.lightEmission * 0.10);
             }
-            if (aestheticTheme === 'GHOSTLY_VOID') {
-                return new THREE.Color('#6b21a8').multiplyScalar(mlInfo.lightEmission * 0.5);
-            }
-            if (biomeInfo.biome === 'TOXIC_SWAMP') return new THREE.Color('#330044').multiplyScalar(mlInfo.lightEmission * 0.7);
-            if (biomeInfo.biome === 'GLACIER') return new THREE.Color('#002233').multiplyScalar(mlInfo.lightEmission * 0.7);
-            if (biomeInfo.biome === 'BARRENS') return new THREE.Color('#331100').multiplyScalar(mlInfo.lightEmission * 0.7);
         }
-        return '#000000';
-    }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, aestheticTheme, isCollapsing]);
+        return new THREE.Color('#000000');
+    }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, isCollapsing]);
 
-    // Úprava farby pre saturáciu
+    // Textúra sa maliarsky tónuje k `base` farbe biómu
     const baseTint = useMemo(() => {
-        if (isCollapsing) {
-            return new THREE.Color('#100518');
+        if (isCollapsing) return new THREE.Color(PALETTE.rock.underside);
+        if (isSelected) return new THREE.Color(PALETTE.accent.magic);
+        if (isHovered) {
+            return new THREE.Color('#ffffff').lerp(new THREE.Color(PALETTE.accent.magic), 0.25);
         }
-        
-        const selectColor = aestheticTheme === 'MONOCHROME_RETRO' ? '#00ff88' :
-                            aestheticTheme === 'VIBRANT_BAROQUE' ? '#fbbf24' :
-                            aestheticTheme === 'GHOSTLY_VOID' ? '#c084fc' : '#00ffff';
-                            
-        const hoverColor = aestheticTheme === 'MONOCHROME_RETRO' ? '#33cc66' :
-                           aestheticTheme === 'VIBRANT_BAROQUE' ? '#f59e0b' :
-                           aestheticTheme === 'GHOSTLY_VOID' ? '#a855f7' : '#a0d8f0';
-
-        if (isSelected) return new THREE.Color(selectColor);
-        if (isHovered) return new THREE.Color(hoverColor);
-        
-        const base = new THREE.Color('#ffffff');
-        if (aestheticTheme === 'MONOCHROME_RETRO') {
-            base.set('#1e1e1e');
-            return base;
-        }
-        if (aestheticTheme === 'VIBRANT_BAROQUE') {
-            base.multiply(new THREE.Color('#f5d0a9'));
-            return base;
-        }
-        if (aestheticTheme === 'GHOSTLY_VOID') {
-            base.multiply(new THREE.Color('#2e1a47'));
-            return base;
-        }
-
-        // Mierne saturovanie farby podľa ML výstupu
+        const spec = BIOME_SPECS[biomeInfo.biome];
+        const base = new THREE.Color('#ffffff').lerp(new THREE.Color(spec.base), 0.45);
         if (mlInfo.colorSaturation < 0.5) {
             base.lerp(new THREE.Color('#888888'), 0.5 - mlInfo.colorSaturation);
         }
         return base;
-  }, [isSelected, isHovered, mlInfo.colorSaturation, aestheticTheme, isCollapsing]);
+    }, [isSelected, isHovered, mlInfo.colorSaturation, biomeInfo.biome, isCollapsing]);
 
     const materialProps = useMemo(() => {
         const defaultProps = {
             map: textures[biomeInfo.biome] || null,
             color: baseTint,
-            roughness: 0.6,
-            metalness: 0.8,
+            roughness: WORLD.tileRoughness,
+            metalness: WORLD.tileMetalness,
             emissive: emissiveColor,
-            wireframe: false
         };
 
         if (!activeTelemetry) return defaultProps;
@@ -627,60 +279,71 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
         if (pattern === 'glitch_grid_noise') {
             return {
                 ...defaultProps,
-                roughness: 0.1,
-                metalness: 1.0,
-                color: baseTint.clone().lerp(new THREE.Color('#00ffff'), 0.3 * vibrancy),
-                wireframe: true
+                roughness: 0.5,
+                color: baseTint.clone().lerp(new THREE.Color(PALETTE.accent.magic), 0.2 * vibrancy),
             };
         }
         if (pattern === 'crystal_vein_specular') {
             return {
                 ...defaultProps,
-                roughness: 0.0,
-                metalness: 1.0,
-                color: baseTint.clone().lerp(new THREE.Color('#df73ff'), 0.4 * vibrancy)
+                roughness: 0.4,
+                color: baseTint.clone().lerp(new THREE.Color(BIOME_SPECS.GLACIER.accent), 0.25 * vibrancy),
             };
         }
         if (pattern === 'moss_dense_bump') {
             return {
                 ...defaultProps,
                 roughness: 1.0,
-                metalness: 0.0,
-                color: baseTint.clone().lerp(new THREE.Color('#2d5a27'), 0.4 * vibrancy)
+                color: baseTint.clone().lerp(new THREE.Color(BIOME_SPECS.LUSH_FOREST.base), 0.35 * vibrancy),
             };
         }
         if (pattern === 'void_particle_noise') {
             return {
                 ...defaultProps,
-                roughness: 0.8,
-                metalness: 0.2,
-                color: baseTint.clone().lerp(new THREE.Color('#12011a'), 0.4 * vibrancy),
-                emissive: new THREE.Color(emissiveColor).clone().add(new THREE.Color('#c084fc').multiplyScalar(0.5 * vibrancy))
+                color: baseTint.clone().lerp(new THREE.Color(PALETTE.rock.undersideDeep), 0.35 * vibrancy),
             };
         }
 
         return defaultProps;
     }, [activeTelemetry, baseTint, emissiveColor, biomeInfo.biome]);
 
+    // Kamenná podsada: okrajové hexy visia hlbšie — dojem odlomeného ostrova.
+    const undersideDepth = useMemo(() => {
+        const dist = Math.hypot(node.position[0], node.position[2]) / 14; // 14 ≈ polomer arény
+        const jitter = ((node.macroIndex * 7 + node.subIndex) % 5) * 0.15;
+        return 1.6 + dist * 2.2 + jitter;
+    }, [node.position, node.macroIndex, node.subIndex]);
+
     return (
-        <group 
-            position={node.position} 
+        <group
+            position={node.position}
             rotation={[-Math.PI / 2, 0, 0]} // Otočenie v trojrozmernom priestore (X, Z je plocha)
             onPointerOver={(e) => { e.stopPropagation(); onHover(node); }}
             onPointerOut={(e) => { e.stopPropagation(); onHover(null); }}
             onClick={(e) => { e.stopPropagation(); onClick(node); }}
         >
-            {/* ANCHOR: A_BASE - PBR 3D Podstavec (Map Tile) so stiahnutou AI textúrou */}
-            <mesh ref={meshRef} castShadow receiveShadow frustumCulled={false}>
-                <extrudeGeometry args={[hexShape, extrudeSettings]} />
-                <meshStandardMaterial {...materialProps} />
-            </mesh>
+            {/* Dlaždica + hrana + (Task 6: podsada) — animovaná ako celok */}
+            <group ref={tileRef}>
+                <mesh castShadow receiveShadow frustumCulled={false}>
+                    <extrudeGeometry args={[hexShape, extrudeSettings]} />
+                    <meshStandardMaterial {...materialProps} />
+                </mesh>
+                <lineSegments position={[0, 0, 0.41]}>
+                    <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
+                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : 0.45} />
+                </lineSegments>
 
-            {/* Wireframe Neon Edge pre každý jeden sub-hex */}
-            <lineSegments position={[0, 0, 0.41]}>
-                <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
-                <lineBasicMaterial color={edgeColor} linewidth={1} />
-            </lineSegments>
+                {/* Skalná podsada — 6-boký zužujúci sa "stalaktit" pod dlaždicou */}
+                <mesh position={[0, 0, -undersideDepth / 2 + 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+                    <cylinderGeometry args={[radius * 0.92, 0.18, undersideDepth, 6, 1, false, Math.PI / 6]} />
+                    <meshStandardMaterial
+                        color={PALETTE.rock.underside}
+                        roughness={1}
+                        metalness={0}
+                        flatShading
+                    />
+                </mesh>
+            </group>
 
             {/* Časticové efekty biómov */}
             {biomeInfo.biome === 'GLACIER' && !isCollapsing && <SnowParticles />}
@@ -697,7 +360,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             {isSelected && (
                 <mesh position={[0, 0, 2.4]} rotation={[Math.PI / 2, 0, 0]}>
                     <torusGeometry args={[0.25, 0.04, 8, 32]} />
-                    <meshBasicMaterial color="#00ffff" wireframe />
+                    <meshBasicMaterial color={PALETTE.accent.magic} wireframe />
                 </mesh>
             )}
         </group>
