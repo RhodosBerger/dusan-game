@@ -2,7 +2,7 @@ body {
   margin: 0;
   padding: 0;
   background-color: #05050f;
-  color: #00ffcc;
+  color: var(--accent-magic);
   font-family: 'Courier New', Courier, monospace;
 }
 
@@ -76,8 +76,8 @@ body {
 
 .card.active {
   transform: translateY(-15px);
-  border-color: #00ffcc;
-  box-shadow: 0 0 20px #00ffcc;
+  border-color: var(--accent-magic);
+  box-shadow: 0 0 20px var(--accent-magic);
 }
 
 /* Card Types */
