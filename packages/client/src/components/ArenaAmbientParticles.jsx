@@ -1,28 +1,25 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { PALETTE, BIOME_SPECS } from '../design/worldDesign';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ArenaAmbientParticles
 // 200 floating mana-dust particles that drift slowly across the battleground.
-// Color shifts based on aestheticTheme and entropy.
+// Color shifts based on entropy.
 // High entropy → faster, more chaotic drift + colour shift toward red/purple.
 // ──────────────────────────────────────────────────────────────────────────────
 const PARTICLE_COUNT = 200;
 const ARENA_HALF     = 14; // world-space half-extent of the 63-hex grid
 
-function getThemeColor(aestheticTheme, entropy) {
-    if (aestheticTheme === 'MONOCHROME_RETRO')  return new THREE.Color(0.0, 1.0, 0.4);
-    if (aestheticTheme === 'VIBRANT_BAROQUE')    return new THREE.Color(1.0, 0.7, 0.1);
-    if (aestheticTheme === 'GHOSTLY_VOID')       return new THREE.Color(0.6, 0.1, 1.0);
-    // CYBER_NEON: shift from cyan → magenta as entropy climbs
-    const r = Math.min(1, entropy * 1.5);
-    const g = Math.max(0, 1.0 - entropy);
-    const b = 1.0;
-    return new THREE.Color(r, g, b);
+// Manový prach: pokojná portálová cyan → pri vysokej entropii magenta nebezpečenstva.
+function getDustColor(entropy) {
+    const calm = new THREE.Color(PALETTE.portal.mid);
+    const danger = new THREE.Color(BIOME_SPECS.TOXIC_SWAMP.accentFlower);
+    return calm.lerp(danger, Math.min(1, Math.max(0, (entropy - 0.4) * 1.6)));
 }
 
-export default function ArenaAmbientParticles({ aestheticTheme = 'CYBER_NEON', entropy = 0.4 }) {
+export default function ArenaAmbientParticles({ entropy = 0.4 }) {
     const pointsRef = useRef();
 
     // Each particle has: position (x, y, z), velocity (dx, dy, dz), phase offset
@@ -81,7 +78,7 @@ export default function ArenaAmbientParticles({ aestheticTheme = 'CYBER_NEON', e
         posAttr.needsUpdate = true;
 
         // Pulse the particle color by updating the material tint
-        const col = getThemeColor(aestheticTheme, entropy);
+        const col = getDustColor(entropy);
         if (pointsRef.current.material) {
             pointsRef.current.material.color.lerp(col, 0.02);
             // Opacity pulses gently
@@ -90,7 +87,7 @@ export default function ArenaAmbientParticles({ aestheticTheme = 'CYBER_NEON', e
         }
     });
 
-    const initialColor = getThemeColor(aestheticTheme, entropy);
+    const initialColor = getDustColor(entropy);
 
     return (
         <points ref={pointsRef}>

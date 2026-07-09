@@ -82,7 +82,7 @@ function UltimateOrbVFX({ active }) {
     );
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], aestheticTheme = 'CYBER_NEON', shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false }) {
     const gridData = useMemo(() => generate3DGrid(), []);
     
     // Calculate which node IDs are collapsing this turn
@@ -133,17 +133,12 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     color="#ffffff"
                     shadow-mapSize={[2048, 2048]}
                 />
-                {/* Faction accent lights — shift with aestheticTheme */}
+                {/* Faction accent lights */}
                 <pointLight position={[-10, 5, -10]} intensity={0.5} color="#00ffff" />
                 <pointLight
                     position={[10, 3, -10]}
                     intensity={0.3 + entropy * 0.4}
-                    color={
-                        aestheticTheme === 'GHOSTLY_VOID'   ? '#8800ff' :
-                        aestheticTheme === 'VIBRANT_BAROQUE' ? '#ff6600' :
-                        aestheticTheme === 'MONOCHROME_RETRO'? '#00ff44' :
-                        '#ff00aa'
-                    }
+                    color="#ff00aa"
                 />
                 <pointLight
                     position={[0, 8, 0]}
@@ -167,7 +162,6 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 isSelected={selectedNode?.id === node.id}
                                 onHover={setHoveredNode}
                                 onClick={onNodeClick}
-                                aestheticTheme={aestheticTheme}
                                 isCollapsing={isCollapsing}
                                 entropy={entropy}
                                 hasChest={hasChest}
@@ -178,7 +172,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     })}
 
                     {/* Floating mana particles across the whole arena */}
-                    <ArenaAmbientParticles aestheticTheme={aestheticTheme} entropy={entropy} />
+                    <ArenaAmbientParticles entropy={entropy} />
 
                     {/* Volumetric Fog Layer disabled for sharp visual focus */}
 

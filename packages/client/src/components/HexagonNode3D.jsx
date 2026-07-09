@@ -441,7 +441,7 @@ function TownBuilding3D() {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, aestheticTheme = 'CYBER_NEON', isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null }) {
     const meshRef = useRef();
     const radius = 2.0;
 
@@ -479,17 +479,8 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
 
     // Wireframe neonový edge
     const edgeColor = useMemo(() => {
-        if (aestheticTheme === 'MONOCHROME_RETRO') {
-            return isSelected ? '#00ff88' : isHovered ? '#00cc66' : '#14331e';
-        }
-        if (aestheticTheme === 'VIBRANT_BAROQUE') {
-            return isSelected ? '#fbbf24' : isHovered ? '#f59e0b' : '#5c4308';
-        }
-        if (aestheticTheme === 'GHOSTLY_VOID') {
-            return isSelected ? '#c084fc' : isHovered ? '#a855f7' : '#3b1c5c';
-        }
         return isSelected ? '#00ffff' : isHovered ? '#00ffcc' : '#3a3a4a';
-    }, [isSelected, isHovered, aestheticTheme]);
+    }, [isSelected, isHovered]);
 
     const [flash, setFlash] = React.useState(false);
 
@@ -543,33 +534,19 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             return new THREE.Color('#4a0082').multiplyScalar(0.3);
         }
         if (flash) {
-            const flashColor = aestheticTheme === 'MONOCHROME_RETRO' ? '#00ff88' :
-                               aestheticTheme === 'VIBRANT_BAROQUE' ? '#fbbf24' :
-                               aestheticTheme === 'GHOSTLY_VOID' ? '#c084fc' : '#00ffff';
+            const flashColor = '#00ffff';
             return new THREE.Color(flashColor).multiplyScalar(5.0);
         }
         if (isHovered) {
-            if (aestheticTheme === 'MONOCHROME_RETRO') return '#001a08';
-            if (aestheticTheme === 'VIBRANT_BAROQUE') return '#221100';
-            if (aestheticTheme === 'GHOSTLY_VOID') return '#110022';
             return '#002233';
         }
         if (mlInfo.lightEmission > 0.4) {
-            if (aestheticTheme === 'MONOCHROME_RETRO') {
-                return new THREE.Color('#00220a').multiplyScalar(mlInfo.lightEmission * 0.4);
-            }
-            if (aestheticTheme === 'VIBRANT_BAROQUE') {
-                return new THREE.Color('#ffaa00').multiplyScalar(mlInfo.lightEmission * 0.5);
-            }
-            if (aestheticTheme === 'GHOSTLY_VOID') {
-                return new THREE.Color('#6b21a8').multiplyScalar(mlInfo.lightEmission * 0.5);
-            }
             if (biomeInfo.biome === 'TOXIC_SWAMP') return new THREE.Color('#330044').multiplyScalar(mlInfo.lightEmission * 0.7);
             if (biomeInfo.biome === 'GLACIER') return new THREE.Color('#002233').multiplyScalar(mlInfo.lightEmission * 0.7);
             if (biomeInfo.biome === 'BARRENS') return new THREE.Color('#331100').multiplyScalar(mlInfo.lightEmission * 0.7);
         }
         return '#000000';
-    }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, aestheticTheme, isCollapsing]);
+    }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, isCollapsing]);
 
     // Úprava farby pre saturáciu
     const baseTint = useMemo(() => {
@@ -577,37 +554,20 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             return new THREE.Color('#100518');
         }
         
-        const selectColor = aestheticTheme === 'MONOCHROME_RETRO' ? '#00ff88' :
-                            aestheticTheme === 'VIBRANT_BAROQUE' ? '#fbbf24' :
-                            aestheticTheme === 'GHOSTLY_VOID' ? '#c084fc' : '#00ffff';
-                            
-        const hoverColor = aestheticTheme === 'MONOCHROME_RETRO' ? '#33cc66' :
-                           aestheticTheme === 'VIBRANT_BAROQUE' ? '#f59e0b' :
-                           aestheticTheme === 'GHOSTLY_VOID' ? '#a855f7' : '#a0d8f0';
+        const selectColor = '#00ffff';
+        const hoverColor = '#a0d8f0';
 
         if (isSelected) return new THREE.Color(selectColor);
         if (isHovered) return new THREE.Color(hoverColor);
-        
+
         const base = new THREE.Color('#ffffff');
-        if (aestheticTheme === 'MONOCHROME_RETRO') {
-            base.set('#1e1e1e');
-            return base;
-        }
-        if (aestheticTheme === 'VIBRANT_BAROQUE') {
-            base.multiply(new THREE.Color('#f5d0a9'));
-            return base;
-        }
-        if (aestheticTheme === 'GHOSTLY_VOID') {
-            base.multiply(new THREE.Color('#2e1a47'));
-            return base;
-        }
 
         // Mierne saturovanie farby podľa ML výstupu
         if (mlInfo.colorSaturation < 0.5) {
             base.lerp(new THREE.Color('#888888'), 0.5 - mlInfo.colorSaturation);
         }
         return base;
-  }, [isSelected, isHovered, mlInfo.colorSaturation, aestheticTheme, isCollapsing]);
+  }, [isSelected, isHovered, mlInfo.colorSaturation, isCollapsing]);
 
     const materialProps = useMemo(() => {
         const defaultProps = {

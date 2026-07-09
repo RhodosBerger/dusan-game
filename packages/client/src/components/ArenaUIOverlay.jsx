@@ -80,8 +80,6 @@ export default function ArenaUIOverlay({
     isSandbox, 
     setIsSandbox, 
     actionLogs = [],
-    aestheticTheme = 'CYBER_NEON',
-    setAestheticTheme,
     onCureStatus,
     onBuyItem,
     onSellItem,
@@ -399,23 +397,7 @@ export default function ArenaUIOverlay({
                             />
                         </div>
 
-                        <div className="flex flex-col gap-1 mt-3 pt-2 border-t border-slate-800">
-                            <label className="text-[10px] font-mono text-slate-400">
-                                Estetická téma mapy:
-                            </label>
-                            <select 
-                                value={aestheticTheme}
-                                onChange={(e) => setAestheticTheme(e.target.value)}
-                                className="bg-[#09090f] text-xs font-mono text-cyan-400 border border-slate-700/50 rounded py-1 px-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer w-full"
-                            >
-                                <option value="CYBER_NEON">🧬 Cyber-Neon (Default)</option>
-                                <option value="MONOCHROME_RETRO">📟 Monochrome Retro</option>
-                                <option value="VIBRANT_BAROQUE">⚜️ Golden Baroque</option>
-                                <option value="GHOSTLY_VOID">🌌 Ghostly Void</option>
-                            </select>
-                        </div>
-
-                        <button 
+                        <button
                             onClick={onResetSimulation}
                             className="w-full mt-3 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50 py-1 rounded text-xs font-mono cursor-pointer transition-colors"
                         >
