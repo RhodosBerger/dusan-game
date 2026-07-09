@@ -1,4 +1,22 @@
 import { BiomeEngine, MLTerrainSynthesizer } from '@dusan-game/shared';
+declare var require: any;
+const fs = require('fs');
+const path = require('path');
+
+function getAdjustmentFactor(): number {
+  try {
+    const weightsPath = '/home/rhoddos_berger/.gemini/antigravity-ide/brain/5dc44846-71ce-4eba-b088-0fc0f765e6a8/scratch/optimized_weights.json';
+    if (fs.existsSync(weightsPath)) {
+      const data = JSON.parse(fs.readFileSync(weightsPath, 'utf8'));
+      if (data.metadata && typeof data.metadata.adjustment_factor === 'number') {
+        return data.metadata.adjustment_factor;
+      }
+    }
+  } catch (e) {
+    // Fallback
+  }
+  return 1.0;
+}
 
 export interface Block {
   id: number; // 0-6
@@ -39,6 +57,7 @@ export class GameMap {
 
   constructor() {
     this.chunks = [];
+    const factor = getAdjustmentFactor();
     for (let i = 0; i < 9; i++) {
       const blocks: Block[] = [];
       for (let j = 0; j < 7; j++) {
@@ -61,9 +80,9 @@ export class GameMap {
           particleRate: mlInfo.particleRate,
           
           walkable: true,
-          energyCostMultiplier: mlInfo.energyCostMultiplier,
+          energyCostMultiplier: mlInfo.energyCostMultiplier * factor,
           rangeModifier: mlInfo.rangeModifier,
-          hazardIndex: (i === 0 && j === 0) ? 0 : mlInfo.hazardIndex,
+          hazardIndex: (i === 0 && j === 0) ? 0 : mlInfo.hazardIndex * factor,
           lootProbability: mlInfo.lootProbability,
           hasChest: false,
           isTown: (i === 0 && j === 0),
@@ -93,6 +112,7 @@ export class GameMap {
 
       if (response.ok) {
         const results = await response.json() as any[];
+        const factor = getAdjustmentFactor();
         for (const data of results) {
           const chunk = this.chunks.find(c => c.id === data.metaId);
           const block = chunk?.blocks.find(b => b.id === data.hexId);
@@ -115,9 +135,9 @@ export class GameMap {
               block.hazardIndex = 0;
             } else {
               block.walkable = true;
-              block.hazardIndex = data.hazardIndex;
+              block.hazardIndex = data.hazardIndex * factor;
             }
-            block.energyCostMultiplier = data.energyCostMultiplier;
+            block.energyCostMultiplier = data.energyCostMultiplier * factor;
             block.rangeModifier = data.rangeModifier;
             block.lootProbability = data.lootProbability;
           }
