@@ -158,14 +158,16 @@ function App() {
     const activePlayerId = gameState.activePlayerId || 'thread_king_ai';
 
     const fetchTelemetry = () => {
+      // res.ok guard: 404/500 vracia JSON s chybou — uložený ako dáta by zhodil
+      // renderovanie (napr. terrainTelemetry.difficulty je undefined)
       fetch(`http://localhost:3001/api/scenarios/semantic-sector/${activePlayerId}`)
-        .then(res => res.json())
-        .then(data => setSemanticSector(data))
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => { if (data) setSemanticSector(data); })
         .catch(err => console.warn('[TELEMETRY] Semantic Sector offline'));
 
       fetch(`http://localhost:3001/api/scenarios/terrain-telemetry/${activePlayerId}`)
-        .then(res => res.json())
-        .then(data => setTerrainTelemetry(data))
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => { if (data && data.difficulty) setTerrainTelemetry(data); })
         .catch(err => console.warn('[TELEMETRY] Terrain Telemetry offline'));
     };
 
@@ -460,6 +462,28 @@ function App() {
       {ultimateFlash && (
         <div className="fixed inset-0 bg-white pointer-events-none z-50 animate-pulse" style={{ animationDuration: '0.15s' }}></div>
       )}
+      {/* Koniec hry — výsledok a návrat do lobby */}
+      {gameState?.state === 'GAME_OVER' && (() => {
+        const alivePlayers = (gameState.threads || []).filter(t => t.type === 'PLAYER' && t.health > 0);
+        const winner = alivePlayers.length === 1 ? alivePlayers[0] : null;
+        return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] pointer-events-auto">
+            <div className="bg-[#0b0b12]/95 border border-cyan-500/40 rounded-2xl px-10 py-8 text-center shadow-[0_0_60px_rgba(6,182,212,0.25)] flex flex-col items-center gap-4">
+              <div className="text-4xl">{winner ? '🏆' : '⚖️'}</div>
+              <h2 className="text-2xl font-bold text-white uppercase tracking-widest font-mono">Koniec hry</h2>
+              <p className="text-sm font-mono text-cyan-300">
+                {winner ? `Víťaz: ${winner.name}` : 'Remíza — obaja hrdinovia padli.'}
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-300 font-mono font-bold text-sm px-6 py-2.5 rounded-lg cursor-pointer transition-all uppercase tracking-wider"
+              >
+                ↺ Späť do lobby
+              </button>
+            </div>
+          </div>
+        );
+      })()}
       {/* Floating button to open Combinatorics Sandbox */}
       <button 
         onClick={() => setIsCombinatoricsSandboxOpen(true)}

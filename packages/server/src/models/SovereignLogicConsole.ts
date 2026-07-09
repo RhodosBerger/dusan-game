@@ -171,7 +171,7 @@ export class SovereignLogicConsole {
         engine.state = String(overrideValue);
         return `[OVERRIDE] Set Engine Lifecycle State to ${overrideValue}`;
       case 'active_player':
-        engine.activePlayerId = String(overrideValue);
+        engine.turnStateMachine.activePlayerId = String(overrideValue);
         return `[OVERRIDE] Set Active Player ID to ${overrideValue}`;
       case 'system_energy':
         engine.systemEnergy = Number(overrideValue);

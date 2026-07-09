@@ -32,7 +32,8 @@ export interface ClickHouseShortCircuitEvent {
 
 export class ClickHouseTelemetryClient {
   private static clickhouseUrl = (process.env && process.env.CLICKHOUSE_URL) || 'http://localhost:8123';
-  private static fallbackPath = '/home/rhoddos_berger/.gemini/antigravity-ide/scratch/clickhouse_fallback.jsonl';
+  private static fallbackPath = (process.env && process.env.CLICKHOUSE_FALLBACK_PATH) ||
+    require('path').join(require('os').tmpdir(), 'sovereign-engine', 'clickhouse_fallback.jsonl');
   
   private static visionBuffer: ClickHouseVisionEvent[] = [];
   private static combatBuffer: ClickHouseCombatEvent[] = [];

@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { SovereignEngine } from './models/SovereignEngine';
+import { AIOpponentDirector } from './models/AIOpponentDirector';
 import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
@@ -61,7 +62,7 @@ interface WaitingPlayer {
 
 const socketToThread = new Map<string, string>();
 const matchmakingQueue: WaitingPlayer[] = [];
-const activeMatches = new Map<string, { engine: SovereignEngine; players: string[]; interval: NodeJS.Timeout }>();
+const activeMatches = new Map<string, { engine: SovereignEngine; players: string[]; interval: NodeJS.Timeout; aiDirector?: AIOpponentDirector; aiThreadId?: string }>();
 
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
 
@@ -109,15 +110,18 @@ setInterval(() => {
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Priradenie klientskeho ID k threadu v predvolenom sandboxe
+  // Priradenie klientskeho ID k threadu v predvolenom sandboxe.
+  // Do playerIds patrí thread ID hrdinu (engine ním validuje ťahy), nie socket ID.
+  let sandboxThreadId: string | null = null;
   if (defaultEngine.playerIds.length === 0) {
-    socketToThread.set(socket.id, 'thread_king_ai');
+    sandboxThreadId = 'thread_king_ai';
   } else if (defaultEngine.playerIds.length === 1) {
-    socketToThread.set(socket.id, 'thread_hacker_root');
+    sandboxThreadId = 'thread_hacker_root';
   }
 
-  if (defaultEngine.addPlayer(socket.id)) {
-    console.log(`${socket.id} joined the default game.`);
+  if (sandboxThreadId && defaultEngine.addPlayer(sandboxThreadId)) {
+    socketToThread.set(socket.id, sandboxThreadId);
+    console.log(`${socket.id} joined the default game as ${sandboxThreadId}.`);
   } else {
     console.log(`${socket.id} joined as spectator.`);
   }
@@ -180,7 +184,7 @@ io.on('connection', (socket) => {
             t1.luck += r.buff_value;
           }
         });
-        matchEngine.playerIds.push(p1.socketId);
+        matchEngine.playerIds.push('thread_king_ai');
       }
       const t2 = matchEngine.threads.find(t => t.id === 'thread_hacker_root');
       if (t2) {
@@ -213,7 +217,7 @@ io.on('connection', (socket) => {
             t2.luck += r.buff_value;
           }
         });
-        matchEngine.playerIds.push(p2.socketId);
+        matchEngine.playerIds.push('thread_hacker_root');
       }
 
       socketToThread.set(p1.socketId, 'thread_king_ai');
@@ -288,13 +292,13 @@ io.on('connection', (socket) => {
           pThread.luck += r.buff_value;
         }
       });
-      matchEngine.playerIds.push(socket.id);
+      // Engine porovnáva activePlayerId s ID hrdinov, preto sem patrí thread ID (nie socket ID)
+      matchEngine.playerIds.push(chosenHero);
     }
     const aiThread = matchEngine.threads.find(t => t.id === aiHero);
     if (aiThread) {
       aiThread.name = "Sovereign AI";
-      // AI priradíme fiktívne ID
-      matchEngine.playerIds.push('sovereign_ai');
+      matchEngine.playerIds.push(aiHero);
     }
 
     socketToThread.set(socket.id, chosenHero);
@@ -302,9 +306,17 @@ io.on('connection', (socket) => {
     // Automaticky spustíme hru
     matchEngine.startGame();
 
+    const aiDirector = new AIOpponentDirector(matchEngine, aiHero);
+
     const matchInterval = setInterval(() => {
       if (matchEngine.turnStateMachine.currentPhase === 'INTERRUPT_WINDOW') {
         matchEngine.turnStateMachine.tickTimer();
+        io.to(roomName).emit('state_resolved', matchEngine.getState());
+      }
+
+      // AI protivník: max. 1 akcia za sekundu, nech má ťah čitateľné tempo
+      if (aiDirector.tick()) {
+        saveEngineState(matchEngine, matchId);
         io.to(roomName).emit('state_resolved', matchEngine.getState());
       }
     }, 1000);
@@ -312,7 +324,9 @@ io.on('connection', (socket) => {
     activeMatches.set(matchId, {
       engine: matchEngine,
       players: [socket.id],
-      interval: matchInterval
+      interval: matchInterval,
+      aiDirector,
+      aiThreadId: aiHero
     });
 
     socket.emit('match_started', { matchId, theme: payload.theme });
@@ -933,6 +947,14 @@ io.on('connection', (socket) => {
   socket.on('end_turn', async () => {
     const { engine, targetEmit, matchId } = getEngineContext(socket);
     console.log('End turn request received');
+
+    // V AI zápase nemôže hráč ukončiť ťah, keď je na ťahu AI (preskočil by jej celý ťah)
+    const match = activeMatches.get(matchId);
+    if (match?.aiThreadId && engine.turnStateMachine.activePlayerId === match.aiThreadId) {
+      console.log('[END_TURN BLOK] Na ťahu je AI, požiadavka hráča ignorovaná.');
+      return;
+    }
+
     engine.turnStateMachine.endTurn();
     
     // Webcam-based fatigue index penalty

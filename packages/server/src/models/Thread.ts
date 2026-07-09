@@ -99,14 +99,14 @@ export class Thread {
     materials: Record<string, number>;
     quests: Quest[];
   }): void {
-    this.level = profile.level;
-    this.xp = profile.xp;
-    this.maxHealth = profile.maxHealth;
+    this.level = profile.level ?? 1;
+    this.xp = profile.xp ?? 0;
+    this.maxHealth = profile.maxHealth ?? 15;
     this.health = this.maxHealth;
-    this.armor = profile.armor;
-    this.luck = profile.luck;
-    this.materials = profile.materials;
-    this.quests = profile.quests;
+    this.armor = profile.armor ?? 0;
+    this.luck = profile.luck ?? 0.5;
+    this.materials = profile.materials ?? {};
+    this.quests = profile.quests ?? [];
   }
 
   applySemanticErosion(amount: number): void {

@@ -47,12 +47,19 @@ async function runTests() {
   
   const pA = new Thread('thread_king_ai', 'PLAYER');
   const pB = new Thread('thread_hacker_root', 'PLAYER');
-  
+
   engine1.spawnThread(pA, 0, 0);
   engine1.spawnThread(pB, 1, 0); // Vzdialenosť 1
-  
+
   engine1.addPlayer('thread_king_ai');
   engine1.addPlayer('thread_hacker_root');
+
+  // Deterministický súbojový test: bez hazard poškodenia od terénu na štartových
+  // chunkoch (hrdinovia po purge-fixe zostávajú v zápase a hazard by skresľoval HP).
+  [0, 1].forEach(chunkId => {
+    const chunk = engine1.map.chunks.find(c => c.id === chunkId);
+    chunk?.blocks.forEach(b => { b.hazardIndex = 0; });
+  });
   
   // Hráč A štartuje s HP 15, Hráč B s HP 12
   pA.health = 15;

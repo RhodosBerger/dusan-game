@@ -334,7 +334,7 @@ export default function ArenaUIOverlay({
                                 </div>
                             </div>
                         )}
-                        {terrainTelemetry && (
+                        {terrainTelemetry?.difficulty && (
                             <div className="mt-2.5 pt-2 border-t border-slate-800/80 font-mono text-[9px] flex flex-col gap-1 text-slate-400">
                                 <div className="flex justify-between font-bold text-purple-400 items-center">
                                     <span>🧠 TELEMETRY DOPAMINE BALANCER:</span>
@@ -662,15 +662,20 @@ export default function ArenaUIOverlay({
                 </button>
             </div>
 
-            {/* Desktop-only side panels */}
-            <div className="w-full hidden lg:flex lg:flex-row justify-between items-start gap-4 pointer-events-auto pr-2">
-                <div className="flex flex-col gap-3 w-full max-w-md">
+            {/* Desktop-only side panels — kontajner je celoplošný, preto NESMIE chytať
+                pointer eventy (blokoval by kameru na canvase pod ním); interaktívne sú
+                až samotné panely. flex-1 + min-h-0 zaručí, že panely si zoberú len
+                priestor zvyšný po spodnom HUD s kartami a vnútri skrolujú. */}
+            <div className="w-full hidden lg:flex lg:flex-row justify-between items-start gap-4 pointer-events-none pr-2 flex-1 min-h-0">
+                <div className="flex flex-col gap-3 w-full max-w-md pointer-events-auto max-h-full overflow-y-auto pr-1">
                     {renderTelemetry(false)}
                     {renderSandbox(false)}
                     {renderQuests(false)}
                     {renderCompositor(false)}
                 </div>
-                {renderLogs(false)}
+                <div className="pointer-events-auto max-h-full overflow-y-auto">
+                    {renderLogs(false)}
+                </div>
             </div>
 
             {/* Mobile/Tablet Full Dashboard Drawer */}

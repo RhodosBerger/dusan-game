@@ -328,16 +328,20 @@ export default function SpellProjectile3D({ threads = [], gridData = [] }) {
                 return { ...p, progress: nextProgress, currentPos };
             });
 
-            // Spawn impact flashes for finished projectiles
+            // Spawn impact flashes for finished projectiles.
+            // Dedup podľa id: React môže updater zavolať dvakrát (StrictMode)
+            // a rovnaký záblesk by sa pridal duplicitne (duplicate key warning).
             if (finished.length > 0) {
-                setImpactFlashes(prev2 => [
-                    ...prev2,
-                    ...finished.map(f => ({
-                        id:      `flash_${f.id}`,
-                        pos:     f.currentPos.clone(),
-                        faction: f.faction,
-                    })),
-                ]);
+                setImpactFlashes(prev2 => {
+                    const fresh = finished
+                        .map(f => ({
+                            id:      `flash_${f.id}`,
+                            pos:     f.currentPos.clone(),
+                            faction: f.faction,
+                        }))
+                        .filter(nf => !prev2.some(x => x.id === nf.id));
+                    return fresh.length > 0 ? [...prev2, ...fresh] : prev2;
+                });
             }
 
             return updated.filter(p => p.progress < 1.0);

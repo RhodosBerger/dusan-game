@@ -101,10 +101,22 @@ export class DatabaseSyncManager {
 
   public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic'): DBPlayerProfile {
     const selectStmt = this.db.prepare('SELECT * FROM players WHERE username = ?');
-    const row = selectStmt.get(username) as DBPlayerProfile | undefined;
+    const row = selectStmt.get(username) as any;
 
     if (row) {
-      return row;
+      // DB stĺpce sú snake_case (max_health); profil používa camelCase.
+      // Defaulty chránia pred historicky poškodenými riadkami (NULL hodnoty).
+      return {
+        id: row.id,
+        username: row.username,
+        level: row.level ?? 1,
+        xp: row.xp ?? 0,
+        maxHealth: row.max_health ?? 15,
+        armor: row.armor ?? 0,
+        luck: row.luck ?? 0.5,
+        materials: row.materials ?? '{}',
+        quests: row.quests ?? '[]'
+      };
     }
 
     // Ak neexistuje, vytvoríme profil
@@ -173,11 +185,11 @@ export class DatabaseSyncManager {
 
     try {
       updateStmt.run(
-        Number(thread.level),
-        Number(thread.xp),
-        Number(thread.maxHealth),
-        Number(thread.armor),
-        Number(thread.luck),                          // ← explicit float cast fixes ERR_INVALID_ARG_TYPE
+        Number(thread.level) || 1,
+        Number(thread.xp) || 0,
+        Number(thread.maxHealth) || 15,               // ← NaN by v DB skončilo ako NULL a poškodilo profil
+        Number(thread.armor) || 0,
+        Number(thread.luck) || 0.5,                   // ← explicit float cast fixes ERR_INVALID_ARG_TYPE
         JSON.stringify(thread.materials ?? {}),
         JSON.stringify(thread.quests ?? []),
         String(thread.name)

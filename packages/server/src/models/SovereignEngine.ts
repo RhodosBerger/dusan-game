@@ -12,8 +12,13 @@ export class SovereignEngine {
   
   state: string;
   playerIds: string[];
-  activePlayerId: string | null;
-  
+
+  // Aktívny hráč žije v TurnStateMachine; engine ho len zrkadlí,
+  // aby všetky handlery videli aktuálny stav aj po zmene ťahu.
+  get activePlayerId(): string | null {
+    return this.turnStateMachine?.activePlayerId || this.playerIds[0] || null;
+  }
+
   systemEnergy: number;
   globalEntropy: number;
   actionNetwork: ActionNode[];
@@ -27,8 +32,7 @@ export class SovereignEngine {
     
     this.state = 'WAITING_FOR_PLAYERS';
     this.playerIds = [];
-    this.activePlayerId = null;
-    
+
     this.systemEnergy = 0;
     this.globalEntropy = 0;
     this.actionNetwork = [];
@@ -113,7 +117,6 @@ export class SovereignEngine {
 
   startGame(): void {
     this.state = 'PLAYER_TURN';
-    this.activePlayerId = this.playerIds[0];
     this.turnStateMachine.startTurn(this.playerIds[0]);
   }
 
@@ -459,15 +462,20 @@ export class SovereignEngine {
   }
 
   triggerEnergyOverloadPurge(): void {
-    if (this.threads.length === 0) return;
-
-    // Uvoľní sa najslabšie vlákno na základe životov (HP)
-    this.threads.sort((a, b) => a.health - b.health);
-    const weakestThread = this.threads[0];
-
-    this.deallocateThread(weakestThread.id);
+    // Hrdinovia (PLAYER) sa nikdy neuvoľňujú — zápas končí výhradne cez GAME_OVER
+    // pri 0 HP. Purge odstraňuje len pomocné jednotky a NPC.
+    const purgeable = this.threads.filter(t => t.type !== 'PLAYER');
     this.systemEnergy = Math.max(0, this.systemEnergy - 25);
 
+    if (purgeable.length === 0) {
+      console.log('[ENERGY_OVERLOAD_PURGE] Žiadne uvoľniteľné vlákno (len hrdinovia). Energia odvetraná.');
+      return;
+    }
+
+    purgeable.sort((a, b) => a.health - b.health);
+    const weakestThread = purgeable[0];
+
+    this.deallocateThread(weakestThread.id);
     console.log(`[ENERGY_OVERLOAD_PURGE] Uvoľnené najslabšie vlákno: ${weakestThread.id}.`);
   }
 
@@ -626,7 +634,15 @@ export class SovereignEngine {
           });
 
           if (target.isDeallocated()) {
-            this.deallocateThread(target.id);
+            if (target.type === 'PLAYER') {
+              // Hrdina zostáva v zápase s 0 HP — koniec hry rieši GAME_OVER,
+              // nie tiché odstránenie vlákna (klient by stratil hráča zo stavu).
+              this.state = 'GAME_OVER';
+              const winner = this.threads.find(t => t.type === 'PLAYER' && !t.isDeallocated());
+              console.log(`[GAME_OVER] Hrdina ${target.id} padol pod náporom NPC. Víťaz: ${winner ? winner.id : 'REMÍZA'}.`);
+            } else {
+              this.deallocateThread(target.id);
+            }
           }
         }
       }
@@ -687,6 +703,7 @@ export class SovereignEngine {
   getState(): any {
     return {
       state: this.state,
+      activePlayerId: this.activePlayerId,
       systemEnergy: this.systemEnergy,
       globalEntropy: this.globalEntropy,
       turnsElapsed: this.turnStateMachine.turnNumber,

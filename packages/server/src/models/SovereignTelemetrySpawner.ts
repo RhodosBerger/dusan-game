@@ -38,7 +38,11 @@ export class SovereignTelemetrySpawner {
              details = latest.telemetry_theory || {};
           }
           
-          if (details.detected_defect_class === 1) {
+          // Max. jeden Vision Sentinel naraz — spawner beží po každom end_turn
+          // a mock vision feed hlási defekt takmer vždy; bez limitu by NPC armáda
+          // v priebehu pár kôl prevalcovala hrdinov.
+          const sentinelAlive = engine.threads.some(t => t.id.startsWith('vision_sentinel_'));
+          if (details.detected_defect_class === 1 && !sentinelAlive) {
             const sentinelId = `vision_sentinel_${Date.now()}`;
             const sentinel = new Thread(sentinelId, 'NPC');
             sentinel.name = 'OpenVINO Vision Sentinel';

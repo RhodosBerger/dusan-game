@@ -585,8 +585,8 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
                            aestheticTheme === 'VIBRANT_BAROQUE' ? '#f59e0b' :
                            aestheticTheme === 'GHOSTLY_VOID' ? '#a855f7' : '#a0d8f0';
 
-        if (isSelected) return selectColor;
-        if (isHovered) return hoverColor;
+        if (isSelected) return new THREE.Color(selectColor);
+        if (isHovered) return new THREE.Color(hoverColor);
         
         const base = new THREE.Color('#ffffff');
         if (aestheticTheme === 'MONOCHROME_RETRO') {

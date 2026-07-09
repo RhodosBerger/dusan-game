@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4: jediný import nahrádza staré @tailwind direktívy (v3 syntax
+   generovala len zlomok utilít — chýbali napr. inset-0 a lg:hidden). */
+@import "tailwindcss";
 
 :root {
   --text: #6b6375;
@@ -59,7 +59,9 @@ body {
 }
 
 #root {
-  width: 100vw;
+  /* 100vw zahŕňa aj šírku scrollbaru — pri jeho zobrazení vznikal horizontálny
+     posun a biely pás na pravej strane. 100% sa drží skutočnej šírky okna. */
+  width: 100%;
   height: 100vh;
   margin: 0;
   padding: 0;
@@ -68,6 +70,7 @@ body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 h1,

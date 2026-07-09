@@ -67,8 +67,16 @@ export class TurnStateMachine {
       this.currentPhase = 'INTERRUPT_WINDOW';
       this.timerLeft = 3; // 3-sekundové okno na reakciu
       
-      // Prepnutie ťahu na NPC/obrancu na reakciu
-      const opponentId = (node.targetId && node.targetId !== 'environment') ? node.targetId : (node.sourceId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai');
+      // Prepnutie ťahu na obrancu na reakciu. Reagovať môže len HRÁČ — pri útoku
+      // na jednotku/NPC dostáva reakčné okno jej majiteľ (jednotka nemá ruku kariet
+      // a klient by sa pokúšal pracovať s ID jednotky ako s aktívnym hráčom).
+      let opponentId = (node.targetId && node.targetId !== 'environment') ? node.targetId : '';
+      const targetThread = opponentId ? this.engine.threads.find(t => t.id === opponentId) : undefined;
+      if (!targetThread || targetThread.type !== 'PLAYER') {
+        opponentId = targetThread?.ownerId && this.engine.threads.some(t => t.id === targetThread.ownerId && t.type === 'PLAYER')
+          ? targetThread.ownerId!
+          : (node.sourceId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai');
+      }
       this.activePlayerId = opponentId;
       
       console.log(`[STATE_MACHINE] Útok zaregistrovaný. Prechod do fázy INTERRUPT_WINDOW. Aktívny hráč prepnutý na ${opponentId} pre reakciu. Čas: ${this.timerLeft}s.`);
@@ -168,10 +176,8 @@ export class TurnStateMachine {
   pass(playerId: string): void {
     if (this.currentPhase !== 'INTERRUPT_WINDOW') return;
 
-    // Pasovať môže len brániaci sa hráč (nie ten, kto aktuálne útočí)
-    const opponentId = this.activePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
-    
-    if (playerId === opponentId) {
+    // Pasovať môže len brániaci sa hráč — počas reakčného okna je aktívny práve obranca
+    if (playerId === this.activePlayerId) {
       console.log(`[STATE_MACHINE] Hráč ${playerId} pasoval. Okamžité vyhodnotenie reťazca.`);
       this.resolveChain();
     }
