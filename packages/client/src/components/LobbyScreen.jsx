@@ -3,15 +3,14 @@ import React, { useState } from 'react';
 export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching }) {
     const [name, setName] = useState('');
     const [selectedHero, setSelectedHero] = useState('thread_king_ai');
-    const [selectedTheme, setSelectedTheme] = useState('CYBER_NEON');
 
     const handleSubmit = (e, isAI) => {
         e.preventDefault();
         const nickname = name.trim() || (selectedHero === 'thread_king_ai' ? 'King_AI_Player' : 'Root_Hacker_Player');
         if (isAI) {
-            onStartGame({ name: nickname, hero: selectedHero, theme: selectedTheme, vsAI: true });
+            onStartGame({ name: nickname, hero: selectedHero, vsAI: true });
         } else {
-            onSearchMatch({ name: nickname, hero: selectedHero, theme: selectedTheme });
+            onSearchMatch({ name: nickname, hero: selectedHero });
         }
     };
 
@@ -116,20 +115,6 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching })
                             maxLength={15}
                             className="bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-cyan-500 text-cyan-300 font-bold"
                         />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] text-slate-400 uppercase">Estetická téma mapy:</label>
-                        <select 
-                            value={selectedTheme}
-                            onChange={(e) => setSelectedTheme(e.target.value)}
-                            className="bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-cyan-500 text-cyan-300 font-bold cursor-pointer"
-                        >
-                            <option value="CYBER_NEON">🧬 Cyber-Neon (Default)</option>
-                            <option value="MONOCHROME_RETRO">📟 Monochrome Retro</option>
-                            <option value="VIBRANT_BAROQUE">⚜️ Golden Baroque</option>
-                            <option value="GHOSTLY_VOID">🌌 Ghostly Void</option>
-                        </select>
                     </div>
 
                     {/* Akčné tlačidlá */}
