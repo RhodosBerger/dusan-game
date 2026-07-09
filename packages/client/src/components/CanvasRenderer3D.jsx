@@ -15,6 +15,8 @@ import AestheticCompositor from './AestheticCompositor';
 import VolumetricFog3D from './VolumetricFog3D';
 import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
 import StarfieldBackground from './world/StarfieldBackground';
+import PortalVortex3D from './world/PortalVortex3D';
+import { PORTAL_NODE_ID } from '../design/propPlacement';
 
 function ArenaGroup({ children, shakeIntensity }) {
     const groupRef = useRef();
@@ -110,6 +112,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
         return groups;
     }, [gridData]);
 
+    const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
+
     const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
     const cameraFov = isMobile ? 55 : 45;
 
@@ -171,6 +175,11 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                     {/* Floating mana particles across the whole arena */}
                     <ArenaAmbientParticles entropy={entropy} />
+
+                    {/* Centrálny magický vír — srdce ostrova */}
+                    {portalNode && (
+                        <PortalVortex3D position={[portalNode.position[0], 0.55, portalNode.position[2]]} />
+                    )}
 
                     {/* Volumetric Fog Layer disabled for sharp visual focus */}
 
