@@ -824,8 +824,8 @@ export default function ArenaUIOverlay({
                             if (isHovered) {
                                 if (isUlt) {
                                     inlineStyle = {
-                                        boxShadow: '0 0 35px rgba(255, 215, 0, 0.9), inset 0 0 15px rgba(255, 215, 0, 0.3)',
-                                        borderColor: '#ffd700',
+                                        boxShadow: '0 0 35px rgba(172, 242, 39, 0.9), inset 0 0 15px rgba(172, 242, 39, 0.3)',
+                                        borderColor: 'var(--accent-loot)',
                                         transform: 'translateY(-20px) scale(1.05)',
                                     };
                                 } else if (card.id.includes('crystal') || card.id.includes('laser') || card.id.includes('shield') || card.id.includes('pulse')) {
