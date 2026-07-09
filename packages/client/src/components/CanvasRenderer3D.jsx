@@ -1,8 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
-import { EffectComposer, Glitch, Bloom, ChromaticAberration } from '@react-three/postprocessing';
-import { GlitchMode } from 'postprocessing';
+import { EffectComposer } from '@react-three/postprocessing';
 import { generate3DGrid } from '../utils/HexMath3D';
 import HexagonNode3D from './HexagonNode3D';
 import MetapositionBorder3D from './MetapositionBorder3D';
@@ -14,6 +13,8 @@ import HeroAura from './HeroAura';
 import { AdrenalineDirector } from '../../../shared/src/index';
 import AestheticCompositor from './AestheticCompositor';
 import VolumetricFog3D from './VolumetricFog3D';
+import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
+import StarfieldBackground from './world/StarfieldBackground';
 
 function ArenaGroup({ children, shakeIntensity }) {
     const groupRef = useRef();
@@ -113,8 +114,12 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const cameraFov = isMobile ? 55 : 45;
 
     return (
-        <div className="w-full h-full relative bg-[#0a0a0f]">
+        <div className="w-full h-full relative bg-[#08090e]">
             <Canvas shadows>
+                <color attach="background" args={[PALETTE.space.background]} />
+                <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
+                <StarfieldBackground />
+
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
                 <PerspectiveCamera makeDefault position={cameraPosition} fov={cameraFov} near={0.1} far={1000} />
                 <OrbitControls 
@@ -124,26 +129,19 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     maxDistance={150} 
                 />
 
-                {/* Dynamické PBR Osvetlenie */}
-                <ambientLight intensity={0.2} color="#4a4a6a" />
+                {/* Painted Realm osvetlenie: teplé slnko + studený fill (worldDesign.LIGHTING) */}
+                <ambientLight intensity={LIGHTING.ambient.intensity} color={LIGHTING.ambient.color} />
                 <directionalLight
                     castShadow
-                    position={[10, 20, 10]}
-                    intensity={1.5}
-                    color="#ffffff"
+                    position={LIGHTING.key.position}
+                    intensity={LIGHTING.key.intensity}
+                    color={LIGHTING.key.color}
                     shadow-mapSize={[2048, 2048]}
                 />
-                {/* Faction accent lights */}
-                <pointLight position={[-10, 5, -10]} intensity={0.5} color="#00ffff" />
-                <pointLight
-                    position={[10, 3, -10]}
-                    intensity={0.3 + entropy * 0.4}
-                    color="#ff00aa"
-                />
-                <pointLight
-                    position={[0, 8, 0]}
-                    intensity={0.15 + entropy * 0.25}
-                    color="#ffffff"
+                <directionalLight
+                    position={LIGHTING.fill.position}
+                    intensity={LIGHTING.fill.intensity}
+                    color={LIGHTING.fill.color}
                 />
 
                 {/* 3D Scéna - Vykreslenie 63 Hexov */}
@@ -221,7 +219,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                 {/* Kognitívna Termodynamika - Dynamický Post-processing podľa Entropy */}
                 <EffectComposer disableNormalPass>
-                    <AestheticCompositor entropy={entropy} terrainTelemetry={terrainTelemetry} />
+                    <AestheticCompositor entropy={entropy} />
                 </EffectComposer>
             </Canvas>
         </div>
