@@ -1,0 +1,24 @@
+{
+  "branch": "experimental",
+  "purpose": "Experimental WebGL features and GPU performance profiles",
+  "created_at": "2026-07-11T14:41:00Z",
+  "features": [
+    {
+      "name": "Dynamic Lighting Profiles",
+      "description": "WebGL environment presets (DEFAULT, TOXIC_HAZE, VOID_ECLIPSE, AURORA_STORM) dynamically transitioned via LERP based on active biome and global entropy."
+    },
+    {
+      "name": "Adaptive Post-Processing SSAO",
+      "description": "GPU-profiler detected performance adaptation. Lowers SSAO sample count and disables mipmap blur on integrated graphics (e.g., Intel Iris Xe) to ensure 60 FPS."
+    },
+    {
+      "name": "WebGL Headless Fallback",
+      "description": "Prevents crashes in virtualized CI environments (Docker/Jenkins) by rendering a static simulation UI if WebGL is unavailable."
+    },
+    {
+      "name": "Dynamic Spell Flash Beams",
+      "description": "Expanding 3D hexagonal ring shockwaves rendered on the targeted tiles when cards are played, tinted according to active weather."
+    }
+  ],
+  "compiled_and_verified": true
+}
