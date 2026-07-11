@@ -16,6 +16,7 @@ import AestheticCompositor from './AestheticCompositor';
 import VolumetricFog3D from './VolumetricFog3D';
 import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
 import StarfieldBackground from './world/StarfieldBackground';
+import { getActiveProfile } from '../design/worldProfiles';
 import FloatingShards3D from './world/FloatingShards3D';
 import PortalVortex3D from './world/PortalVortex3D';
 import { PORTAL_NODE_ID, computePropPlacements } from '../design/propPlacement';
@@ -100,7 +101,7 @@ function UltimateOrbVFX({ active }) {
     );
 }
 
-function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate }) {
+function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate, activeBiome }) {
     const { camera, controls } = useThree();
     const desiredTarget = useRef(new THREE.Vector3(0, 0, 0));
 
@@ -108,18 +109,6 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     const activePlayer = useMemo(() => {
         return threads.find(t => t.type === 'PLAYER' && t.health > 0) || null;
     }, [threads]);
-
-    // Zistenie aktívneho biomu pre efekty kamery
-    const activeBiome = useMemo(() => {
-        if (!map || map.length === 0) return 'LUSH_FOREST';
-        const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
-        if (targetThread && targetThread.position) {
-            const chunk = map.find(c => c.id === targetThread.position.meta);
-            const block = chunk?.blocks?.find(b => b.id === targetThread.position.hex);
-            return block?.biome || 'LUSH_FOREST';
-        }
-        return 'LUSH_FOREST';
-    }, [map, threads]);
 
     useEffect(() => {
         if (gameMode === 'SANDBOX') {
@@ -177,6 +166,63 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     });
 
     return null;
+}
+
+function EnvironmentController({ activeBiome, entropy }) {
+    const { scene } = useThree();
+    const ambientLightRef = useRef();
+    const keyLightRef = useRef();
+    const fillLightRef = useRef();
+    
+    const activeProfile = useMemo(() => {
+        return getActiveProfile(activeBiome, entropy);
+    }, [activeBiome, entropy]);
+
+    useFrame((state, delta) => {
+        const speed = delta * 2.0;
+        if (scene.fog) {
+            const targetFogColor = new THREE.Color(activeProfile.fog.color);
+            scene.fog.color.lerp(targetFogColor, speed);
+            scene.fog.near = THREE.MathUtils.lerp(scene.fog.near, activeProfile.fog.near, speed);
+            scene.fog.far = THREE.MathUtils.lerp(scene.fog.far, activeProfile.fog.far, speed);
+        }
+        if (scene.background) {
+            const targetBgColor = new THREE.Color(activeProfile.fog.color);
+            scene.background.lerp(targetBgColor, speed);
+        }
+        if (ambientLightRef.current) {
+            ambientLightRef.current.color.lerp(new THREE.Color(activeProfile.ambient.color), speed);
+            ambientLightRef.current.intensity = THREE.MathUtils.lerp(ambientLightRef.current.intensity, activeProfile.ambient.intensity, speed);
+        }
+        if (keyLightRef.current) {
+            keyLightRef.current.color.lerp(new THREE.Color(activeProfile.key.color), speed);
+            keyLightRef.current.intensity = THREE.MathUtils.lerp(keyLightRef.current.intensity, activeProfile.key.intensity, speed);
+        }
+        if (fillLightRef.current) {
+            fillLightRef.current.color.lerp(new THREE.Color(activeProfile.fill.color), speed);
+            fillLightRef.current.intensity = THREE.MathUtils.lerp(fillLightRef.current.intensity, activeProfile.fill.intensity, speed);
+        }
+    });
+
+    return (
+        <>
+            <ambientLight ref={ambientLightRef} intensity={activeProfile.ambient.intensity} color={activeProfile.ambient.color} />
+            <directionalLight
+                ref={keyLightRef}
+                castShadow
+                position={activeProfile.key.position}
+                intensity={activeProfile.key.intensity}
+                color={activeProfile.key.color}
+                shadow-mapSize={[2048, 2048]}
+            />
+            <directionalLight
+                ref={fillLightRef}
+                position={activeProfile.fill.position}
+                intensity={activeProfile.fill.intensity}
+                color={activeProfile.fill.color}
+            />
+        </>
+    );
 }
 
 function isWebGLAvailable() {
@@ -239,6 +285,17 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
 
     const propPlacements = useMemo(() => computePropPlacements(gridData), [gridData]);
+
+    const activeBiome = useMemo(() => {
+        if (!map || map.length === 0) return 'LUSH_FOREST';
+        const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
+        if (targetThread && targetThread.position) {
+            const chunk = map.find(c => c.id === targetThread.position.meta);
+            const block = chunk?.blocks?.find(b => b.id === targetThread.position.hex);
+            return block?.biome || 'LUSH_FOREST';
+        }
+        return 'LUSH_FOREST';
+    }, [map, threads]);
 
     const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
     const cameraFov = isMobile ? 55 : 45;
@@ -317,22 +374,11 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     map={map}
                     shakeIntensity={shakeIntensity} 
                     isUltimate={ultimateFlash} 
+                    activeBiome={activeBiome}
                 />
 
-                {/* Painted Realm osvetlenie: teplé slnko + studený fill (worldDesign.LIGHTING) */}
-                <ambientLight intensity={LIGHTING.ambient.intensity} color={LIGHTING.ambient.color} />
-                <directionalLight
-                    castShadow
-                    position={LIGHTING.key.position}
-                    intensity={LIGHTING.key.intensity}
-                    color={LIGHTING.key.color}
-                    shadow-mapSize={[2048, 2048]}
-                />
-                <directionalLight
-                    position={LIGHTING.fill.position}
-                    intensity={LIGHTING.fill.intensity}
-                    color={LIGHTING.fill.color}
-                />
+                {/* Dynamické osvetlenie a volumetrické profily sveta */}
+                <EnvironmentController activeBiome={activeBiome} entropy={entropy} />
 
                 {/* 3D Scéna - Vykreslenie 63 Hexov */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>
