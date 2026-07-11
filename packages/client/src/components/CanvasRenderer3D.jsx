@@ -179,7 +179,18 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     return null;
 }
 
+function isWebGLAvailable() {
+    try {
+        const canvas = document.createElement('canvas');
+        return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+    } catch (e) {
+        return false;
+    }
+}
+
 export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX' }) {
+    const hasWebGL = useMemo(() => isWebGLAvailable(), []);
+    const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
     
     // Calculate which node IDs are collapsing this turn
@@ -197,6 +208,25 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
         };
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                    if (renderer && (renderer.includes('Iris') || renderer.includes('Intel') || renderer.includes('Mobile') || renderer.includes('HD Graphics') || renderer.includes('AMD Radeon(TM) Graphics'))) {
+                        setIsLowPower(true);
+                        console.log(`[PERFORMANCE_PROFILER] Low-power GPU detected: ${renderer}. Enabling performance optimization profile.`);
+                    }
+                }
+            }
+        } catch (e) {
+            // Fallback
+        }
     }, []);
 
     // Zoskupenie uzlov podľa metapozícií kvôli efektívnemu vykresleniu hraníc
@@ -228,6 +258,39 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
         }
         return 0.4;
     }, [map, threads]);
+
+    if (!hasWebGL) {
+        // Headless Container Fallback View (Docker / Jenkins friendly)
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#070b19] text-[#e0e7ff] p-6 text-center border border-[#1f2937] rounded-lg">
+                <div className="text-xl font-bold mb-2 tracking-wide text-[var(--accent-loot,#39ff14)]">Sovereign Arena - Headless Container Mode</div>
+                <p className="text-sm opacity-75 max-w-md mb-6 leading-relaxed">
+                    WebGL rendering is unavailable or running inside a virtualized CI environment (Docker/Jenkins). Rendering a static, safe HTML canvas fallback for testing validation.
+                </p>
+                <div className="w-full max-w-sm border border-[#111827] p-5 rounded-lg bg-[#0b0f19] shadow-2xl">
+                    <div className="text-xs uppercase tracking-widest opacity-50 mb-3 font-semibold">Simulated Environment State</div>
+                    <div className="flex flex-col gap-2 text-left font-mono text-xs">
+                        <div className="flex justify-between border-b border-[#1f2937] pb-1">
+                            <span className="opacity-75">Active Threads:</span>
+                            <span className="text-[#39ff14]">{threads.length}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[#1f2937] pb-1">
+                            <span className="opacity-75">Turns Elapsed:</span>
+                            <span className="text-[#00eeff]">{turnsElapsed}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[#1f2937] pb-1">
+                            <span className="opacity-75">Global Entropy:</span>
+                            <span className="text-[#ffcc00]">{entropy.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between pb-1">
+                            <span className="opacity-75">Tactic Mode:</span>
+                            <span className="text-[#ff007f]">{gameMode}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full h-full relative bg-[color:var(--space-bg)]">
@@ -366,7 +429,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                 {/* Kognitívna Termodynamika - Dynamický Post-processing podľa Entropy */}
                 <EffectComposer disableNormalPass>
-                    <AestheticCompositor entropy={entropy} />
+                    <AestheticCompositor entropy={entropy} isLowPower={isLowPower} />
                 </EffectComposer>
             </Canvas>
         </div>
