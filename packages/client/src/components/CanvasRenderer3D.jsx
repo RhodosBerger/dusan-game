@@ -404,6 +404,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 hasChest={hasChest}
                                 hasTrap={hasTrap}
                                 terrainTelemetry={terrainTelemetry}
+                                weatherOverride={weatherOverride}
                             />
                         );
                     })}

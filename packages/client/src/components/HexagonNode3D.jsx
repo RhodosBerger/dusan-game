@@ -146,7 +146,7 @@ function TownBuilding3D() {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null }) {
     const tileRef = useRef();
     const radius = 2.0;
 
@@ -263,12 +263,31 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     }, [isSelected, isHovered, mlInfo.colorSaturation, biomeInfo.biome, isCollapsing]);
 
     const materialProps = useMemo(() => {
+        let roughnessMultiplier = 1.0;
+        let metalnessOverride = WORLD.tileMetalness;
+        let tintModifier = new THREE.Color('#ffffff');
+        let emissiveIntensity = 1.0;
+
+        if (weatherOverride === 'TOXIC_HAZE') {
+            roughnessMultiplier = 0.45; // slimy swamp surfaces
+            metalnessOverride = 0.2;
+            tintModifier.lerp(new THREE.Color('#9fdb3b'), 0.2); // green haze overlay
+        } else if (weatherOverride === 'VOID_ECLIPSE') {
+            roughnessMultiplier = 0.3; // glassy void crystal
+            metalnessOverride = 0.7; // dark metallic sheen
+            tintModifier.lerp(new THREE.Color('#2d0a4e'), 0.45); // dark violet shadow
+        } else if (weatherOverride === 'AURORA_STORM') {
+            roughnessMultiplier = 0.7;
+            metalnessOverride = 0.4;
+            emissiveIntensity = 2.0; // amplify emissions
+        }
+
         const defaultProps = {
             map: textures[biomeInfo.biome] || null,
-            color: baseTint,
-            roughness: WORLD.tileRoughness,
-            metalness: WORLD.tileMetalness,
-            emissive: emissiveColor,
+            color: baseTint.clone().multiply(tintModifier),
+            roughness: WORLD.tileRoughness * roughnessMultiplier,
+            metalness: metalnessOverride,
+            emissive: emissiveColor.clone().multiplyScalar(emissiveIntensity),
         };
 
         if (!activeTelemetry) return defaultProps;
@@ -279,33 +298,33 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
         if (pattern === 'glitch_grid_noise') {
             return {
                 ...defaultProps,
-                roughness: 0.5,
-                color: baseTint.clone().lerp(new THREE.Color(PALETTE.accent.magic), 0.2 * vibrancy),
+                roughness: 0.5 * roughnessMultiplier,
+                color: baseTint.clone().multiply(tintModifier).lerp(new THREE.Color(PALETTE.accent.magic), 0.2 * vibrancy),
             };
         }
         if (pattern === 'crystal_vein_specular') {
             return {
                 ...defaultProps,
-                roughness: 0.4,
-                color: baseTint.clone().lerp(new THREE.Color(BIOME_SPECS.GLACIER.accent), 0.25 * vibrancy),
+                roughness: 0.4 * roughnessMultiplier,
+                color: baseTint.clone().multiply(tintModifier).lerp(new THREE.Color(BIOME_SPECS.GLACIER.accent), 0.25 * vibrancy),
             };
         }
         if (pattern === 'moss_dense_bump') {
             return {
                 ...defaultProps,
-                roughness: 1.0,
-                color: baseTint.clone().lerp(new THREE.Color(BIOME_SPECS.LUSH_FOREST.base), 0.35 * vibrancy),
+                roughness: 1.0 * roughnessMultiplier,
+                color: baseTint.clone().multiply(tintModifier).lerp(new THREE.Color(BIOME_SPECS.LUSH_FOREST.base), 0.35 * vibrancy),
             };
         }
         if (pattern === 'void_particle_noise') {
             return {
                 ...defaultProps,
-                color: baseTint.clone().lerp(new THREE.Color(PALETTE.rock.undersideDeep), 0.35 * vibrancy),
+                color: baseTint.clone().multiply(tintModifier).lerp(new THREE.Color(PALETTE.rock.undersideDeep), 0.35 * vibrancy),
             };
         }
 
         return defaultProps;
-    }, [activeTelemetry, baseTint, emissiveColor, biomeInfo.biome]);
+    }, [activeTelemetry, baseTint, emissiveColor, biomeInfo.biome, weatherOverride]);
 
     // Kamenná podsada: okrajové hexy visia hlbšie — dojem odlomeného ostrova.
     const undersideDepth = useMemo(() => {
