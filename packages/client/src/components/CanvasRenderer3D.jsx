@@ -18,6 +18,7 @@ import StarfieldBackground from './world/StarfieldBackground';
 import FloatingShards3D from './world/FloatingShards3D';
 import PortalVortex3D from './world/PortalVortex3D';
 import { PORTAL_NODE_ID, computePropPlacements } from '../design/propPlacement';
+import { createSeededRandom } from '../design/seededRandom';
 import CrystalSpire3D from './world/CrystalSpire3D';
 import BlossomTree3D from './world/BlossomTree3D';
 import AcidPool3D from './world/AcidPool3D';
@@ -99,7 +100,7 @@ function UltimateOrbVFX({ active }) {
     );
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, terrainMap = 'MIXED' }) {
     const gridData = useMemo(() => generate3DGrid(), []);
     
     // Calculate which node IDs are collapsing this turn
@@ -128,7 +129,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
     const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
 
-    const propPlacements = useMemo(() => computePropPlacements(gridData), [gridData]);
+    const propPlacements = useMemo(() => computePropPlacements(gridData, terrainMap), [gridData, terrainMap]);
 
     const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
     const cameraFov = isMobile ? 55 : 45;
@@ -186,18 +187,23 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 hasChest={hasChest}
                                 hasTrap={hasTrap}
                                 terrainTelemetry={terrainTelemetry}
+                                terrainMap={terrainMap}
                             />
                         );
                     })}
 
-                    {/* Rekvizity biómov — deterministicky na "jadre" každého biómu.
-                        Kolabujúce dlaždice vyfiltruj — rekvizita nesmie visieť nad prázdnom. */}
+                    {/* Rekvizity biómov — deterministicky umiestnené; kolabujúce dlaždice vyfiltruj.
+                        Seed-riadený scale + rotácia, aby rekvizity neboli klony. */}
                     {gridData.filter(n => propPlacements.has(n.id) && !collapsingNodeIds.includes(n.id)).map(n => {
                         const PropComponent = PROP_COMPONENTS[propPlacements.get(n.id)];
                         if (!PropComponent) return null;
+                        const seed = n.macroIndex * 7 + n.subIndex + 1;
+                        const rnd = createSeededRandom(seed + 500);
+                        const scale = 0.8 + rnd() * 0.4;
+                        const rotationY = rnd() * Math.PI * 2;
                         return (
-                            <group key={`prop_${n.id}`} position={[n.position[0], 0.45, n.position[2]]}>
-                                <PropComponent seed={n.macroIndex * 7 + n.subIndex + 1} />
+                            <group key={`prop_${n.id}`} position={[n.position[0], 0.45, n.position[2]]} scale={scale} rotation={[0, rotationY, 0]}>
+                                <PropComponent seed={seed} />
                             </group>
                         );
                     })}
