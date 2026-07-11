@@ -2,7 +2,8 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BiomeEngine, MLTerrainSynthesizer } from '../../../shared/src/index';
-import { PALETTE, BIOME_SPECS, WORLD } from '../design/worldDesign';
+import { PALETTE, BIOME_SPECS, WORLD, TERRAIN_MAPS } from '../design/worldDesign';
+import { terrainToneFactor } from '../design/terrainTone';
 import {
     SnowParticles, SwampVapors, DesertHeatParticles,
     BarrensDustDevil, ForestFireflies, VoidCollapseParticles,
@@ -146,7 +147,7 @@ function TownBuilding3D() {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, terrainMap = 'MIXED' }) {
     const tileRef = useRef();
     const radius = 2.0;
 
@@ -168,6 +169,12 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     const biomeInfo = useMemo(() => {
         return BiomeEngine.getBiomeForHex(node.macroIndex, node.subIndex);
     }, [node.macroIndex, node.subIndex]);
+
+    // Efektívny render bióm — témová mapa vynúti jeden bióm na celý svet.
+    const effectiveBiome = useMemo(() => {
+        const mapDef = TERRAIN_MAPS.find(m => m.id === terrainMap);
+        return mapDef && mapDef.forcedBiome ? mapDef.forcedBiome : biomeInfo.biome;
+    }, [terrainMap, biomeInfo.biome]);
 
     // Vyhodnotenie kombinatorických vlastností cez ML Terrain Synthesizer
     const mlInfo = useMemo(() => {
@@ -237,15 +244,15 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
         if (flash) return new THREE.Color(PALETTE.portal.core).multiplyScalar(3.0);
         if (isHovered) return new THREE.Color(PALETTE.accent.magic).multiplyScalar(0.12);
         if (mlInfo.lightEmission > 0.4) {
-            if (biomeInfo.biome === 'TOXIC_SWAMP') {
+            if (effectiveBiome === 'TOXIC_SWAMP') {
                 return new THREE.Color(BIOME_SPECS.TOXIC_SWAMP.accent).multiplyScalar(mlInfo.lightEmission * 0.15);
             }
-            if (biomeInfo.biome === 'GLACIER') {
+            if (effectiveBiome === 'GLACIER') {
                 return new THREE.Color(BIOME_SPECS.GLACIER.accent).multiplyScalar(mlInfo.lightEmission * 0.10);
             }
         }
         return new THREE.Color('#000000');
-    }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, isCollapsing]);
+    }, [flash, isHovered, mlInfo.lightEmission, effectiveBiome, isCollapsing]);
 
     // Textúra sa maliarsky tónuje k `base` farbe biómu
     const baseTint = useMemo(() => {
@@ -254,17 +261,20 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
         if (isHovered) {
             return new THREE.Color('#ffffff').lerp(new THREE.Color(PALETTE.accent.magic), 0.25);
         }
-        const spec = BIOME_SPECS[biomeInfo.biome];
+        const spec = BIOME_SPECS[effectiveBiome];
         const base = new THREE.Color('#ffffff').lerp(new THREE.Color(spec.base), 0.45);
+        // Tonálne variácie: jemné svetlé/tmavé fľaky (base ↔ light) per hex.
+        const tone = terrainToneFactor(node.macroIndex, node.subIndex);
+        base.lerp(new THREE.Color(spec.light), tone * 0.35);
         if (mlInfo.colorSaturation < 0.5) {
             base.lerp(new THREE.Color('#888888'), 0.5 - mlInfo.colorSaturation);
         }
         return base;
-    }, [isSelected, isHovered, mlInfo.colorSaturation, biomeInfo.biome, isCollapsing]);
+    }, [isSelected, isHovered, mlInfo.colorSaturation, effectiveBiome, node.macroIndex, node.subIndex, isCollapsing]);
 
     const materialProps = useMemo(() => {
         const defaultProps = {
-            map: textures[biomeInfo.biome] || null,
+            map: textures[effectiveBiome] || null,
             color: baseTint,
             roughness: WORLD.tileRoughness,
             metalness: WORLD.tileMetalness,
@@ -305,7 +315,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
         }
 
         return defaultProps;
-    }, [activeTelemetry, baseTint, emissiveColor, biomeInfo.biome]);
+    }, [activeTelemetry, baseTint, emissiveColor, effectiveBiome]);
 
     // Kamenná podsada: okrajové hexy visia hlbšie — dojem odlomeného ostrova.
     const undersideDepth = useMemo(() => {
@@ -346,11 +356,11 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             </group>
 
             {/* Časticové efekty biómov */}
-            {biomeInfo.biome === 'GLACIER' && !isCollapsing && <SnowParticles />}
-            {biomeInfo.biome === 'TOXIC_SWAMP' && !isCollapsing && <SwampVapors />}
-            {biomeInfo.biome === 'DESERT' && !isCollapsing && <DesertHeatParticles />}
-            {biomeInfo.biome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
-            {biomeInfo.biome === 'LUSH_FOREST' && !isCollapsing && entropy > 0.5 && <ForestFireflies />}
+            {effectiveBiome === 'GLACIER' && !isCollapsing && <SnowParticles />}
+            {effectiveBiome === 'TOXIC_SWAMP' && !isCollapsing && <SwampVapors />}
+            {effectiveBiome === 'DESERT' && !isCollapsing && <DesertHeatParticles />}
+            {effectiveBiome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
+            {effectiveBiome === 'LUSH_FOREST' && !isCollapsing && entropy > 0.5 && <ForestFireflies />}
             {isCollapsing && <VoidCollapseParticles />}
             {hasChest && !isCollapsing && <LootChest3D />}
             {node.isTown && !isCollapsing && <TownBuilding3D />}
