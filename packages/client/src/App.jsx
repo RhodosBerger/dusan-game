@@ -31,6 +31,8 @@ function App() {
   const [lastHandCount, setLastHandCount] = useState(0);
   const [gameEnded, setGameEnded] = useState(false);
   const [ultimateFlash, setUltimateFlash] = useState(false);
+  const [weatherOverride, setWeatherOverride] = useState(null);
+  const [isManualWeather, setIsManualWeather] = useState(false);
   
   const gridData = useMemo(() => generate3DGrid(), []);
 
@@ -303,6 +305,21 @@ function App() {
       setTimeout(() => setUltimateFlash(false), 150);
     }
 
+    // Dynamic Weather Spell Shift based on Played Card Faction
+    if (!isManualWeather) {
+      const cardId = selectedCard.id.toLowerCase();
+      if (cardId.includes('toxic') || cardId.includes('acid') || cardId.includes('swamp') || cardId.includes('poison')) {
+        setWeatherOverride('TOXIC_HAZE');
+        setTimeout(() => setWeatherOverride(null), 5000);
+      } else if (cardId.includes('void') || cardId.includes('collapse') || cardId.includes('darkness') || cardId.includes('purge')) {
+        setWeatherOverride('VOID_ECLIPSE');
+        setTimeout(() => setWeatherOverride(null), 5000);
+      } else if (cardId.includes('crystal') || cardId.includes('laser') || cardId.includes('beam') || cardId.includes('shatter')) {
+        setWeatherOverride('AURORA_STORM');
+        setTimeout(() => setWeatherOverride(null), 5000);
+      }
+    }
+
     connectionEngine.playCard(
       selectedCard.id,
       selectedNode.macroIndex,
@@ -429,6 +446,7 @@ function App() {
         terrainTelemetry={terrainTelemetry}
         ultimateFlash={ultimateFlash}
         gameMode={gameMode}
+        weatherOverride={weatherOverride}
       />
       
       {/* Cyber-Glassmorphism Tailwind UI */}
@@ -454,6 +472,10 @@ function App() {
         onToggleStealth={handleToggleStealth}
         semanticSector={semanticSector}
         terrainTelemetry={terrainTelemetry}
+        weatherOverride={weatherOverride}
+        setWeatherOverride={setWeatherOverride}
+        isManualWeather={isManualWeather}
+        setIsManualWeather={setIsManualWeather}
       />
       {/* Adrenaline vignette overlay — purely CSS, no 3D cost */}
       <AdrenalineVignette

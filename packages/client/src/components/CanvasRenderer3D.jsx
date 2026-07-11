@@ -16,7 +16,7 @@ import AestheticCompositor from './AestheticCompositor';
 import VolumetricFog3D from './VolumetricFog3D';
 import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
 import StarfieldBackground from './world/StarfieldBackground';
-import { getActiveProfile } from '../design/worldProfiles';
+import { getActiveProfile, WORLD_PROFILES } from '../design/worldProfiles';
 import FloatingShards3D from './world/FloatingShards3D';
 import PortalVortex3D from './world/PortalVortex3D';
 import { PORTAL_NODE_ID, computePropPlacements } from '../design/propPlacement';
@@ -168,15 +168,18 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     return null;
 }
 
-function EnvironmentController({ activeBiome, entropy }) {
+function EnvironmentController({ activeBiome, entropy, weatherOverride }) {
     const { scene } = useThree();
     const ambientLightRef = useRef();
     const keyLightRef = useRef();
     const fillLightRef = useRef();
     
     const activeProfile = useMemo(() => {
+        if (weatherOverride) {
+            return WORLD_PROFILES[weatherOverride];
+        }
         return getActiveProfile(activeBiome, entropy);
-    }, [activeBiome, entropy]);
+    }, [activeBiome, entropy, weatherOverride]);
 
     useFrame((state, delta) => {
         const speed = delta * 2.0;
@@ -234,7 +237,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX' }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
@@ -378,7 +381,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 />
 
                 {/* Dynamické osvetlenie a volumetrické profily sveta */}
-                <EnvironmentController activeBiome={activeBiome} entropy={entropy} />
+                <EnvironmentController activeBiome={activeBiome} entropy={entropy} weatherOverride={weatherOverride} />
 
                 {/* 3D Scéna - Vykreslenie 63 Hexov */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>

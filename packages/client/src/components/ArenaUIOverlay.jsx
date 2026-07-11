@@ -86,7 +86,11 @@ export default function ArenaUIOverlay({
     onPassReaction,
     onToggleStealth,
     semanticSector = null,
-    terrainTelemetry = null
+    terrainTelemetry = null,
+    weatherOverride = null,
+    setWeatherOverride,
+    isManualWeather = false,
+    setIsManualWeather
 }) {
     const [isCodexOpen, setIsCodexOpen] = React.useState(false);
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
@@ -410,6 +414,60 @@ export default function ArenaUIOverlay({
                         >
                             Evolučne vygenerovať scénu
                         </button>
+
+                        {/* Weather & Ambient Profiles Setup */}
+                        <div className="mt-3 pt-3 border-t border-slate-700/30">
+                            <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                                Weather & Lighting Profile:
+                            </label>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                <button
+                                    onClick={() => {
+                                        setWeatherOverride(null);
+                                        setIsManualWeather(false);
+                                    }}
+                                    className={`text-[9px] font-mono py-1 px-1.5 rounded cursor-pointer transition-colors text-center border font-bold ${!weatherOverride ? 'bg-[color:var(--accent-loot,#39ff14)]/20 text-[color:var(--accent-loot,#39ff14)] border-[color:var(--accent-loot,#39ff14)]/50' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'}`}
+                                >
+                                    AUTO (BIOME)
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setWeatherOverride('DEFAULT');
+                                        setIsManualWeather(true);
+                                    }}
+                                    className={`text-[9px] font-mono py-1 px-1.5 rounded cursor-pointer transition-colors text-center border font-bold ${weatherOverride === 'DEFAULT' ? 'bg-blue-950 text-blue-300 border-blue-500/50' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'}`}
+                                >
+                                    CLEAR REALM
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setWeatherOverride('TOXIC_HAZE');
+                                        setIsManualWeather(true);
+                                    }}
+                                    className={`text-[9px] font-mono py-1 px-1.5 rounded cursor-pointer transition-colors text-center border font-bold ${weatherOverride === 'TOXIC_HAZE' ? 'bg-lime-950 text-lime-300 border-lime-500/50' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'}`}
+                                >
+                                    TOXIC HAZE
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setWeatherOverride('VOID_ECLIPSE');
+                                        setIsManualWeather(true);
+                                    }}
+                                    className={`text-[9px] font-mono py-1 px-1.5 rounded cursor-pointer transition-colors text-center border font-bold ${weatherOverride === 'VOID_ECLIPSE' ? 'bg-purple-950 text-purple-300 border-purple-500/50' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'}`}
+                                >
+                                    VOID ECLIPSE
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setWeatherOverride('AURORA_STORM');
+                                        setIsManualWeather(true);
+                                    }}
+                                    className={`text-[9px] font-mono py-1 px-1.5 rounded cursor-pointer transition-colors text-center border font-bold ${weatherOverride === 'AURORA_STORM' ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'}`}
+                                >
+                                    AURORA STORM
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
