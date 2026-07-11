@@ -3,7 +3,21 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '../../../shared/src/index';
 import { generate3DGrid } from '../utils/HexMath3D';
+
+const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
+
+const META_COORDS = [
+  { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 },
+  { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 },
+  { x: 0, y: 2 }, { x: 1, y: 2 }, { x: 2, y: 2 }
+];
+const getMetaDistance = (metaA, metaB) => {
+  const a = META_COORDS[metaA] || { x: 0, y: 0 };
+  const b = META_COORDS[metaB] || { x: 0, y: 0 };
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+};
 import HexagonNode3D from './HexagonNode3D';
 import MetapositionBorder3D from './MetapositionBorder3D';
 import ThreadMiniature from './ThreadMiniature';
@@ -237,7 +251,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
@@ -391,14 +405,42 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         const serverBlock = serverChunk?.blocks?.find(b => b.id === node.subIndex);
                         const hasChest = !!serverBlock?.hasOpportunity || !!serverBlock?.hasChest;
                         const hasTrap = serverBlock?.hasTrap || null;
+
+                        const isTargetable = (() => {
+                            if (!selectedCard) return false;
+                            const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+                            if (!activeHero || activeHero.position?.meta === undefined || activeHero.position?.meta === null) return false;
+                            const dist = getMetaDistance(activeHero.position.meta, node.macroIndex);
+                            const base = allBases.find(b => b.id === selectedCard.id);
+                            if (!base) return false;
+                            const isAttackNode = base.cardCategorization === 'attack' || base.damage > 0;
+                            const reach = isAttackNode ? (activeHero.attackReach || 1) : (activeHero.spellReach || 2);
+                            return reach === 0 ? dist === 0 : dist <= reach;
+                        })();
+
+                        const handleDoubleClick = () => {
+                            if (selectedCard) {
+                                if (isTargetable) {
+                                    onNodeClick(node);
+                                    setTimeout(() => {
+                                        onExecuteAction();
+                                    }, 50);
+                                }
+                            } else {
+                                onMoveHero(node);
+                            }
+                        };
+
                         return (
                             <HexagonNode3D
                                 key={node.id}
                                 node={node}
                                 isHovered={hoveredNode?.id === node.id || hoveredNode?.macroIndex === node.macroIndex}
                                 isSelected={selectedNode?.id === node.id}
+                                isTargetable={isTargetable}
                                 onHover={setHoveredNode}
                                 onClick={onNodeClick}
+                                onDoubleClick={handleDoubleClick}
                                 isCollapsing={isCollapsing}
                                 entropy={entropy}
                                 hasChest={hasChest}

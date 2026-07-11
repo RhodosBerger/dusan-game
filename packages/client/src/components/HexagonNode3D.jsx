@@ -180,7 +180,7 @@ function SpellFlashBeam3D({ weatherOverride }) {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null }) {
     const tileRef = useRef();
     const radius = 2.0;
 
@@ -217,8 +217,10 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     const extrudeSettings = { depth: 0.4, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
 
     const edgeColor = useMemo(() => {
-        return (isSelected || isHovered) ? PALETTE.accent.magic : PALETTE.rock.undersideDeep;
-    }, [isSelected, isHovered]);
+        if (isSelected || isHovered) return PALETTE.accent.magic;
+        if (isTargetable) return '#00ffcc'; // Glowing active target color
+        return PALETTE.rock.undersideDeep;
+    }, [isSelected, isHovered, isTargetable]);
 
     const [flash, setFlash] = React.useState(false);
 
@@ -374,6 +376,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             onPointerOver={(e) => { e.stopPropagation(); onHover(node); }}
             onPointerOut={(e) => { e.stopPropagation(); onHover(null); }}
             onClick={(e) => { e.stopPropagation(); onClick(node); }}
+            onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(node); }}
         >
             {/* Dlaždica + hrana + (Task 6: podsada) — animovaná ako celok */}
             <group ref={tileRef}>
@@ -383,7 +386,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
                 </mesh>
                 <lineSegments position={[0, 0, 0.41]}>
                     <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
-                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : 0.45} />
+                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : isTargetable ? 0.8 : 0.45} />
                 </lineSegments>
 
                 {/* Spell Casting VFX projected on the Hexagon */}

@@ -447,6 +447,9 @@ function App() {
         threads={gameState?.threads || []}
         selectedNode={selectedNode}
         onNodeClick={handleNodeClick}
+        selectedCard={selectedCard}
+        onExecuteAction={handleExecuteAction}
+        onMoveHero={handleMoveHero}
         shakeIntensity={shakeIntensity}
         turnsElapsed={gameState?.turnsElapsed || 1}
         map={gameState?.map}
