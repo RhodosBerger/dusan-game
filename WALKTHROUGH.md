@@ -295,11 +295,23 @@ Pre ucelený prehľad o prepojení Go Core, voxelovej fyziky arény, ML syntetiz
     *   **Order-Agnostic Matching Solver:** Systém rozpoznáva a vyhodnocuje zahrané kombinácie kariet nezávisle od poradia ich uloženia alebo vytiahnutia z ruky.
 *   **Overenie:** Overené v rámci nového **Testu 45**. Všetkých **45 backendových integračných testov prebieha úspešne na 100% zeleno!**
 
+### AJ. Docker & Docker Compose Integration (Yarn Orchestration)
 
+Vytvorili sme kompletnú Docker konfiguráciu pre automatické spúšťanie a beh všetkých komponentov projektu:
 
+*   **Dockerfile.go-core:** Viacstupňový build pre kompiláciu vysokovýkonnej Go Core mikroslužby na báze `golang:alpine`.
+*   **Dockerfile.server:** Docker konfigurácia pre Express Node server, ktorá:
+    *   Inštaluje Python 3 a virtualenv pre behovú prevádzku ML spawneru.
+    *   Inštaluje monorepo závislosti cez **Yarn Workspaces**.
+    *   Automaticky spúšťa Prisma migrácie (`npx prisma db push`) pred štartom servera.
+*   **Dockerfile.client:** Docker konfigurácia pre klientsky React/Vite 3D web, ktorý beží s prepínačom `--host` pre správne bindovanie sieťových rozhraní.
+*   **docker-compose.yml:** Definuje kompletné lokálne prostredie vrátane:
+    *   PostgreSQL databázy (`db`) s perzistentným volume.
+    *   Redis inštancie (`redis`) pre potreby Matchmaking Workera.
+    *   Go Core a Express serverov s prepojenou konfiguráciou cez premennú `GO_CORE_URL`.
 
-
-
-
-
-
+**Spustenie v Dockeri:**
+```bash
+docker-compose up --build
+```
+Po zbehnutí príkazu sú všetky služby prepojené a automaticky spustené.
