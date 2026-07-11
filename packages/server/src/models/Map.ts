@@ -1,7 +1,10 @@
 import { BiomeEngine, MLTerrainSynthesizer } from '@dusan-game/shared';
 declare var require: any;
+declare var process: any;
 const fs = require('fs');
 const path = require('path');
+
+const GO_CORE_URL = (typeof process !== 'undefined' && process.env && process.env.GO_CORE_URL) || 'http://localhost:8081';
 
 function getAdjustmentFactor(): number {
   try {
@@ -104,7 +107,7 @@ export class GameMap {
         }
       }
 
-      const response = await fetch('http://localhost:8081/api/synthesize/batch', {
+      const response = await fetch(`${GO_CORE_URL}/api/synthesize/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blocks: blocksToSynthesize })

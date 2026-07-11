@@ -34,6 +34,8 @@ const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BAS
 
 dotenv.config();
 
+const GO_CORE_URL = process.env.GO_CORE_URL || 'http://localhost:8081';
+
 const app = express();
 const server = http.createServer(app);
 
@@ -585,7 +587,7 @@ io.on('connection', (socket) => {
       const baseCard = allBases.find(c => c.id === payload.cardId);
       const manner = baseCard?.cardCategorization === 'attack' ? 'attack' : 
                      (baseCard?.cardCategorization === 'movement' ? 'defense' : 'spell');
-      fetch('http://localhost:8081/api/telemetry/combat', {
+      fetch(`${GO_CORE_URL}/api/telemetry/combat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1009,7 +1011,7 @@ app.get('/api/telemetry', (req, res) => {
 
 app.get('/api/telemetry/vision', async (req, res) => {
   try {
-    const response = await fetch('http://localhost:8081/api/telemetry/vision');
+    const response = await fetch(`${GO_CORE_URL}/api/telemetry/vision`);
     if (!response.ok) {
        res.status(response.status).json({ error: 'Failed to fetch vision telemetry from Go Core' });
        return;
@@ -1045,7 +1047,7 @@ app.post('/api/telemetry/vision', async (req, res) => {
       timestamp: details.timestamp || Date.now()
     });
 
-    const response = await fetch('http://localhost:8081/api/telemetry/vision', {
+    const response = await fetch(`${GO_CORE_URL}/api/telemetry/vision`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

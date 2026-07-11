@@ -12,6 +12,9 @@ export interface TelemetrySpawnEvent {
   description: string;
 }
 
+declare var process: any;
+const GO_CORE_URL = (typeof process !== 'undefined' && process.env && process.env.GO_CORE_URL) || 'http://localhost:8081';
+
 export class SovereignTelemetrySpawner {
   private static activeEvents: TelemetrySpawnEvent[] = [];
 
@@ -26,7 +29,7 @@ export class SovereignTelemetrySpawner {
 
     // 0. Integration with OpenVINO Vision Telemetry (Edge Defect Detection)
     try {
-      const visionRes = await fetch('http://localhost:8081/api/telemetry/vision');
+      const visionRes = await fetch(`${GO_CORE_URL}/api/telemetry/vision`);
       if (visionRes.ok) {
         const visionEvents = (await visionRes.json()) as any[];
         if (visionEvents.length > 0) {
