@@ -146,6 +146,40 @@ function TownBuilding3D() {
     );
 }
 
+function SpellFlashBeam3D({ weatherOverride }) {
+    const meshRef = useRef();
+
+    useFrame((state, delta) => {
+        if (!meshRef.current) return;
+        meshRef.current.scale.x += delta * 1.8;
+        meshRef.current.scale.y += delta * 1.8;
+        meshRef.current.position.z += delta * 2.2;
+        if (meshRef.current.material) {
+            meshRef.current.material.opacity = Math.max(0, meshRef.current.material.opacity - delta * 2.2);
+        }
+    });
+
+    const color = useMemo(() => {
+        if (weatherOverride === 'TOXIC_HAZE') return '#9fdb3b';
+        if (weatherOverride === 'VOID_ECLIPSE') return '#a855f7';
+        if (weatherOverride === 'AURORA_STORM') return '#00ffff';
+        return '#2dd3f1'; // PALETTE.accent.magic
+    }, [weatherOverride]);
+
+    return (
+        <mesh ref={meshRef} position={[0, 0, 0.45]}>
+            <cylinderGeometry args={[1.8, 1.8, 0.4, 6, 1, true]} />
+            <meshBasicMaterial 
+                color={color} 
+                transparent 
+                opacity={0.9} 
+                side={THREE.DoubleSide} 
+                depthWrite={false}
+            />
+        </mesh>
+    );
+}
+
 export default function HexagonNode3D({ node, isHovered, isSelected, onHover, onClick, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null }) {
     const tileRef = useRef();
     const radius = 2.0;
@@ -351,6 +385,9 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
                     <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
                     <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : 0.45} />
                 </lineSegments>
+
+                {/* Spell Casting VFX projected on the Hexagon */}
+                {flash && <SpellFlashBeam3D weatherOverride={weatherOverride} />}
 
                 {/* Skalná podsada — 6-boký zužujúci sa "stalaktit" pod dlaždicou */}
                 <mesh position={[0, 0, -undersideDepth / 2 + 0.02]} rotation={[Math.PI / 2, 0, 0]}>
