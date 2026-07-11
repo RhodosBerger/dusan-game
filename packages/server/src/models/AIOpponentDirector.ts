@@ -26,14 +26,14 @@ const metaDistance = (metaA: number, metaB: number): number => {
  *   1. útok, ak je súper v dosahu a AI má útočnú kartu,
  *   2. inak voľný pohyb o 1 metapozíciu smerom k súperovi,
  *   3. inak koniec ťahu.
- * Počas reakčného okna po hráčovom útoku AI pasuje.
+ * Počas reakčného okna po oponentovom útoku AI pasuje.
  */
 export class AIOpponentDirector {
   private attackedOnTurn = -1;
 
   constructor(private engine: SovereignEngine, private aiThreadId: string) {}
 
-  /** Vykoná najviac jednu akciu. Vráti true, ak sa herný stav zmenil. */
+  /** Vykoná najviac jednu akciu na základe hierarchie a úžitkového skóre. */
   tick(): boolean {
     const engine = this.engine;
     if (engine.state === 'GAME_OVER') return false;
@@ -43,7 +43,6 @@ export class AIOpponentDirector {
     if (!ai || ai.health <= 0) return false;
 
     if (sm.currentPhase === 'INTERRUPT_WINDOW') {
-      // AI je obranca (aktívny hráč počas okna) -> pasuje, nech hra odsýpa
       if (sm.activePlayerId === this.aiThreadId && sm.baseActivePlayerId !== this.aiThreadId) {
         sm.pass(this.aiThreadId);
         return true;
@@ -60,52 +59,109 @@ export class AIOpponentDirector {
       return false;
     }
 
-    if (this.attackedOnTurn !== sm.turnNumber && this.tryAttack(ai, opponent)) {
-      this.attackedOnTurn = sm.turnNumber;
-      return true;
-    }
+    // ── HIERARCHIA ROZHODOVANIA (Action Option Scoring) ──────────────────────
+    const options: Array<{ name: string; score: number; execute: () => boolean }> = [];
 
-    if (this.tryMoveTowards(ai, opponent)) {
-      return true;
-    }
+    const dist = metaDistance(ai.position.meta!, opponent.position.meta);
 
-    // Ruka bez zahrateľnej útočnej karty by sa nikdy neobmenila (dober dopĺňa len
-    // do limitu) — odhodenie jednej karty umožní balíčku cyklovať.
-    if (this.attackedOnTurn !== sm.turnNumber && ai.currentBuffer.length > 0) {
-      const discarded = ai.currentBuffer.shift()!;
-      ai.discardPile.push(discarded);
-      console.log(`[AI_DIRECTOR] ${this.aiThreadId} nemá použiteľný útok, odhadzuje kartu ${discarded.id}.`);
-    }
-
-    console.log(`[AI_DIRECTOR] ${this.aiThreadId} ukončuje ťah ${sm.turnNumber}.`);
-    sm.endTurn();
-    return true;
-  }
-
-  /** Zahrá prvú útočnú kartu z ruky, ak je súper v dosahu (zrkadlí guardy a tok z playCard). */
-  private tryAttack(ai: Thread, opponent: Thread): boolean {
-    if (ai.isDisarmed || ai.position.meta === null) return false;
-
-    // Útočné sú aj HELPER jednotky s poškodením (hadie bomby, veže...) — hrajú sa
-    // rovnako ako v playCard: jednotka sa položí a útok sa registruje do siete.
-    const card = ai.currentBuffer.find(c => {
+    // 1. Taktický Útok
+    const bestAttackCard = ai.currentBuffer.find(c => {
       const base = ALL_BASES.find(b => b.id === c.id);
       return c.damage > 0 || base?.cardCategorization === 'attack';
     });
-    if (!card) return false;
 
-    const dist = metaDistance(ai.position.meta, opponent.position.meta!);
-    const base = ALL_BASES.find(b => b.id === card.id);
-    const isAttackNode = card.damage > 0 || base?.cardCategorization === 'attack';
-    const reach = isAttackNode ? ai.attackReach : ai.spellReach;
-    if (reach === 0 ? dist > 0 : dist > reach) return false;
+    if (bestAttackCard && !ai.isDisarmed && this.attackedOnTurn !== sm.turnNumber) {
+      const base = ALL_BASES.find(b => b.id === bestAttackCard.id);
+      const isAttackNode = bestAttackCard.damage > 0 || base?.cardCategorization === 'attack';
+      const reach = isAttackNode ? ai.attackReach : ai.spellReach;
+      const inReach = reach === 0 ? dist === 0 : dist <= reach;
 
+      if (inReach) {
+        let score = 50; // Základné skóre útoku
+        if (opponent.health <= bestAttackCard.damage) {
+          score = 100; // Likvidačný úder — maximálna priorita
+        } else if (ai.health > 12) {
+          score = 70; // Zdravé AI útočí agresívnejšie
+        }
+        options.push({
+          name: `ATTACK: ${bestAttackCard.id}`,
+          score,
+          execute: () => this.tryAttackWithCard(ai, opponent, bestAttackCard)
+        });
+      }
+    }
+
+    // 2. Taktický Ústup (Ak má AI nízke HP a súper je blízko)
+    if (ai.health <= 6 && dist <= 2 && !ai.isRooted && !ai.freeMovementUsed) {
+      options.push({
+        name: 'RETREAT',
+        score: 80, // Vysoká priorita prežitia
+        execute: () => this.tryRetreat(ai, opponent)
+      });
+    }
+
+    // 3. Strategické Priblíženie
+    if (dist > 0 && !ai.isRooted && !ai.freeMovementUsed) {
+      let score = 40;
+      if (ai.health > 10) {
+        score = 60; // Agresívny postup, ak má dostatok HP
+      }
+      options.push({
+        name: 'ADVANCE',
+        score,
+        execute: () => this.tryMoveTowards(ai, opponent)
+      });
+    }
+
+    // 4. Cyklovanie Kariet (Odhadzovanie nepotrebných, ak nemáme cieľ v dosahu)
+    if (ai.currentBuffer.length > 0 && this.attackedOnTurn !== sm.turnNumber) {
+      options.push({
+        name: 'CYCLE_CARD',
+        score: 25,
+        execute: () => {
+          const discarded = ai.currentBuffer.shift()!;
+          ai.discardPile.push(discarded);
+          console.log(`[AI_DIRECTOR] ${this.aiThreadId} cykluje ruku, odhadzuje ${discarded.id}.`);
+          return true;
+        }
+      });
+    }
+
+    // 5. Koniec Ťahu (Fallback)
+    options.push({
+      name: 'PASS',
+      score: 5,
+      execute: () => {
+        console.log(`[AI_DIRECTOR] ${this.aiThreadId} ukončuje ťah ${sm.turnNumber}.`);
+        sm.endTurn();
+        return true;
+      }
+    });
+
+    // Zoradenie akcií podľa skóre zostupne a vykonanie prvej úspešnej
+    options.sort((a, b) => b.score - a.score);
+    for (const option of options) {
+      console.log(`[AI_DIRECTOR] Evaluating option: ${option.name} (Score: ${option.score})`);
+      if (option.execute()) {
+        if (option.name.startsWith('ATTACK')) {
+          this.attackedOnTurn = sm.turnNumber;
+        }
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /** Zahrá konkrétnu útočnú kartu */
+  private tryAttackWithCard(ai: Thread, opponent: Thread, card: any): boolean {
     const cardIndex = ai.currentBuffer.indexOf(card);
+    if (cardIndex === -1) return false;
+
     ai.currentBuffer.splice(cardIndex, 1);
     ai.discardPile.push(card);
 
     if (card.type === 'HELPER') {
-      // Rovnaké pravidlá ako playCard: pasce sa kladú na políčko cieľa, jednotky na mapu
       const isTrap = card.id === 'snowGround' || card.id === 'snakes' || card.id === 'snakesForward' || card.id === 'rootTrap';
       if (isTrap) {
         const targetChunk = this.engine.map.chunks.find(c => c.id === opponent.position.meta);
@@ -125,27 +181,68 @@ export class AIOpponentDirector {
           !this.engine.threads.some(t => t.position && t.position.meta === ai.position.meta && t.position.hex === block.id)
         );
         if (freeBlock) {
-          this.engine.spawnThread(helperThread, ai.position.meta, freeBlock.id);
+          this.engine.spawnThread(helperThread, ai.position.meta!, freeBlock.id);
         }
       }
     }
 
     const nodeId = `node_ai_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const actionNode = new ActionNode(nodeId, card, this.aiThreadId, opponent.id);
-    console.log(`[AI_DIRECTOR] ${this.aiThreadId} útočí kartou ${card.id} na ${opponent.id} (vzdialenosť ${dist}, dosah ${reach}).`);
+    console.log(`[AI_DIRECTOR] ${this.aiThreadId} útočí kartou ${card.id} na ${opponent.id}.`);
     this.engine.turnStateMachine.registerAction(actionNode);
     return true;
   }
 
-  /** Voľný pohyb o 1 metapozíciu smerom k súperovi (zrkadlí guardy z move_character). */
+  /** Ústup z boja smerom od hráča */
+  private tryRetreat(ai: Thread, opponent: Thread): boolean {
+    const currentDist = metaDistance(ai.position.meta!, opponent.position.meta!);
+
+    // Hľadáme metapozíciu, ktorá je susedná (vzdialenosť 1) a ZVÄČŠUJE vzdialenosť od oponenta
+    const candidateMetas = META_COORDS
+      .map((_, metaId) => metaId)
+      .filter(metaId =>
+        metaDistance(ai.position.meta!, metaId) === 1 &&
+        metaDistance(metaId, opponent.position.meta!) > currentDist
+      );
+
+    for (const metaId of candidateMetas) {
+      const chunk = this.engine.map.chunks.find(c => c.id === metaId);
+      if (!chunk) continue;
+
+      const freeBlock = chunk.blocks.find(block =>
+        block.walkable &&
+        !this.engine.threads.some(t =>
+          t.position && t.position.meta === metaId && t.position.hex === block.id
+        )
+      );
+      if (!freeBlock) continue;
+
+      ai.freeMovementUsed = true;
+      const oldPos = { ...ai.position };
+      ai.position = { meta: metaId, hex: freeBlock.id };
+      console.log(`[AI_DIRECTOR] ${this.aiThreadId} ustúpil z M${oldPos.meta}_S${oldPos.hex} na M${metaId}_S${freeBlock.id}.`);
+
+      this.engine.traceLog.push({
+        type: 'Move',
+        threadId: this.aiThreadId,
+        from: oldPos,
+        to: { meta: metaId, hex: freeBlock.id },
+        cost: 1.0,
+        timestamp: Date.now()
+      } as any);
+
+      this.engine.triggerTrapCheck(ai, metaId, freeBlock.id);
+      this.engine.triggerOpportunityCheck(ai, metaId, freeBlock.id);
+      return true;
+    }
+    return false;
+  }
+
+  /** Voľný pohyb o 1 metapozíciu smerom k súperovi */
   private tryMoveTowards(ai: Thread, opponent: Thread): boolean {
-    if (ai.isRooted || ai.freeMovementUsed) return false;
-    if (ai.position.meta === null || opponent.position.meta === null) return false;
+    const currentDist = metaDistance(ai.position.meta!, opponent.position.meta!);
+    if (currentDist === 0) return false;
 
-    const currentDist = metaDistance(ai.position.meta, opponent.position.meta);
-    if (currentDist === 0) return false; // sme na mieste, pohyb nič nezlepší
-
-    // Kandidátne metapozície: susedné (vzdialenosť 1) a bližšie k súperovi
     const candidateMetas = META_COORDS
       .map((_, metaId) => metaId)
       .filter(metaId =>
