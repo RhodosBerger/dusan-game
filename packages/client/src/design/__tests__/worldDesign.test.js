@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PALETTE, BIOME_SPECS, LIGHTING, WORLD } from '../worldDesign';
+import { PALETTE, BIOME_SPECS, LIGHTING, WORLD, TERRAIN_MAPS, DEFAULT_TERRAIN_MAP } from '../worldDesign';
 
 const HEX = /^#[0-9a-f]{6}$/;
 const BIOMES = ['GLACIER', 'TOXIC_SWAMP', 'DESERT', 'BARRENS', 'LUSH_FOREST'];
@@ -51,5 +51,31 @@ describe('LIGHTING a WORLD', () => {
     expect(WORLD.fog.near).toBeLessThan(WORLD.fog.far);
     expect(WORLD.starCount).toBeGreaterThan(0);
     expect(WORLD.shardCount).toBeGreaterThan(0);
+  });
+});
+
+describe('TERRAIN_MAPS', () => {
+  it('má 4 mapy a MIXED default', () => {
+    expect(TERRAIN_MAPS).toHaveLength(4);
+    expect(DEFAULT_TERRAIN_MAP).toBe('MIXED');
+    expect(TERRAIN_MAPS.map(m => m.id)).toContain('MIXED');
+  });
+
+  it('MIXED má forcedBiome null; témové majú platný biome kľúč (id === biome)', () => {
+    for (const m of TERRAIN_MAPS) {
+      expect(typeof m.label).toBe('string');
+      expect(typeof m.icon).toBe('string');
+      if (m.id === 'MIXED') {
+        expect(m.forcedBiome).toBeNull();
+      } else {
+        expect(m.forcedBiome).toBe(m.id);
+        expect(BIOME_SPECS[m.forcedBiome]).toBeDefined();
+      }
+    }
+  });
+
+  it('3 témové mapy = GLACIER, TOXIC_SWAMP, LUSH_FOREST', () => {
+    const themed = TERRAIN_MAPS.filter(m => m.forcedBiome).map(m => m.id).sort();
+    expect(themed).toEqual(['GLACIER', 'LUSH_FOREST', 'TOXIC_SWAMP']);
   });
 });

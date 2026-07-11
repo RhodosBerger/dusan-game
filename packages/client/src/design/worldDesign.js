@@ -82,3 +82,14 @@ export const WORLD = {
   tileRoughness: 0.85,
   tileMetalness: 0,
 };
+
+// Územné mapy — voľba v lobby. forcedBiome=null → zmiešaná (BiomeEngine per hex).
+// Témové id sa zhoduje s kľúčom v BIOME_SPECS.
+export const TERRAIN_MAPS = [
+  { id: 'MIXED',       label: 'Zmiešaná', icon: '🌍', forcedBiome: null },
+  { id: 'GLACIER',     label: 'Ľadová',   icon: '❄️', forcedBiome: 'GLACIER' },
+  { id: 'TOXIC_SWAMP', label: 'Toxická',  icon: '☠️', forcedBiome: 'TOXIC_SWAMP' },
+  { id: 'LUSH_FOREST', label: 'Lesná',    icon: '🌲', forcedBiome: 'LUSH_FOREST' },
+];
+
+export const DEFAULT_TERRAIN_MAP = 'MIXED';
