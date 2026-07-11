@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
+import { TERRAIN_MAPS, DEFAULT_TERRAIN_MAP } from '../design/worldDesign';
 
 export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching }) {
     const [name, setName] = useState('');
     const [selectedHero, setSelectedHero] = useState('thread_king_ai');
+    const [selectedMap, setSelectedMap] = useState(DEFAULT_TERRAIN_MAP);
 
     const handleSubmit = (e, isAI) => {
         e.preventDefault();
         const nickname = name.trim() || (selectedHero === 'thread_king_ai' ? 'King_AI_Player' : 'Root_Hacker_Player');
         if (isAI) {
-            onStartGame({ name: nickname, hero: selectedHero, vsAI: true });
+            onStartGame({ name: nickname, hero: selectedHero, terrainMap: selectedMap, vsAI: true });
         } else {
-            onSearchMatch({ name: nickname, hero: selectedHero });
+            onSearchMatch({ name: nickname, hero: selectedHero, terrainMap: selectedMap });
         }
     };
 
@@ -115,6 +117,22 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching })
                             maxLength={15}
                             className="bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-cyan-500 text-cyan-300 font-bold"
                         />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] text-slate-400 uppercase">Bojové územie:</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {TERRAIN_MAPS.map(m => (
+                                <div
+                                    key={m.id}
+                                    onClick={() => setSelectedMap(m.id)}
+                                    className={`p-2 rounded-xl border cursor-pointer transition-all text-center ${selectedMap === m.id ? 'bg-cyan-950/40 border-cyan-500/80 shadow-[0_0_15px_rgba(0,255,255,0.15)]' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
+                                >
+                                    <div className="text-lg leading-none mb-1">{m.icon}</div>
+                                    <div className="text-[9px] font-bold text-slate-300">{m.label}</div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Akčné tlačidlá */}

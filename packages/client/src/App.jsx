@@ -9,6 +9,7 @@ import CombinatoricsSandbox from './components/CombinatoricsSandbox';
 import TelemetryDashboard from './components/TelemetryDashboard';
 import { generate3DGrid } from './utils/HexMath3D';
 import { arenaAudio } from './utils/ArenaAudio';
+import { DEFAULT_TERRAIN_MAP } from './design/worldDesign';
 import './App.css';
 
 // Socket.io klient
@@ -24,6 +25,7 @@ function App() {
   const [matchId, setMatchId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [shakeIntensity, setShakeIntensity] = useState(0);
+  const [terrainMap, setTerrainMap] = useState(DEFAULT_TERRAIN_MAP);
   
   // Audio state trackers
   const [lastActivePlayerId, setLastActivePlayerId] = useState(null);
@@ -380,20 +382,22 @@ function App() {
     });
   };
 
-  const handleSearchMatch = ({ name, hero, theme }) => {
+  const handleSearchMatch = ({ name, hero, terrainMap: tm }) => {
+    setTerrainMap(tm || DEFAULT_TERRAIN_MAP);
     setIsSearching(true);
     setIsSandbox(false);
     socket.connect();
     setTimeout(() => {
-      socket.emit('join_matchmaking', { name, hero, theme });
+      socket.emit('join_matchmaking', { name, hero });
     }, 500);
   };
 
-  const handleStartGame = ({ name, hero, theme }) => {
+  const handleStartGame = ({ name, hero, terrainMap: tm }) => {
+    setTerrainMap(tm || DEFAULT_TERRAIN_MAP);
     setIsSandbox(false);
     socket.connect();
     setTimeout(() => {
-      socket.emit('join_ai_match', { name, hero, theme });
+      socket.emit('join_ai_match', { name, hero });
     }, 500);
   };
 
@@ -420,6 +424,7 @@ function App() {
         map={gameState?.map}
         terrainTelemetry={terrainTelemetry}
         ultimateFlash={ultimateFlash}
+        terrainMap={terrainMap}
       />
       
       {/* Cyber-Glassmorphism Tailwind UI */}
