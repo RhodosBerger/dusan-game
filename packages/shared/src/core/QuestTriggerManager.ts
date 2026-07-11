@@ -1,6 +1,9 @@
 // packages/shared/src/core/QuestTriggerManager.ts
 import { Quest } from './PredictiveDirector';
 
+declare var require: any;
+declare var process: any;
+
 export interface PlayerWithQuests {
   id: string;
   quests: Quest[];

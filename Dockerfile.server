@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Install Python 3, virtual environment tools, and build dependencies for native modules
 RUN apk add --no-cache python3 py3-virtualenv build-base
@@ -17,6 +17,7 @@ RUN yarn install
 RUN python3 -m venv /app/packages/server/.venv
 
 # Build shared library and compile TypeScript
+RUN npx prisma generate --schema=packages/server/prisma/schema.prisma
 RUN yarn workspace @dusan-game/shared build
 RUN yarn workspace @dusan-game/server build
 
