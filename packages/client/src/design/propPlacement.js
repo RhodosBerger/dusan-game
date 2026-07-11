@@ -1,17 +1,37 @@
 import { BiomeEngine } from '../../../shared/src/index';
-import { BIOME_SPECS } from './worldDesign';
+import { BIOME_SPECS, TERRAIN_MAPS } from './worldDesign';
 
 // Portálový hex — stred stredovej metapozície; rekvizita by kolidovala s vírom.
 export const PORTAL_NODE_ID = 'm4_s0';
 
 const NEIGHBOR_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 
+// Sub-hexy, na ktoré témová mapa umiestni rekvizity (2 na metapozíciu ≈ 18).
+const THEMED_SUBINDICES = [1, 4];
+
 /**
- * Deterministicky vyberie „jadro biómu" v každej metapozícii: hex s najviac
- * susedmi rovnakého biómu (remíza → prvý v poradí gridu, t. j. najnižší subIndex).
- * Vracia Map<nodeId, propType> — presne 1 záznam na metapozíciu.
+ * Vracia Map<nodeId, propType>.
+ * - MIXED: 1 rekvizita na "jadre" biómu / metapozícia (najviac susedov rovnakého
+ *   biómu; remíza → prvý v poradí gridu). 9 spolu.
+ * - Témová mapa (forcedBiome): 2 rekvizity na metapozíciu (subIndex 1 a 4),
+ *   portál vynechaný, všetky = rekvizita vynúteného biómu. 18 spolu. Deterministické.
  */
-export function computePropPlacements(gridData) {
+export function computePropPlacements(gridData, terrainMap = 'MIXED') {
+  const mapDef = TERRAIN_MAPS.find(m => m.id === terrainMap);
+  const forcedBiome = mapDef ? mapDef.forcedBiome : null;
+
+  if (forcedBiome) {
+    const prop = BIOME_SPECS[forcedBiome].prop;
+    const placements = new Map();
+    for (const node of gridData) {
+      if (node.id === PORTAL_NODE_ID) continue;
+      if (THEMED_SUBINDICES.includes(node.subIndex)) {
+        placements.set(node.id, prop);
+      }
+    }
+    return placements;
+  }
+
   const byCoord = new Map(gridData.map(n => [`${n.q},${n.r}`, n]));
   const biomeCache = new Map();
   const biomeOf = (n) => {

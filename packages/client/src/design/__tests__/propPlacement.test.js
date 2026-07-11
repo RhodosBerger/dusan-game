@@ -52,3 +52,33 @@ describe('computePropPlacements', () => {
     }
   });
 });
+
+describe('computePropPlacements — témové mapy', () => {
+  const grid = generate3DGrid();
+
+  it('MIXED (aj bez argumentu) = 9 rekvizít', () => {
+    expect(computePropPlacements(grid).size).toBe(9);
+    expect(computePropPlacements(grid, 'MIXED').size).toBe(9);
+  });
+
+  it('každá témová mapa = 18 rekvizít, portál m4_s0 vynechaný', () => {
+    for (const map of ['GLACIER', 'TOXIC_SWAMP', 'LUSH_FOREST']) {
+      const p = computePropPlacements(grid, map);
+      expect(p.size).toBe(18);
+      expect(p.has('m4_s0')).toBe(false);
+    }
+  });
+
+  it('témová mapa: všetky rekvizity = prop vynúteného biómu', () => {
+    const p = computePropPlacements(grid, 'GLACIER');
+    for (const propType of p.values()) {
+      expect(propType).toBe(BIOME_SPECS.GLACIER.prop);
+    }
+  });
+
+  it('témová mapa je deterministická', () => {
+    const a = computePropPlacements(grid, 'LUSH_FOREST');
+    const b = computePropPlacements(generate3DGrid(), 'LUSH_FOREST');
+    expect([...a.entries()]).toEqual([...b.entries()]);
+  });
+});
