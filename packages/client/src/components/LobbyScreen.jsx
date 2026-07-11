@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching }) {
+export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, onOpenGraphicsDemo }) {
     const [name, setName] = useState('');
     const [selectedHero, setSelectedHero] = useState('thread_king_ai');
 
@@ -131,6 +131,13 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching })
                             className="w-full bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-purple-300 py-2 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
                         >
                             <span>🤖</span> Trénovať proti AI
+                        </button>
+
+                        <button 
+                            onClick={onOpenGraphicsDemo}
+                            className="w-full bg-slate-900/60 hover:bg-slate-800 border border-slate-700/40 text-slate-300 py-2 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
+                        >
+                            <span>🌌</span> WebGL Graphics Showcase
                         </button>
                     </div>
                 </div>

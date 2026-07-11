@@ -7,6 +7,7 @@ import LobbyScreen from './components/LobbyScreen';
 import AdrenalineVignette from './components/AdrenalineVignette';
 import CombinatoricsSandbox from './components/CombinatoricsSandbox';
 import TelemetryDashboard from './components/TelemetryDashboard';
+import WebGLGraphicsShowcase from './components/WebGLGraphicsShowcase';
 import { generate3DGrid } from './utils/HexMath3D';
 import { arenaAudio } from './utils/ArenaAudio';
 import './App.css';
@@ -18,6 +19,7 @@ function App() {
   const [isSandbox, setIsSandbox] = useState(true);
   const [isCombinatoricsSandboxOpen, setIsCombinatoricsSandboxOpen] = useState(false);
   const [isTelemetryDashboardOpen, setIsTelemetryDashboardOpen] = useState(false);
+  const [isGraphicsShowcaseOpen, setIsGraphicsShowcaseOpen] = useState(false);
   const [entropy, setEntropy] = useState(0.4);
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
@@ -422,12 +424,17 @@ function App() {
     }, 500);
   };
 
+  if (isGraphicsShowcaseOpen) {
+    return <WebGLGraphicsShowcase onClose={() => setIsGraphicsShowcaseOpen(false)} />;
+  }
+
   if (!matchId) {
     return (
       <LobbyScreen 
         onStartGame={handleStartGame}
         onSearchMatch={handleSearchMatch}
         isSearching={isSearching}
+        onOpenGraphicsDemo={() => setIsGraphicsShowcaseOpen(true)}
       />
     );
   }
