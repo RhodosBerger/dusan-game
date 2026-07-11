@@ -360,7 +360,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             {effectiveBiome === 'TOXIC_SWAMP' && !isCollapsing && <SwampVapors />}
             {effectiveBiome === 'DESERT' && !isCollapsing && <DesertHeatParticles />}
             {effectiveBiome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
-            {effectiveBiome === 'LUSH_FOREST' && !isCollapsing && entropy > 0.5 && <ForestFireflies />}
+            {effectiveBiome === 'LUSH_FOREST' && !isCollapsing && (entropy > 0.5 || terrainMap === 'LUSH_FOREST') && <ForestFireflies />}
             {isCollapsing && <VoidCollapseParticles />}
             {hasChest && !isCollapsing && <LootChest3D />}
             {node.isTown && !isCollapsing && <TownBuilding3D />}
