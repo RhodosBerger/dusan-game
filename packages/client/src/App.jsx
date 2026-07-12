@@ -91,7 +91,25 @@ function App() {
       }
     };
 
+    const handleVoltageSurge = (payload) => {
+      console.log('Voltage Surge combo payload:', payload);
+      setActionLogs(prev => [`⚡ VOLTAGE SURGE: ${payload.message}`, ...prev]);
+      setUltimateFlash(true);
+      setTimeout(() => setUltimateFlash(false), 800);
+      arenaAudio.playSpellFeedback(2.5, 6.0, true);
+    };
+
+    const handleShortCircuit = (payload) => {
+      console.log('Short Circuit combo payload:', payload);
+      setActionLogs(prev => [`💥 SHORT CIRCUIT: ${payload.message}`, ...prev]);
+      setShakeIntensity(4.0);
+      setTimeout(() => setShakeIntensity(0), 1000);
+      arenaAudio.playSpellFeedback(1.0, 1.0, false);
+    };
+
     socket.on('match_started', handleMatchStarted);
+    socket.on('voltage_surge', handleVoltageSurge);
+    socket.on('short_circuit', handleShortCircuit);
 
     // ── Audio + VFX wire-up ─────────────────────────────────────────────────
     const handleCardEffect = (e) => {
@@ -122,6 +140,8 @@ function App() {
       unsubscribeLogs();
       unsubscribeConn();
       socket.off('match_started', handleMatchStarted);
+      socket.off('voltage_surge', handleVoltageSurge);
+      socket.off('short_circuit', handleShortCircuit);
       window.removeEventListener('card_played_effect', handleCardEffect);
     };
   }, [connectionEngine, isSandbox]);

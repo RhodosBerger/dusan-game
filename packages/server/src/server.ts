@@ -503,6 +503,24 @@ io.on('connection', (socket) => {
       }
     }
 
+    // Check if a combo was registered in the trace log
+    const lastLogs = engine.traceLog.slice(-3);
+    for (const log of lastLogs) {
+      if (log.type === 'Combo') {
+        if (log.message.includes('Voltage Surge')) {
+          targetEmit('voltage_surge', {
+            playerId: log.threadId,
+            message: log.message
+          });
+        } else if (log.message.includes('Short Circuit')) {
+          targetEmit('short_circuit', {
+            playerId: log.threadId,
+            message: log.message
+          });
+        }
+      }
+    }
+
     const pSpecs = getPhysicsSpecs(payload.cardId);
     const opponentId = activePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
     const opponentThread = engine.threads.find(t => t.id === opponentId);
