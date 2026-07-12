@@ -22,9 +22,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - run: npm ci
-      - run: npm run build -w packages/shared
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn workspace @dusan-game/shared build
       - uses: actions/upload-artifact@v4
         with:
           name: shared-dist
@@ -43,12 +43,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: yarn
       - uses: actions/download-artifact@v4
         with:
           name: shared-dist
           path: packages/shared/dist
-      - run: npm ci
+      - run: yarn install --frozen-lockfile
       - name: Run 16-suite Engine Test
         run: npx ts-node packages/server/src/testEngine.ts
       - name: TypeScript type-check
@@ -88,13 +88,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: yarn
       - uses: actions/download-artifact@v4
         with:
           name: shared-dist
           path: packages/shared/dist
-      - run: npm ci
-      - run: npm run build -w packages/client
+      - run: yarn install --frozen-lockfile
+      - run: yarn workspace client build
         env:
           VITE_CDN_URL: ${{ vars.VITE_CDN_URL || '' }}
       - uses: actions/upload-artifact@v4
@@ -116,7 +116,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: yarn
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -124,7 +124,7 @@ jobs:
         with:
           name: client-dist
           path: packages/client/dist
-      - run: npm ci
+      - run: yarn install --frozen-lockfile
       - run: npx playwright install --with-deps chromium
 
       - name: Start Go Core microservice

@@ -20,6 +20,7 @@ export * from './core/QuestTriggerManager';
 export * from './core/RuleOfThreeSolver';
 export * from './core/SovereignSignalMediator';
 export * from './core/OhmGridEvaluator';
+export * from './core/events';
 export * from './data/base/types';
 
 // Hero & Card Data

@@ -240,7 +240,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [] }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
@@ -250,7 +250,9 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
         return AdrenalineDirector.getCollapsingNodes(turnsElapsed, gridData);
     }, [turnsElapsed, gridData]);
 
-    const [hoveredNode, setHoveredNode] = useState(null);
+    const [localHoveredNode, localSetHoveredNode] = useState(null);
+    const hoveredNode = externalHoveredNode !== undefined ? externalHoveredNode : localHoveredNode;
+    const setHoveredNode = externalSetHoveredNode !== undefined ? externalSetHoveredNode : localSetHoveredNode;
 
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 

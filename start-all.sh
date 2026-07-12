@@ -25,7 +25,7 @@ fi
 
 # Build all typescript workspaces first
 echo -e "${YELLOW}[BUILD] Compiling all packages and workspaces...${NC}"
-npm run build --workspaces
+yarn workspace @dusan-game/shared build && yarn workspace @dusan-game/server build && yarn workspace client build
 if [ $? -ne 0 ]; then
     echo -e "${RED}[BUILD ERROR] Workspace compilation failed! Resolve TS errors first.${NC}"
     exit 1
@@ -52,12 +52,12 @@ GO_PID=$!
 
 # 2. Start Node.js Express API Server (Port 3000)
 echo -e "${PURPLE}[EXPRESS SERVER] Launching Express server on port 3000...${NC}"
-npm run dev --workspace=@dusan-game/server > express-server.log 2>&1 &
+yarn workspace @dusan-game/server dev > express-server.log 2>&1 &
 SERVER_PID=$!
 
 # 3. Start Vite React Client (Port 5173)
 echo -e "${PURPLE}[VITE CLIENT] Launching React R3F client on http://localhost:5173...${NC}"
-npm run dev --workspace=client > vite-client.log 2>&1 &
+yarn workspace client dev > vite-client.log 2>&1 &
 CLIENT_PID=$!
 
 echo -e "${GREEN}==================================================================${NC}"

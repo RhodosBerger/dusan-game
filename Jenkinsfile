@@ -17,6 +17,9 @@ pipeline {
                 echo 'Configuring Python virtual environment...'
                 sh 'python3 -m venv packages/server/.venv'
                 sh './packages/server/.venv/bin/pip install -r packages/server/requirements.txt'
+                
+                echo 'Building shared library...'
+                sh 'yarn workspace @dusan-game/shared build'
             }
         }
 

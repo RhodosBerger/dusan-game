@@ -5,21 +5,24 @@ RUN apk add --no-cache python3 py3-virtualenv build-base
 
 WORKDIR /app
 
-# Copy package configs for caching
-COPY package.json package-lock.json ./
+# Copy package configs for caching Node and Python
+COPY package.json yarn.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/server/package.json ./packages/server/
+COPY packages/server/requirements.txt ./packages/server/
 COPY packages/server/prisma ./packages/server/prisma/
 
 # Install dependencies via yarn
-RUN yarn install
+RUN yarn install --frozen-lockfile
+
+# Setup Python virtual environment for ML spawner and install dependencies
+RUN python3 -m venv /app/packages/server/.venv && \
+    /app/packages/server/.venv/bin/pip install --upgrade pip && \
+    /app/packages/server/.venv/bin/pip install -r /app/packages/server/requirements.txt
 
 # Copy codebase source files
 COPY packages/shared ./packages/shared
 COPY packages/server ./packages/server
-
-# Setup Python virtual environment for ML spawner
-RUN python3 -m venv /app/packages/server/.venv
 
 # Build shared library and compile TypeScript
 RUN npx prisma generate --schema=packages/server/prisma/schema.prisma

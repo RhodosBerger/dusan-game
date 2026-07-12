@@ -2,11 +2,12 @@ import { useEffect, useState, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import CanvasRenderer3D from './components/CanvasRenderer3D';
 import ArenaUIOverlay from './components/ArenaUIOverlay';
-import { EvolutionarySceneGenerator, ConnectionEngine } from '../../shared/src/index';
+import { EvolutionarySceneGenerator, ConnectionEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '../../shared/src/index';
 import LobbyScreen from './components/LobbyScreen';
 import AdrenalineVignette from './components/AdrenalineVignette';
 import CombinatoricsSandbox from './components/CombinatoricsSandbox';
 import TelemetryDashboard from './components/TelemetryDashboard';
+import RPGClassBoard from './components/RPGClassBoard';
 import WebGLGraphicsShowcase from './components/WebGLGraphicsShowcase';
 import { generate3DGrid } from './utils/HexMath3D';
 import { arenaAudio } from './utils/ArenaAudio';
@@ -19,10 +20,12 @@ function App() {
   const [isSandbox, setIsSandbox] = useState(true);
   const [isCombinatoricsSandboxOpen, setIsCombinatoricsSandboxOpen] = useState(false);
   const [isTelemetryDashboardOpen, setIsTelemetryDashboardOpen] = useState(false);
+  const [isRPGClassBoardOpen, setIsRPGClassBoardOpen] = useState(false);
   const [isGraphicsShowcaseOpen, setIsGraphicsShowcaseOpen] = useState(false);
   const [entropy, setEntropy] = useState(0.4);
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [hoveredNode, setHoveredNode] = useState(null);
   const [gameMode, setGameMode] = useState('SANDBOX');
   const [matchId, setMatchId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -374,6 +377,47 @@ function App() {
     }
   };
 
+  const handleCanvasDrop = (e) => {
+    e.preventDefault();
+    const cardId = e.dataTransfer.getData("text/plain");
+    if (!cardId) return;
+
+    const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
+    const card = allBases.find(c => c.id === cardId);
+    if (!card) return;
+
+    if (hoveredNode) {
+      if (!isManualWeather) {
+        const cId = card.id.toLowerCase();
+        if (cId.includes('toxic') || cId.includes('acid') || cId.includes('swamp') || cId.includes('poison')) {
+          setWeatherOverride('TOXIC_HAZE');
+          setTimeout(() => setWeatherOverride(null), 5000);
+        } else if (cId.includes('void') || cId.includes('collapse') || cId.includes('darkness') || cId.includes('purge')) {
+          setWeatherOverride('VOID_ECLIPSE');
+          setTimeout(() => setWeatherOverride(null), 5000);
+        } else if (cId.includes('crystal') || cId.includes('laser') || cId.includes('beam') || cId.includes('shatter')) {
+          setWeatherOverride('AURORA_STORM');
+          setTimeout(() => setWeatherOverride(null), 5000);
+        }
+      }
+
+      connectionEngine.playCard(
+        card.id,
+        hoveredNode.macroIndex,
+        hoveredNode.subIndex
+      );
+
+      arenaAudio.playSpellCast();
+      setActionLogs(prev => [
+        `[DragDrop] Played ${card.name} on Sector ${hoveredNode.macroIndex} Tile ${hoveredNode.subIndex}`,
+        ...prev
+      ]);
+
+      setSelectedCard(null);
+      setSelectedNode(null);
+    }
+  };
+
   // Spustenie / vyhodnotenie akcie cez Connection Engine
   const handleExecuteAction = () => {
     if (!selectedCard || !selectedNode) return;
@@ -516,7 +560,11 @@ function App() {
   }
 
   return (
-    <div className="w-full h-screen relative bg-black overflow-hidden">
+    <div 
+      className="w-full h-screen relative bg-black overflow-hidden"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleCanvasDrop}
+    >
       {/* 3D WebGL Render Shell */}
       <CanvasRenderer3D 
         entropy={entropy} 
@@ -538,6 +586,8 @@ function App() {
         onTransitionComplete={(id) => setActiveTransitions(prev => prev.filter(t => t.id !== id))}
         surgeTile={surgeTile}
         scorchedTiles={scorchedTiles}
+        hoveredNode={hoveredNode}
+        setHoveredNode={setHoveredNode}
       />
       
       {/* Cyber-Glassmorphism Tailwind UI */}
@@ -613,6 +663,13 @@ function App() {
       >
         📊 Telemetry & DB
       </button>
+      {/* Floating button to open RPG Class Board */}
+      <button 
+        onClick={() => setIsRPGClassBoardOpen(true)}
+        className="fixed top-4 left-[615px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-amber-500/40 text-amber-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer transition-all uppercase tracking-wider"
+      >
+        👑 RPG Class Board
+      </button>
       {/* Interaktívny Sandbox Modul */}
       {isCombinatoricsSandboxOpen && (
         <CombinatoricsSandbox onClose={() => setIsCombinatoricsSandboxOpen(false)} />
@@ -620,6 +677,10 @@ function App() {
       {/* Interaktívna Telemetrická Doska */}
       {isTelemetryDashboardOpen && (
         <TelemetryDashboard onClose={() => setIsTelemetryDashboardOpen(false)} />
+      )}
+      {/* Interaktívny RPG Class Board */}
+      {isRPGClassBoardOpen && (
+        <RPGClassBoard onClose={() => setIsRPGClassBoardOpen(false)} />
       )}
     </div>
   );

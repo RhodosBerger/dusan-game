@@ -145,6 +145,120 @@ function FloatingEquippedWeapon3D({ items }) {
     );
 }
 
+// ─── FloatingEquippedArtifacts3D ──────────────────────────────────────────────
+// Renders 3D representations of active class-specific artifacts equipped by the hero
+function FloatingEquippedArtifacts3D({ artifacts }) {
+    const groupRef = useRef();
+    const timeRef = useRef(0);
+
+    const hasCrown = artifacts?.some(a => a.artifact_key === 'EXEMPLAR_CROWN' || a.itemKey === 'EXEMPLAR_CROWN');
+    const hasAmulet = artifacts?.some(a => a.artifact_key === 'SPELLWEAVER_AMULET' || a.itemKey === 'SPELLWEAVER_AMULET');
+    const hasShield = artifacts?.some(a => a.artifact_key === 'SENTINEL_SHIELD' || a.itemKey === 'SENTINEL_SHIELD');
+    const hasGauntlet = artifacts?.some(a => a.artifact_key === 'BEHEMOTH_GAUNTLET' || a.itemKey === 'BEHEMOTH_GAUNTLET');
+    const hasBoots = artifacts?.some(a => a.artifact_key === 'HARBINGER_BOOTS' || a.itemKey === 'HARBINGER_BOOTS');
+
+    useFrame((state, delta) => {
+        timeRef.current += delta;
+        if (groupRef.current) {
+            groupRef.current.position.y = Math.sin(timeRef.current * 1.5) * 0.05;
+        }
+    });
+
+    if (!artifacts || artifacts.length === 0) return null;
+
+    return (
+        <group ref={groupRef}>
+            {/* Crown: Gold and Neon glowing ring above head */}
+            {hasCrown && (
+                <group position={[0, 1.85, 0]} rotation={[Math.PI / 12, 0, 0]}>
+                    <mesh castShadow>
+                        <torusGeometry args={[0.22, 0.03, 8, 24]} />
+                        <meshStandardMaterial color="#ffd700" metalness={0.9} roughness={0.1} />
+                    </mesh>
+                    {[0, 1, 2, 3, 4, 5].map((idx) => {
+                        const angle = (Math.PI / 3) * idx;
+                        return (
+                            <mesh 
+                                key={idx} 
+                                position={[Math.cos(angle) * 0.22, 0.06, Math.sin(angle) * 0.22]} 
+                                rotation={[0, -angle, 0]}
+                            >
+                                <coneGeometry args={[0.02, 0.08, 4]} />
+                                <meshBasicMaterial color="#00ffff" />
+                            </mesh>
+                        );
+                    })}
+                </group>
+            )}
+
+            {/* Amulet: Spinning medallion next to character */}
+            {hasAmulet && (
+                <group 
+                    position={[0, 0.8, -0.65]} 
+                    rotation={[0, timeRef.current * 2.2, 0]}
+                >
+                    <mesh castShadow>
+                        <cylinderGeometry args={[0.12, 0.12, 0.02, 16]} />
+                        <meshStandardMaterial color="#00e5ff" emissive="#00bcd4" emissiveIntensity={0.8} />
+                    </mesh>
+                    <mesh position={[0, 0, 0.02]}>
+                        <torusGeometry args={[0.08, 0.015, 8, 16]} />
+                        <meshBasicMaterial color="#ffffff" />
+                    </mesh>
+                </group>
+            )}
+
+            {/* Shield: Heavy carbon shield on left side */}
+            {hasShield && (
+                <group 
+                    position={[-0.8, 0.7, 0]} 
+                    rotation={[0, Math.PI / 6, Math.sin(timeRef.current * 2.5) * 0.1]}
+                >
+                    <mesh castShadow>
+                        <boxGeometry args={[0.15, 0.45, 0.04]} />
+                        <meshStandardMaterial color="#3f3f4f" metalness={0.8} roughness={0.4} />
+                    </mesh>
+                    <mesh position={[0.08, 0, 0]}>
+                        <boxGeometry args={[0.02, 0.15, 0.08]} />
+                        <meshBasicMaterial color="#ef4444" />
+                    </mesh>
+                </group>
+            )}
+
+            {/* Gauntlet: Heavy fist on right side */}
+            {hasGauntlet && (
+                <group 
+                    position={[0.8, 0.7, 0]} 
+                    rotation={[Math.sin(timeRef.current * 3.0) * 0.15, 0, 0]}
+                >
+                    <mesh castShadow>
+                        <boxGeometry args={[0.22, 0.22, 0.22]} />
+                        <meshStandardMaterial color="#b45309" metalness={0.9} roughness={0.1} />
+                    </mesh>
+                    <mesh position={[0.12, 0, 0]}>
+                        <boxGeometry args={[0.02, 0.16, 0.16]} />
+                        <meshBasicMaterial color="#f59e0b" />
+                    </mesh>
+                </group>
+            )}
+
+            {/* Boots: Small wings/boosters at bottom */}
+            {hasBoots && (
+                <group position={[0, 0.15, 0]}>
+                    {[-0.32, 0.32].map((x, idx) => (
+                        <group key={idx} position={[x, 0, 0]} rotation={[0, 0, idx === 0 ? -Math.PI/6 : Math.PI/6]}>
+                            <mesh castShadow>
+                                <boxGeometry args={[0.2, 0.06, 0.02]} />
+                                <meshStandardMaterial color="#ffd700" emissive="#ffd700" emissiveIntensity={0.5} />
+                            </mesh>
+                        </group>
+                    ))}
+                </group>
+            )}
+        </group>
+    );
+}
+
 // ─── GlitchCore3D ─────────────────────────────────────────────────────────────
 // Pulsing glitch core with an orbit ring for neutral AI monsters
 function GlitchCore3D({ tintColor }) {
@@ -636,6 +750,9 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
 
                         {/* Equipped weapons & harvesting tools purchased at Town Shop */}
                         <FloatingEquippedWeapon3D items={thread.items} />
+
+                        {/* Equipped class artifacts synced from SQLite/PostgreSQL */}
+                        <FloatingEquippedArtifacts3D artifacts={thread.artifacts} />
                     </>
                 )}
             </group>

@@ -113,4 +113,21 @@ export class Pathfinder {
 
     return null; // Cesta neexistuje
   }
+
+  /**
+   * Validates if a target hex tile is within a specific range/reach from a start hex tile.
+   */
+  public static validateActionDistance(
+    startMeta: number,
+    startHex: number,
+    targetMeta: number,
+    targetHex: number,
+    range: number,
+    minRange: number = 0
+  ): boolean {
+    const startCoords = BiomeEngine.getHexCoordinates(startMeta, startHex);
+    const targetCoords = BiomeEngine.getHexCoordinates(targetMeta, targetHex);
+    const distance = this.hexDistance(startCoords.q, startCoords.r, targetCoords.q, targetCoords.r);
+    return distance >= minRange && distance <= range;
+  }
 }

@@ -7,11 +7,11 @@ cd "$(dirname "$0")"
 # Prvé spustenie: nainštaluj závislosti a zbuilduj shared balík
 if [ ! -d node_modules ]; then
     echo "[SETUP] Inštalujem závislosti (len prvýkrát)..."
-    npm install || exit 1
+    yarn install || exit 1
 fi
 if [ ! -d packages/shared/dist ]; then
     echo "[SETUP] Buildujem shared balík (len prvýkrát)..."
-    npm run build --workspace=@dusan-game/shared || exit 1
+    yarn workspace @dusan-game/shared build || exit 1
 fi
 
 cleanup() {
@@ -36,11 +36,11 @@ else
 fi
 
 echo "[SERVER] Spúšťam herný server (port 3001)..."
-npm run dev --workspace=@dusan-game/server > server.log 2>&1 &
+yarn workspace @dusan-game/server dev > server.log 2>&1 &
 SERVER_PID=$!
 
 echo "[KLIENT] Spúšťam hru..."
-npm run dev --workspace=client 2>&1 | tee client.log &
+yarn workspace client dev 2>&1 | tee client.log &
 CLIENT_PID=$!
 
 echo ""

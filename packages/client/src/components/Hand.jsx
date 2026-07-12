@@ -27,6 +27,11 @@ const Hand = ({ cards, activeCardId, onCardClick }) => {
             key={card.id} 
             className={cardClass}
             onClick={() => onCardClick(card.id)}
+            draggable="true"
+            onDragStart={(e) => {
+              e.dataTransfer.setData("text/plain", card.id);
+              onCardClick(card.id);
+            }}
           >
             <h4>{card.name}</h4>
             <div className="stats">

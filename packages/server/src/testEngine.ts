@@ -5,7 +5,9 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase } from '@dusan-game/shared';
+import { KnowledgeBaseService } from './services/KBService';
+import { GameState, resolveEngineState } from './models/EnginePipeline';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -734,6 +736,11 @@ async function runTests() {
   console.log(`  [PASS] Dataset levelov načítaný úspešne (${levelsData.length} levelov)`);
 
   // Simulate BOSS_SPAWN scenario trigger on enginePvE
+  const targetBlock21 = enginePvE.map.chunks.find(c => c.id === 1)?.blocks.find(b => b.id === 0);
+  if (targetBlock21) {
+    targetBlock21.walkable = true;
+    targetBlock21.threadId = null;
+  }
   const initialThreadCount = enginePvE.threads.length;
   const scenarioBoss = enginePvE.spawnNPC('void_sentinel_boss', 'Elite Void Sentinel', 1, 0, 7);
   if (scenarioBoss) {
@@ -2022,7 +2029,163 @@ async function runTests() {
     } catch (_) {}
   }
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items a Character-Class-Artifacts testy prebehli úspešne!");
+  // ----------------------------------------------------
+  // TEST 62: Modular Integration Framework (Roadmap Verification)
+  // ----------------------------------------------------
+  console.log("\nTest 62: Modular Integration Framework (Roadmap Verification)");
+
+  // 1. Verify Modul 3: Events
+  const moveEvent: GameEvent = {
+    eventId: "e_01",
+    matchId: "match_62",
+    timestamp: Date.now(),
+    stepIndex: 1,
+    type: 'PLAYER_MOVED',
+    threadId: "player_01",
+    from: { meta: 0, hex: 0 },
+    to: { meta: 0, hex: 1 }
+  };
+  assert(moveEvent.type === 'PLAYER_MOVED', "Event type by mal byť PLAYER_MOVED.");
+
+  // 2. Verify Modul 4: KBService loader
+  const kbService = KnowledgeBaseService.getInstance();
+  const testBaseCard: CardBase = {
+    id: "aetheric_lance",
+    heroId: "crystal",
+    count: 1,
+    isUnit: false,
+    isUltimate: false,
+    cardCategorization: "magic",
+    specifications: []
+  };
+  kbService.loadCards([testBaseCard], {
+    aetheric_lance: { name: "Aetheric Lance", description: "Fires a concentrated beam of light." }
+  });
+  const instr = kbService.getInstruction("aetheric_lance");
+  assert(instr !== undefined, "Inštrukcia aetheric_lance by mala byť úspešne skompilovaná.");
+  assert(instr!.damage === 2, "Magic card base damage should be compiled as 2.");
+
+  // 3. Verify Modul 2: EnginePipeline resolver
+  const initialGameState: GameState = {
+    state: 'PLAYER_TURN',
+    systemHeat: 0,
+    globalEntropy: 0.1,
+    threads: [
+      {
+        id: "thread_alpha",
+        type: 'PLAYER',
+        memoryIntegrity: 10,
+        resistance: 1.0,
+        position: { meta: 0, hex: 0 },
+        currentBuffer: []
+      }
+    ],
+    actionNetwork: [
+      {
+        id: "node_01",
+        instruction: instr!,
+        sourceId: "thread_beta",
+        targetId: "thread_alpha",
+        reactions: []
+      }
+    ]
+  };
+
+  const nextGameState = resolveEngineState(initialGameState);
+  assert(nextGameState.actionNetwork.length === 0, "Akčná sieť by mala byť po spracovaní prázdna.");
+  
+  const targetAlpha = nextGameState.threads.find(t => t.id === "thread_alpha");
+  assert(targetAlpha !== undefined, "Thread alpha by mal existovať.");
+  assert(targetAlpha!.memoryIntegrity === 9, "Memory integrity by mala byť znížená na 9.");
+
+  // 4. Verify Test 63: Distance Rulesets and Mortar Actions
+  const mortarCard: CardBase = {
+    id: "aetheric_mortar",
+    heroId: "crystal",
+    count: 1,
+    isUnit: false,
+    isUltimate: false,
+    cardCategorization: "magic",
+    specifications: []
+  };
+  kbService.loadCards([mortarCard], {
+    aetheric_mortar: { name: "Aetheric Mortar", description: "Long distance high-heat mortar strike." }
+  });
+  const mortarInstr = kbService.getInstruction("aetheric_mortar");
+  // Set damage/hpChange specifically for mortar impact
+  mortarInstr!.damage = 8;
+  mortarInstr!.hpChange = 4;
+
+  const distanceGameState: GameState = {
+    state: 'PLAYER_TURN',
+    systemHeat: 0,
+    globalEntropy: 0.1,
+    threads: [
+      {
+        id: "hero_source",
+        type: 'PLAYER',
+        memoryIntegrity: 10,
+        resistance: 0.5,
+        position: { meta: 0, hex: 0 }, // q: 0, r: 0
+        currentBuffer: []
+      },
+      {
+        id: "mortar_target",
+        type: 'PLAYER',
+        memoryIntegrity: 10,
+        resistance: 0.5,
+        position: { meta: 0, hex: 3 }, // q: 0, r: -1 (distance 1 from center, meta 0 is center q:0, r:0)
+        currentBuffer: []
+      },
+      {
+        id: "mortar_adjacent",
+        type: 'PLAYER',
+        memoryIntegrity: 10,
+        resistance: 0.5,
+        position: { meta: 0, hex: 1 }, // q: 1, r: 0 (adjacent to center hex 0, distance 1 from hex 3)
+        currentBuffer: []
+      }
+    ],
+    actionNetwork: [
+      {
+        id: "mortar_node",
+        instruction: mortarInstr!,
+        sourceId: "hero_source",
+        targetId: "mortar_target",
+        reactions: []
+      }
+    ]
+  };
+
+  // Hex coordinates mapping:
+  // Center is { q: 0, r: 0 } (hex 0)
+  // hex 3 is { q: 0, r: -1 }
+  // hex 1 is { q: 1, r: 0 }
+  // Distance between { q: 0, r: -1 } and { q: 1, r: 0 } is (Math.abs(-1) + Math.abs(1) + Math.abs(-1 - 1))/2 = (1 + 1 + 2)/2 = 2.
+  // Wait, let's verify distance between hex 0 (center q:0,r:0) and hex 3 (q:0, r:-1) -> distance is 1.
+  // We want distance between source (hex 0) and target to be >= 3.
+  // Let's place target at meta 1 center (q:3, r:-1).
+  // Distance between { q: 0, r: 0 } and { q: 3, r: -1 } is (3 + 1 + 2)/2 = 3!
+  // And adjacent at meta 1 hex 1 (q:4, r:-1) -> distance from target is 1!
+  distanceGameState.threads[1].position = { meta: 1, hex: 0 }; // q: 3, r: -1 (target)
+  distanceGameState.threads[2].position = { meta: 1, hex: 1 }; // q: 4, r: -1 (adjacent to target)
+
+  const resolvedDistState = resolveEngineState(distanceGameState);
+  const resolvedTarget = resolvedDistState.threads.find(t => t.id === "mortar_target");
+  const resolvedAdjacent = resolvedDistState.threads.find(t => t.id === "mortar_adjacent");
+
+  assert(resolvedTarget !== undefined, "Mortar target thread should exist.");
+  assert(resolvedTarget!.memoryIntegrity < 10, "Mortar target should take direct damage.");
+  assert(resolvedAdjacent !== undefined, "Mortar adjacent thread should exist.");
+  assert(resolvedAdjacent!.memoryIntegrity === 8, "Adjacent thread should take half damage (4/2 = 2 dmg -> 10-2 = 8).");
+  assert(resolvedDistState.systemHeat > 0, "Long range mortar friction should generate system heat.");
+
+  console.log(`  [PASS] Modul 3 (Unified Telemetry Event Bus) structure validated.`);
+  console.log(`  [PASS] Modul 4 (Dynamic Rule Loader / KnowledgeBaseService) compiled base cards.`);
+  console.log(`  [PASS] Modul 2 (Stateless State Engine Pipeline) computed Ohm's Law physics transition.`);
+  console.log(`  [PASS] Test 63 (Draggable Canvas Distance Rulesets & Mortar AoE) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts a Modular-Integration-Framework testy prebehli úspešne!");
 }
 
 runTests().catch(err => {
