@@ -313,15 +313,34 @@ export class TurnStateMachine {
       return thread.drawPile.pop();
     };
 
-    // Dobratie kariet do limitu pre všetkých hráčov (pravidlo shody pri dobírání)
+    // Dobratie kariet pre aktívneho hráča na konci ťahu
+    const drawingActiveThread = this.engine.threads.find(t => t.id === this.baseActivePlayerId);
+    let cardsDrawnByActive = 0;
+    if (drawingActiveThread && drawingActiveThread.type === 'PLAYER') {
+      const drawAmount = Math.max(0, drawingActiveThread.handLimit - drawingActiveThread.currentBuffer.length);
+      for (let i = 0; i < drawAmount; i++) {
+        const card = drawCard(drawingActiveThread);
+        if (card) {
+          drawingActiveThread.currentBuffer.push(card);
+          cardsDrawnByActive++;
+        }
+      }
+      console.log(`[RULE_OF_SHODA] Aktivny hrac ${drawingActiveThread.id} dobral ${cardsDrawnByActive} kariet.`);
+    }
+
+    // Ostatní hráči si doberú presne rovnaký počet kariet (cardsDrawnByActive), maximálne však do svojho limitu
     this.engine.threads.forEach(t => {
-      if (t.type === 'PLAYER') {
-        const drawAmount = Math.max(0, t.handLimit - t.currentBuffer.length);
+      if (t.type === 'PLAYER' && t.id !== this.baseActivePlayerId) {
+        const spaceInHand = Math.max(0, t.handLimit - t.currentBuffer.length);
+        const drawAmount = Math.min(cardsDrawnByActive, spaceInHand);
         for (let i = 0; i < drawAmount; i++) {
           const card = drawCard(t);
           if (card) {
             t.currentBuffer.push(card);
           }
+        }
+        if (drawAmount > 0) {
+          console.log(`[RULE_OF_SHODA] Oponent hrac ${t.id} dobral ${drawAmount} kariet na zaklade shody.`);
         }
       }
     });
