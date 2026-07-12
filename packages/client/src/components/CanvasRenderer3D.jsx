@@ -484,13 +484,48 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     ))}
 
                     {/* Vykreslenie plynule Lerp-ovaných figúrok postáv */}
-                    {threads.map((thread) => (
-                        <ThreadMiniature 
-                            key={thread.id}
-                            thread={thread}
-                            gridData={gridData}
-                        />
-                    ))}
+                    {threads.map((thread) => {
+                        const associatedNode = thread.position && thread.position.meta !== null && thread.position.hex !== null
+                            ? gridData.find(n => n.macroIndex === thread.position.meta && n.subIndex === thread.position.hex)
+                            : null;
+
+                        const handleMiniatureClick = () => {
+                            if (associatedNode) {
+                                onNodeClick(associatedNode);
+                            }
+                        };
+
+                        const handleMiniatureDoubleClick = () => {
+                            if (associatedNode && selectedCard) {
+                                const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+                                if (activeHero && activeHero.position?.meta !== undefined && activeHero.position?.meta !== null) {
+                                    const dist = getMetaDistance(activeHero.position.meta, associatedNode.macroIndex);
+                                    const base = allBases.find(b => b.id === selectedCard.id);
+                                    if (base) {
+                                        const isAttackNode = base.cardCategorization === 'attack' || base.damage > 0;
+                                        const reach = isAttackNode ? (activeHero.attackReach || 1) : (activeHero.spellReach || 2);
+                                        const isTargetable = reach === 0 ? dist === 0 : dist <= reach;
+                                        if (isTargetable) {
+                                            onNodeClick(associatedNode);
+                                            setTimeout(() => {
+                                                onExecuteAction();
+                                            }, 50);
+                                        }
+                                    }
+                                }
+                            }
+                        };
+
+                        return (
+                            <ThreadMiniature 
+                                key={thread.id}
+                                thread={thread}
+                                gridData={gridData}
+                                onClick={handleMiniatureClick}
+                                onDoubleClick={handleMiniatureDoubleClick}
+                            />
+                        );
+                    })}
 
                     {/* Hero hit VFX — mounted per thread */}
                     {threads.map((thread) => (

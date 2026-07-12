@@ -295,7 +295,7 @@ function FootprintGlow({ position, color }) {
 }
 
 // ─── ThreadMiniature ─────────────────────────────────────────────────────────
-export default function ThreadMiniature({ thread, gridData }) {
+export default function ThreadMiniature({ thread, gridData, onClick, onDoubleClick }) {
     const groupRef   = useRef();
     const spriteRef  = useRef();
 
@@ -569,8 +569,22 @@ export default function ThreadMiniature({ thread, gridData }) {
                 </group>
             ))}
 
-            {/* ── Hero group (LERP-tracked or keyframe animated) */}
-            <group ref={groupRef} position={[targetPos.x, -5, targetPos.z]}>
+            <group 
+                ref={groupRef} 
+                position={[targetPos.x, -5, targetPos.z]}
+                onClick={(e) => {
+                    if (onClick) {
+                        e.stopPropagation();
+                        onClick();
+                    }
+                }}
+                onDoubleClick={(e) => {
+                    if (onDoubleClick) {
+                        e.stopPropagation();
+                        onDoubleClick();
+                    }
+                }}
+            >
                 {/* Base pedestal */}
                 <mesh castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
                     <cylinderGeometry args={[0.5, 0.55, 0.1, 16]} />

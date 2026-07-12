@@ -178,10 +178,10 @@ export default function ArenaUIOverlay({
     }, [cards, selectedCard, selectedNode, onEndTurn, setSelectedCard, onExecuteAction]);
 
     const [collapsed, setCollapsed] = React.useState({
-        telemetry: window.innerWidth < 1024,
-        sandbox: true, // predvolene zatvorené pre šetrenie miesta
-        quests: window.innerWidth < 1024,
-        logs: window.innerWidth < 1024, // na mobiloch predvolene zatvorené
+        telemetry: true,
+        sandbox: true,
+        quests: true,
+        logs: true,
         compositor: true
     });
 
@@ -756,19 +756,78 @@ export default function ArenaUIOverlay({
                 </button>
             </div>
 
+            {/* Desktop Top Toolbar for Panels */}
+            <div className="hidden lg:flex justify-end gap-2 pointer-events-auto z-30 absolute top-4 right-4 bg-slate-950/80 border border-slate-800/80 p-2 rounded-2xl backdrop-blur-md shadow-2xl">
+                <button 
+                    onClick={() => setCollapsed(prev => ({ ...prev, telemetry: !prev.telemetry }))}
+                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        !collapsed.telemetry 
+                            ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-[0.98]' 
+                            : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                    title="Prepnúť panel telemetrie [T]"
+                >
+                    📊 Telemetria
+                </button>
+                <button 
+                    onClick={() => setCollapsed(prev => ({ ...prev, sandbox: !prev.sandbox }))}
+                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        !collapsed.sandbox 
+                            ? 'bg-amber-500/25 border-amber-400 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.3)] scale-[0.98]' 
+                            : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                    title="Prepnúť panel sandboxu"
+                >
+                    ⚙️ Sandbox
+                </button>
+                <button 
+                    onClick={() => setCollapsed(prev => ({ ...prev, quests: !prev.quests }))}
+                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        !collapsed.quests 
+                            ? 'bg-green-500/25 border-green-400 text-green-200 shadow-[0_0_15px_rgba(34,197,94,0.3)] scale-[0.98]' 
+                            : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                    title="Prepnúť panel úloh"
+                >
+                    📜 Úlohy
+                </button>
+                <button 
+                    onClick={() => setCollapsed(prev => ({ ...prev, compositor: !prev.compositor }))}
+                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        !collapsed.compositor 
+                            ? 'bg-purple-500/25 border-purple-400 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.3)] scale-[0.98]' 
+                            : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                    title="Prepnúť panel kompozitora"
+                >
+                    🎨 Kompozitor
+                </button>
+                <button 
+                    onClick={() => setCollapsed(prev => ({ ...prev, logs: !prev.logs }))}
+                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        !collapsed.logs 
+                            ? 'bg-rose-500/25 border-rose-400 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.3)] scale-[0.98]' 
+                            : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                    title="Prepnúť záznamy hry"
+                >
+                    📝 Záznamy
+                </button>
+            </div>
+
             {/* Desktop-only side panels — kontajner je celoplošný, preto NESMIE chytať
                 pointer eventy (blokoval by kameru na canvase pod ním); interaktívne sú
                 až samotné panely. flex-1 + min-h-0 zaručí, že panely si zoberú len
                 priestor zvyšný po spodnom HUD s kartami a vnútri skrolujú. */}
-            <div className="w-full hidden lg:flex lg:flex-row justify-between items-start gap-4 pointer-events-none pr-2 flex-1 min-h-0">
-                <div className="flex flex-col gap-3 w-full max-w-md pointer-events-auto max-h-full overflow-y-auto pr-1">
-                    {renderTelemetry(false)}
-                    {renderSandbox(false)}
-                    {renderQuests(false)}
-                    {renderCompositor(false)}
+            <div className="w-full hidden lg:flex lg:flex-row justify-between items-start gap-4 pointer-events-none pr-2 flex-1 min-h-0 mt-16">
+                <div className="flex flex-col gap-3 w-full max-w-sm pointer-events-auto max-h-full overflow-y-auto pr-1">
+                    {!collapsed.telemetry && renderTelemetry(false)}
+                    {!collapsed.sandbox && renderSandbox(false)}
+                    {!collapsed.quests && renderQuests(false)}
+                    {!collapsed.compositor && renderCompositor(false)}
                 </div>
                 <div className="pointer-events-auto max-h-full overflow-y-auto">
-                    {renderLogs(false)}
+                    {!collapsed.logs && renderLogs(false)}
                 </div>
             </div>
 
@@ -799,110 +858,100 @@ export default function ArenaUIOverlay({
                 </div>
             )}
 
-            {/* Stredné HUD - Výber, Pohyb a Spustenie akcie */}
-            <div className="self-center flex flex-col items-center gap-2 pointer-events-auto">
-                {selectedCard && (
-                    <div className="flex flex-col gap-2">
-                        <div className="bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1 min-w-[280px]">
-                            <div>
-                                Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
-                            </div>
-                            {selectedNode ? (
-                                <div>
-                                    Cieľový hexagón: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
-                                    <button 
-                                        onClick={handleExecuteClick}
-                                        className="ml-3 bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-0.5 rounded font-bold transition-colors cursor-pointer"
-                                    >
-                                        Spustiť [Space] (V={selectedCard.isUltimate ? 6 : 3})
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="text-slate-400 italic">
-                                    Kliknutím na 3D arénu vyberte cieľový hexagón
-                                </div>
-                            )}
-                        </div>
 
-                        {/* TACTICAL PHYSICS SPECTROMETER */}
-                        <div className="bg-[#0e0e16]/90 border border-purple-500/40 text-slate-300 p-3 rounded-lg shadow-lg backdrop-blur-md text-[10px] font-mono flex flex-col gap-2 min-w-[280px]">
-                            <div className="text-[#a855f7] font-bold uppercase tracking-wider text-center border-b border-purple-500/20 pb-1">
-                                📊 Taktický Fyzikálny Spektrometer
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-left">
-                                 <div>Napätie (V): <span className="text-[color:var(--accent-magic)] font-bold"><AnimatedNumber value={currentV} suffix=" V" /></span></div>
-                                 <div>Odpor (R): <span className="text-[color:var(--accent-loot)] font-bold"><AnimatedNumber value={currentR} suffix=" Ω" /></span></div>
-                                 <div className={currentI >= 1.0 
-                                     ? "text-green-400 font-bold drop-shadow-[0_0_8px_rgba(57,255,20,0.6)] animate-pulse" 
-                                     : "text-red-400 font-bold animate-pulse border border-red-500/30 px-1 rounded bg-red-950/20"
-                                 }>
-                                     Prúd (I = V/R): <span><AnimatedNumber value={currentI} suffix=" A" /></span>
+            {/* Spodná ruka kariet (Spodný HUD z bodu 2 checklistu) */}
+            <div className="w-full flex flex-col items-center gap-2 pointer-events-auto pb-4">
+                {/* Compact Horizontal Action / Node Dock */}
+                {selectedCard && (
+                    <div className="flex flex-col md:flex-row gap-3 items-stretch justify-center max-w-full mb-1">
+                         {/* Action Header Panel */}
+                         <div className="bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-white px-4 py-2 rounded-xl shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col justify-center min-w-[260px]">
+                             <div>
+                                 Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
+                             </div>
+                             {selectedNode ? (
+                                 <div className="mt-1.5">
+                                     Cieľový hexagón: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
+                                     <div className="mt-2">
+                                         <button 
+                                             onClick={handleExecuteClick}
+                                             className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer text-[10px]"
+                                         >
+                                             Spustiť [Space]
+                                         </button>
+                                     </div>
                                  </div>
-                                 <div>Ohmic Load (P = V*I): <span className="text-purple-400 font-bold"><AnimatedNumber value={currentP} suffix=" W" /></span></div>
+                             ) : (
+                                 <div className="text-slate-400 italic mt-1.5">
+                                     Kliknite na 3D arénu alebo nepriateľa
+                                 </div>
+                             )}
+                         </div>
+
+                         {/* TACTICAL PHYSICS SPECTROMETER */}
+                         <div className="bg-[#0e0e16]/90 border border-purple-500/40 text-slate-300 p-2.5 rounded-xl shadow-lg backdrop-blur-md text-[9px] font-mono flex flex-col gap-1.5 min-w-[260px]">
+                             <div className="text-[#a855f7] font-bold uppercase tracking-wider text-center border-b border-purple-500/20 pb-0.5">
+                                 📊 Taktický Spektrometer
+                             </div>
+                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-left">
+                                  <div>V (Napätie): <span className="text-[color:var(--accent-magic)] font-bold"><AnimatedNumber value={currentV} suffix=" V" /></span></div>
+                                  <div>R (Odpor): <span className="text-[color:var(--accent-loot)] font-bold"><AnimatedNumber value={currentR} suffix=" Ω" /></span></div>
+                                  <div className={currentI >= 1.0 
+                                      ? "text-green-400 font-bold drop-shadow-[0_0_8px_rgba(57,255,20,0.6)] animate-pulse" 
+                                      : "text-red-400 font-bold animate-pulse"
+                                  }>
+                                      I (Prúd): <span><AnimatedNumber value={currentI} suffix=" A" /></span>
+                                  </div>
+                                  <div>P (Výkon): <span className="text-purple-400 font-bold"><AnimatedNumber value={currentP} suffix=" W" /></span></div>
                              </div>
 
-                            {selectedNode && (
-                                <div className="mt-1.5 pt-1.5 border-t border-purple-500/20 text-left flex flex-col gap-1">
-                                    <div className="text-yellow-400 font-bold uppercase tracking-widest text-[8px] text-center mb-1">
-                                        Predikcia Kvantového Stavu
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Poškodenie (DMG):</span>
-                                        <span className="text-red-400 font-bold">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).damageApplied} HP
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Systémové preťaženie:</span>
-                                        <span className="text-orange-400 font-bold">
-                                            +{AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).energyDelta.toFixed(0)} J
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Kinetické vytesnenie:</span>
-                                        <span className="text-[color:var(--accent-magic)] font-bold uppercase">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType === 'none' ? 'Bez posunu' : 
-                                             `${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType} ${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementDistance} hex`}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Udelený stav:</span>
-                                        <span className="text-[color:var(--accent-loot)] font-bold uppercase">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).statusApplied}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Šanca na zásah:</span>
-                                        <span className="text-green-400 font-bold">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).successProbability.toFixed(0)}%
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                             {selectedNode && (
+                                 <div className="mt-1 pt-1 border-t border-purple-500/20 text-left flex flex-col gap-0.5">
+                                     <div className="flex justify-between">
+                                         <span>DMG (Poškodenie):</span>
+                                         <span className="text-red-400 font-bold">
+                                             {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).damageApplied} HP
+                                         </span>
+                                     </div>
+                                     <div className="flex justify-between">
+                                         <span>Preťaženie:</span>
+                                         <span className="text-orange-400 font-bold">
+                                             +{AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).energyDelta.toFixed(0)} J
+                                         </span>
+                                     </div>
+                                     <div className="flex justify-between">
+                                         <span>Presun:</span>
+                                         <span className="text-[color:var(--accent-magic)] font-bold uppercase">
+                                             {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType === 'none' ? 'Nie' : 
+                                              `${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType} ${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementDistance} hex`}
+                                         </span>
+                                     </div>
+                                     <div className="flex justify-between">
+                                         <span>Šanca:</span>
+                                         <span className="text-green-400 font-bold">
+                                             {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).successProbability.toFixed(0)}%
+                                         </span>
+                                     </div>
+                                 </div>
+                             )}
+                         </div>
                     </div>
                 )}
 
                 {!selectedCard && selectedNode && (
-                    <div className="bg-[color:var(--panel-bg)] border border-slate-700/50 text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1.5 min-w-[250px]">
+                    <div className="bg-[color:var(--panel-bg)] border border-slate-700/50 text-white px-4 py-2 rounded-xl shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1 min-w-[250px] mb-1">
                         <div>
                             Vybrané políčko: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
                         </div>
-                        <div className="text-[10px] text-slate-400">
-                            Koord: Q={selectedNode.q}, R={selectedNode.r}
-                        </div>
                         <button 
                             onClick={() => onMoveHero(selectedNode)}
-                            className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5"
+                            className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5 text-[10px]"
                         >
                             🚶 Presunúť hrdinu sem
                         </button>
                     </div>
                 )}
-            </div>
 
-            {/* Spodná ruka kariet (Spodný HUD z bodu 2 checklistu) */}
-            <div className="w-full flex flex-col items-center gap-2 pointer-events-auto pb-4">
                 <div className="text-[10px] md:text-xs font-mono text-slate-400 bg-black/60 px-3 py-1 rounded-full border border-slate-800">
                     Aktívny klan: <span className="text-slate-200 font-bold uppercase">{gameState?.activePlayerId === 'thread_king_ai' ? 'Crystal (King AI)' : 'Toxic (Hacker Root)'}</span>
                 </div>
@@ -980,7 +1029,7 @@ export default function ArenaUIOverlay({
                                     onMouseEnter={() => setHoveredCardIndex(idx)}
                                     onMouseLeave={() => setHoveredCardIndex(null)}
                                     style={inlineStyle}
-                                    className={`w-24 h-36 md:w-32 md:h-44 flex-shrink-0 bg-gradient-to-b from-[#181824] to-[#0b0b11] border rounded-xl p-2 md:p-2.5 flex flex-col justify-between text-white cursor-pointer transition-all duration-200 relative ${
+                                    className={`w-20 h-28 md:w-26 md:h-36 flex-shrink-0 bg-gradient-to-b from-[#181824] to-[#0b0b11] border rounded-xl p-2 md:p-2.5 flex flex-col justify-between text-white cursor-pointer transition-all duration-200 relative ${
                                         isUlt ? 'card-ultimate' : ''
                                     } ${isReactive ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''} ${isCasting ? 'card-cast-lift' : ''}`}
                                 >
