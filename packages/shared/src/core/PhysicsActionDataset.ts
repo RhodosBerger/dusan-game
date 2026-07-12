@@ -28,7 +28,14 @@ export const PHYSICS_ACTION_DATASET: Record<string, Omit<PhysicsSpecs, 'current'
     "bear_swipe": { voltage: 5.5, resistance: 1.0, kineticForce: 1, displacementType: 'push', damage: 3, effect: 'disarm' },
     "forest_grow": { voltage: 1.5, resistance: 3.5, kineticForce: 0, displacementType: 'none', damage: 1 },
     "wind_gust": { voltage: 2.5, resistance: 1.5, kineticForce: 2, displacementType: 'push', damage: 1 },
-    "nature_heal": { voltage: 1.0, resistance: 3.0, kineticForce: 0, displacementType: 'none', damage: 1 }
+    "nature_heal": { voltage: 1.0, resistance: 3.0, kineticForce: 0, displacementType: 'none', damage: 1 },
+
+    // Void Walker Clan
+    "voidBolt": { voltage: 3.5, resistance: 1.0, kineticForce: 0, displacementType: 'none', damage: 2 },
+    "entropyShield": { voltage: 1.0, resistance: 4.5, kineticForce: 0, displacementType: 'none', damage: 1 },
+    "voidGate": { voltage: 2.5, resistance: 2.0, kineticForce: 2, displacementType: 'pull', damage: 1 },
+    "voidErosion": { voltage: 6.0, resistance: 1.5, kineticForce: 1, displacementType: 'push', damage: 4 },
+    "rootTrap": { voltage: 2.0, resistance: 3.0, kineticForce: 0, displacementType: 'none', damage: 1, effect: 'root' }
 };
 
 export function getPhysicsSpecs(cardId: string): PhysicsSpecs {
