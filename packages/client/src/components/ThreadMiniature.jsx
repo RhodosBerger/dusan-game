@@ -32,7 +32,7 @@ function getFaction(id, type) {
 
 // ─── FloatingDice3D ───────────────────────────────────────────────────────────
 // Renders D12 (dodecahedron) or D6 (cube) wireframe mesh floating above the hero's portrait
-function FloatingDice3D({ categoryKey, tintColor }) {
+function FloatingDice3D({ categoryKey, tintColor, isLocalPlayer }) {
     const meshRef = useRef();
     const timeRef = useRef(0);
     const isD12 = categoryKey === 'AETHER_SPELLWEAVER' || categoryKey === 'GIGANTIC_BEHEMOTH';
@@ -40,26 +40,41 @@ function FloatingDice3D({ categoryKey, tintColor }) {
     useFrame((state, delta) => {
         timeRef.current += delta;
         if (meshRef.current) {
-            meshRef.current.rotation.x = timeRef.current * 1.2;
-            meshRef.current.rotation.y = timeRef.current * 1.5;
-            meshRef.current.position.y = 2.1 + Math.sin(timeRef.current * 3.0) * 0.08;
+            const rotSpeed = isLocalPlayer ? 2.5 : 1.2;
+            meshRef.current.rotation.x = timeRef.current * rotSpeed;
+            meshRef.current.rotation.y = timeRef.current * (rotSpeed * 1.25);
+            meshRef.current.position.y = 2.2 + Math.sin(timeRef.current * (isLocalPlayer ? 4.5 : 3.0)) * 0.12;
         }
     });
 
+    const scale = isLocalPlayer ? 1.35 : 1.0;
+
     return (
-        <mesh ref={meshRef} position={[0, 2.1, 0]}>
-            {isD12 ? (
-                <dodecahedronGeometry args={[0.18]} />
-            ) : (
-                <boxGeometry args={[0.18, 0.18, 0.18]} />
+        <group ref={meshRef} position={[0, 2.2, 0]} scale={[scale, scale, scale]}>
+            <mesh>
+                {isD12 ? (
+                    <dodecahedronGeometry args={[0.18]} />
+                ) : (
+                    <boxGeometry args={[0.18, 0.18, 0.18]} />
+                )}
+                <meshBasicMaterial 
+                    color={isLocalPlayer ? "#ffd700" : tintColor} 
+                    wireframe 
+                    transparent 
+                    opacity={isLocalPlayer ? 0.95 : 0.7} 
+                />
+            </mesh>
+            {isLocalPlayer && (
+                <mesh>
+                    <sphereGeometry args={[0.08, 16, 16]} />
+                    <meshBasicMaterial 
+                        color="#ffd700" 
+                        transparent 
+                        opacity={0.8} 
+                    />
+                </mesh>
             )}
-            <meshBasicMaterial 
-                color={tintColor} 
-                wireframe 
-                transparent 
-                opacity={0.7} 
-            />
-        </mesh>
+        </group>
     );
 }
 
@@ -295,7 +310,7 @@ function FootprintGlow({ position, color }) {
 }
 
 // ─── ThreadMiniature ─────────────────────────────────────────────────────────
-export default function ThreadMiniature({ thread, gridData, onClick, onDoubleClick }) {
+export default function ThreadMiniature({ thread, gridData, onClick, onDoubleClick, isLocalPlayer }) {
     const groupRef   = useRef();
     const spriteRef  = useRef();
 
@@ -617,7 +632,7 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
                         </sprite>
 
                         {/* Floating Aetheric Dice representation based on class */}
-                        <FloatingDice3D categoryKey={AethericDiceEngine.getCategoryByHero(thread.id)} tintColor={tint} />
+                        <FloatingDice3D categoryKey={AethericDiceEngine.getCategoryByHero(thread.id)} tintColor={tint} isLocalPlayer={isLocalPlayer} />
 
                         {/* Equipped weapons & harvesting tools purchased at Town Shop */}
                         <FloatingEquippedWeapon3D items={thread.items} />

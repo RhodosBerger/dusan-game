@@ -240,7 +240,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [] }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [] }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
@@ -523,6 +523,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 gridData={gridData}
                                 onClick={handleMiniatureClick}
                                 onDoubleClick={handleMiniatureDoubleClick}
+                                isLocalPlayer={thread.id === myThreadId}
                             />
                         );
                     })}

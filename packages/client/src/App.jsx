@@ -44,10 +44,13 @@ function App() {
   // Jediná inštancia Connection Engine
   const connectionEngine = useMemo(() => new ConnectionEngine(true), []);
 
-  // Aktuálny stav hry zo synchronizačného enginu
   const [gameState, setGameState] = useState(null);
   const [semanticSector, setSemanticSector] = useState(null);
   const [terrainTelemetry, setTerrainTelemetry] = useState(null);
+
+  const myThreadId = useMemo(() => {
+    return socket.id || gameState?.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI')?.id || gameState?.threads?.[0]?.id;
+  }, [gameState, socket.id]);
   const [activeTransitions, setActiveTransitions] = useState([]);
   const [lastPosition, setLastPosition] = useState({ meta: null, hex: null });
   const [surgeTile, setSurgeTile] = useState(null);
@@ -272,7 +275,6 @@ function App() {
   // Biome Transition VFX triggers on local player movement
   useEffect(() => {
     if (!gameState || !gridData || gridData.length === 0) return;
-    const myThreadId = socket.id || gameState.threads?.[0]?.id;
     const localThread = gameState.threads?.find(t => t.id === myThreadId) || gameState.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
     if (!localThread || !localThread.position || localThread.position.meta === null) return;
 
@@ -519,6 +521,7 @@ function App() {
       <CanvasRenderer3D 
         entropy={entropy} 
         threads={gameState?.threads || []}
+        myThreadId={myThreadId}
         selectedNode={selectedNode}
         onNodeClick={handleNodeClick}
         selectedCard={selectedCard}
