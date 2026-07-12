@@ -8,6 +8,7 @@ import path from 'path';
 import { SovereignEngine } from './models/SovereignEngine';
 import { AIOpponentDirector } from './models/AIOpponentDirector';
 import { initializeSeedData } from './seedData';
+import { DailyQuestEngine } from './models/DailyQuestEngine';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { CraftingSimulator } from './models/CraftingSimulator';
@@ -166,7 +167,7 @@ io.on('connection', (socket) => {
           armor: profile1.armor,
           luck: profile1.luck,
           materials: JSON.parse(profile1.materials),
-          quests: JSON.parse(profile1.quests)
+          quests: DailyQuestEngine.parseQuestsForThread(profile1.quests)
         });
         const dbItems1 = dbSync.getPlayerItems(p1.name);
         t1.items = dbItems1;
@@ -199,7 +200,7 @@ io.on('connection', (socket) => {
           armor: profile2.armor,
           luck: profile2.luck,
           materials: JSON.parse(profile2.materials),
-          quests: JSON.parse(profile2.quests)
+          quests: DailyQuestEngine.parseQuestsForThread(profile2.quests)
         });
         const dbItems2 = dbSync.getPlayerItems(p2.name);
         t2.items = dbItems2;
@@ -274,7 +275,7 @@ io.on('connection', (socket) => {
         armor: profile.armor,
         luck: profile.luck,
         materials: JSON.parse(profile.materials),
-        quests: JSON.parse(profile.quests)
+        quests: DailyQuestEngine.parseQuestsForThread(profile.quests)
       });
       const dbItemsAI = dbSync.getPlayerItems(payload.name);
       pThread.items = dbItemsAI;

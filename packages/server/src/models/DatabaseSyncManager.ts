@@ -1,6 +1,7 @@
 declare var require: any;
 const { DatabaseSync } = require('node:sqlite');
 import { Thread } from './Thread';
+import { DailyQuestEngine } from './DailyQuestEngine';
 
 export interface DBPlayerProfile {
   id: string;
@@ -154,12 +155,14 @@ export class DatabaseSyncManager {
   }
 
   public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic'): DBPlayerProfile {
-    const selectStmt = this.db.prepare('SELECT * FROM players WHERE username = ?');
-    const row = selectStmt.get(username) as any;
-
+    const row = this.db.prepare('SELECT * FROM players WHERE username = ?').get(username) as any;
     if (row) {
-      // DB stĺpce sú snake_case (max_health); profil používa camelCase.
-      // Defaulty chránia pred historicky poškodenými riadkami (NULL hodnoty).
+      // Rotácia denných úloh na základe času a dňa
+      const refreshedQuests = DailyQuestEngine.checkAndRefreshQuests(row.quests ?? '[]', defaultHero);
+      if (refreshedQuests !== row.quests) {
+        this.db.prepare('UPDATE players SET quests = ? WHERE username = ?').run(refreshedQuests, username);
+      }
+
       return {
         id: row.id,
         username: row.username,
@@ -169,7 +172,7 @@ export class DatabaseSyncManager {
         armor: row.armor ?? 0,
         luck: row.luck ?? 0.5,
         materials: row.materials ?? '{}',
-        quests: row.quests ?? '[]'
+        quests: refreshedQuests
       };
     }
 
@@ -179,32 +182,11 @@ export class DatabaseSyncManager {
       ? JSON.stringify({ CrystalShard: 5, Spores: 0 })
       : JSON.stringify({ CrystalShard: 0, Spores: 5 });
       
-    // Predvolené štartovacie questy pre uloženie
-    const defaultQuests = JSON.stringify([
-      {
-        id: 'q_defeat_npcs',
-        title: 'Lov na procesory',
-        description: 'Poraz 2 NPC nepriateľské jednotky v Aréne.',
-        objectiveType: 'DEFEAT_NPC',
-        targetValue: 2,
-        progress: 0,
-        completed: false,
-        xpReward: 120,
-        materialReward: { type: defaultHero === 'crystal' ? 'CrystalShard' : 'Spores', amount: 5 }
-      },
-      {
-        id: 'q_reach_swamp',
-        title: 'Prieskum Toxických Hlbín',
-        description: 'Vstúp na políčko Toxic Swamp na preskúmanie anomálie.',
-        objectiveType: 'REACH_BIOME',
-        targetValue: 1,
-        targetName: 'TOXIC_SWAMP',
-        progress: 0,
-        completed: false,
-        xpReward: 80,
-        materialReward: { type: 'Spores', amount: 3 }
-      }
-    ]);
+    // Vygenerovanie úvodných denných úloh
+    const defaultQuests = JSON.stringify({
+      lastRefresh: Date.now(),
+      activeList: DailyQuestEngine.generateDailyQuests(defaultHero)
+    });
 
     const maxHealth = defaultHero === 'crystal' ? 15 : 12;
 
@@ -238,6 +220,10 @@ export class DatabaseSyncManager {
     `);
 
     try {
+      const existingRow = this.db.prepare('SELECT quests FROM players WHERE username = ?').get(String(thread.name)) as any;
+      const existingQuestsJson = existingRow?.quests ?? '[]';
+      const packagedQuests = DailyQuestEngine.packageQuestsForDb(existingQuestsJson, thread.quests ?? []);
+
       updateStmt.run(
         Number(thread.level) || 1,
         Number(thread.xp) || 0,
@@ -245,7 +231,7 @@ export class DatabaseSyncManager {
         Number(thread.armor) || 0,
         Number(thread.luck) || 0.5,                   // ← explicit float cast fixes ERR_INVALID_ARG_TYPE
         JSON.stringify(thread.materials ?? {}),
-        JSON.stringify(thread.quests ?? []),
+        packagedQuests,
         String(thread.name)
       );
       return true;
