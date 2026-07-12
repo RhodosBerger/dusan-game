@@ -3,6 +3,8 @@ import { Thread } from './Thread';
 import { ActionNode } from './ActionNode';
 import { TurnStateMachine } from './TurnStateMachine';
 import { DatabaseSyncManager } from './DatabaseSyncManager';
+import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
+import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
 import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator } from '@dusan-game/shared';
 
 export class SovereignEngine {
@@ -24,6 +26,7 @@ export class SovereignEngine {
   actionNetwork: ActionNode[];
   turnStateMachine: TurnStateMachine;
   dungeonState: DungeonState;
+  spawningPlanner: SovereignSpawningPlanner;
 
   constructor() {
     this.map = new GameMap();
@@ -38,6 +41,7 @@ export class SovereignEngine {
     this.actionNetwork = [];
     this.turnStateMachine = new TurnStateMachine(this);
     this.dungeonState = DungeonDirector.generateDungeon();
+    this.spawningPlanner = new SovereignSpawningPlanner();
     
     // Asynchrónne načítanie z Go Core (ak je mikroslužba online)
     this.map.initializeWithGoCore();
@@ -58,6 +62,17 @@ export class SovereignEngine {
           }
         }
         return { cost: Math.round(baseCost * 15 * costMultiplier), costMultiplier };
+      }
+      return null;
+    });
+
+    // NEURAL_MATH_RESOLVER: Poskytuje vyhodnotenie matematických a fyzikálnych grid telemetrií
+    mediator.registerModule('NEURAL_MATH_RESOLVER', async (requestType, payload) => {
+      if (requestType === 'RESOLVE_GAMEPLAY_MATH') {
+        const { voltage, current, resistance, entropy, playerHealth, npcHealth } = payload;
+        return await SovereignNeuralMathResolver.resolveGameplayMath(
+          voltage, current, resistance, entropy, playerHealth, npcHealth
+        );
       }
       return null;
     });
@@ -310,6 +325,25 @@ export class SovereignEngine {
       } else {
         accumulatedEnergy += energyCostInfo.cost;
       }
+
+      // Aplikovanie liečenia negatívnych stavov pri úspešnom zahraní akcie (Action auto-curing)
+      if (node.instruction.damage > 0 && node.instruction.armor === 0) {
+        if (source.isRooted || source.isDisarmed) {
+          console.log(`[CURE] Útok úspešne vyliečil stav rooted/disarmed pre hrdinu ${source.id}.`);
+          source.isRooted = false;
+          source.isDisarmed = false;
+        }
+      } else if (node.instruction.damage > 0 && node.instruction.armor > 0) {
+        if (source.isSilenced) {
+          console.log(`[CURE] Spell úspešne vyliečil stav silenced pre hrdinu ${source.id}.`);
+          source.isSilenced = false;
+        }
+      } else if (node.instruction.armor > 0 && node.instruction.damage === 0) {
+        if (source.isSlowed) {
+          console.log(`[CURE] Pohyb úspešne vyliečil stav slowed pre hrdinu ${source.id}.`);
+          source.isSlowed = false;
+        }
+      }
     }
 
     // Aplikovanie odložených poškodení (Simultaneous Combat Death)
@@ -457,6 +491,9 @@ export class SovereignEngine {
 
     // Vyhodnotenie NPC AI a ich pohybu/útoku po poliach
     this.tickNPCAI();
+
+    // Vyhodnotenie odloženého plánu spawnovania
+    this.spawningPlanner.tick(this);
 
     this.turnCount++;
   }

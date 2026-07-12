@@ -24,6 +24,7 @@ export class Thread {
   materials: Record<string, number>;
   quests: Quest[];
   items: { itemKey: string; category: string; quantity: number; durability: number }[];
+  artifacts: { id: string; artifactKey: string; category: string; heroClass: string; spellReachBonus: number; damageBonus: number }[];
 
   // RPG Stat Progression
   level: number;
@@ -89,6 +90,7 @@ export class Thread {
     this.discardPile = [];
     this.quests = [];
     this.items = [];
+    this.artifacts = [];
   }
 
   loadProfile(profile: {

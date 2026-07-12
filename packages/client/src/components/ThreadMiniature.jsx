@@ -51,7 +51,7 @@ function FloatingDice3D({ categoryKey, tintColor, isLocalPlayer }) {
 
     return (
         <group ref={meshRef} position={[0, 2.2, 0]} scale={[scale, scale, scale]}>
-            <mesh>
+            <mesh renderOrder={42}>
                 {isD12 ? (
                     <dodecahedronGeometry args={[0.18]} />
                 ) : (
@@ -65,7 +65,7 @@ function FloatingDice3D({ categoryKey, tintColor, isLocalPlayer }) {
                 />
             </mesh>
             {isLocalPlayer && (
-                <mesh>
+                <mesh renderOrder={42}>
                     <sphereGeometry args={[0.08, 16, 16]} />
                     <meshBasicMaterial 
                         color="#ffd700" 
@@ -174,7 +174,7 @@ function GlitchCore3D({ tintColor }) {
     return (
         <group>
             {/* Octahedron Core - glowing red */}
-            <mesh ref={coreRef}>
+            <mesh ref={coreRef} renderOrder={40}>
                 <octahedronGeometry args={[0.3]} />
                 <meshStandardMaterial 
                     color={tintColor} 
@@ -185,7 +185,7 @@ function GlitchCore3D({ tintColor }) {
             </mesh>
 
             {/* Glowing Orbit Ring */}
-            <mesh ref={ringRef} rotation={[Math.PI / 4, 0, 0]}>
+            <mesh ref={ringRef} rotation={[Math.PI / 4, 0, 0]} renderOrder={40}>
                 <torusGeometry args={[0.5, 0.03, 6, 24]} />
                 <meshStandardMaterial 
                     color="#ff5500" 
@@ -195,7 +195,7 @@ function GlitchCore3D({ tintColor }) {
             </mesh>
             
             {/* Small floating spike orbits */}
-            <mesh position={[0.4, 0.8, 0.4]}>
+            <mesh position={[0.4, 0.8, 0.4]} renderOrder={40}>
                 <sphereGeometry args={[0.04, 6, 6]} />
                 <meshBasicMaterial color="#ffffff" />
             </mesh>
@@ -601,7 +601,7 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
                 }}
             >
                 {/* Base pedestal */}
-                <mesh castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+                <mesh castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]} renderOrder={40}>
                     <cylinderGeometry args={[0.5, 0.55, 0.1, 16]} />
                     <meshStandardMaterial
                         color={isNPC ? "#2a0005" : "#1a1a1a"}
@@ -621,7 +621,7 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
                 ) : (
                     <>
                         {/* Billboard sprite with idle float applied via spriteRef */}
-                        <sprite ref={spriteRef} position={[0, 0.8, 0]} scale={[1.8, 1.8, 1.0]}>
+                        <sprite ref={spriteRef} position={[0, 0.8, 0]} scale={[1.8, 1.8, 1.0]} renderOrder={40}>
                             <spriteMaterial
                                 map={texture}
                                 color={tint}

@@ -112,6 +112,20 @@ export class DatabaseSyncManager {
         created_at INTEGER NOT NULL
       )
     `);
+
+    // 8. Tabulka hráčskych artefaktov
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS player_artifacts (
+        id TEXT PRIMARY KEY,
+        player_username TEXT NOT NULL REFERENCES players(username) ON DELETE CASCADE,
+        artifact_key TEXT NOT NULL,
+        category TEXT NOT NULL,
+        hero_class TEXT NOT NULL,
+        spell_reach_bonus INTEGER DEFAULT 0,
+        damage_bonus INTEGER DEFAULT 0,
+        unlocked_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
   }
 
   public saveComposition(inst: any): void {
@@ -290,6 +304,11 @@ export class DatabaseSyncManager {
     return selectStmt.all(username) as any[];
   }
 
+  public updatePlayerMaterials(username: string, materials: Record<string, number>): void {
+    const stmt = this.db.prepare('UPDATE players SET materials = ? WHERE username = ?');
+    stmt.run(JSON.stringify(materials), username);
+  }
+
   public saveMemoryRegister(address: string, hexDump: string, desc: string): void {
     const stmt = this.db.prepare(`
       INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
@@ -324,5 +343,25 @@ export class DatabaseSyncManager {
       WHERE player_username = ?
     `);
     return stmt.all(username) as any[];
+  }
+
+  public addPlayerArtifact(username: string, artifactKey: string, category: string, heroClass: string, spellReachBonus: number, damageBonus: number): void {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO player_artifacts (id, player_username, artifact_key, category, hero_class, spell_reach_bonus, damage_bonus)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const id = `art_${artifactKey}_${Date.now()}`;
+    stmt.run(id, username, artifactKey, category, heroClass, spellReachBonus, damageBonus);
+  }
+
+  public getPlayerArtifacts(username: string): { id: string; player_username: string; artifact_key: string; category: string; hero_class: string; spell_reach_bonus: number; damage_bonus: number }[] {
+    const stmt = this.db.prepare('SELECT * FROM player_artifacts WHERE player_username = ?');
+    return stmt.all(username) as any[];
+  }
+
+  public removePlayerArtifact(username: string, artifactKey: string): boolean {
+    const stmt = this.db.prepare('DELETE FROM player_artifacts WHERE player_username = ? AND artifact_key = ?');
+    const result = stmt.run(username, artifactKey);
+    return result.changes > 0;
   }
 }

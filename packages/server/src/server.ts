@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { SovereignEngine } from './models/SovereignEngine';
+import { startBackoffice } from './backoffice';
 import { AIOpponentDirector } from './models/AIOpponentDirector';
 import { initializeSeedData } from './seedData';
 import { DailyQuestEngine } from './models/DailyQuestEngine';
@@ -173,8 +174,27 @@ io.on('connection', (socket) => {
         t1.items = dbItems1;
         dbItems1.forEach(item => {
           const catalogItem = ITEMS_CATALOG[item.itemKey];
-          if (catalogItem?.category === 'WEAPON' && catalogItem.statBonus?.damage) {
-            t1.baseDamage += catalogItem.statBonus.damage * item.quantity;
+          if (catalogItem) {
+            if (catalogItem.category === 'WEAPON' && catalogItem.statBonus?.damage) {
+              t1.baseDamage += catalogItem.statBonus.damage * item.quantity;
+            } else if (catalogItem.category === 'MAGIC') {
+              if (catalogItem.statBonus?.damage) {
+                t1.baseDamage += catalogItem.statBonus.damage * item.quantity;
+              }
+              if (catalogItem.statBonus?.spellReach) {
+                t1.spellReach = (t1.spellReach || 2) + catalogItem.statBonus.spellReach * item.quantity;
+              }
+            }
+          }
+        });
+        const dbArtifacts1 = dbSync.getPlayerArtifacts(p1.name);
+        t1.artifacts = dbArtifacts1;
+        dbArtifacts1.forEach(art => {
+          if (art.damage_bonus) {
+            t1.baseDamage += art.damage_bonus;
+          }
+          if (art.spell_reach_bonus) {
+            t1.spellReach = (t1.spellReach || 2) + art.spell_reach_bonus;
           }
         });
         const lockedRegisters1 = dbSync.getLockedRegisters(p1.name);
@@ -206,8 +226,27 @@ io.on('connection', (socket) => {
         t2.items = dbItems2;
         dbItems2.forEach(item => {
           const catalogItem = ITEMS_CATALOG[item.itemKey];
-          if (catalogItem?.category === 'WEAPON' && catalogItem.statBonus?.damage) {
-            t2.baseDamage += catalogItem.statBonus.damage * item.quantity;
+          if (catalogItem) {
+            if (catalogItem.category === 'WEAPON' && catalogItem.statBonus?.damage) {
+              t2.baseDamage += catalogItem.statBonus.damage * item.quantity;
+            } else if (catalogItem.category === 'MAGIC') {
+              if (catalogItem.statBonus?.damage) {
+                t2.baseDamage += catalogItem.statBonus.damage * item.quantity;
+              }
+              if (catalogItem.statBonus?.spellReach) {
+                t2.spellReach = (t2.spellReach || 2) + catalogItem.statBonus.spellReach * item.quantity;
+              }
+            }
+          }
+        });
+        const dbArtifacts2 = dbSync.getPlayerArtifacts(p2.name);
+        t2.artifacts = dbArtifacts2;
+        dbArtifacts2.forEach(art => {
+          if (art.damage_bonus) {
+            t2.baseDamage += art.damage_bonus;
+          }
+          if (art.spell_reach_bonus) {
+            t2.spellReach = (t2.spellReach || 2) + art.spell_reach_bonus;
           }
         });
         const lockedRegisters2 = dbSync.getLockedRegisters(p2.name);
@@ -282,8 +321,27 @@ io.on('connection', (socket) => {
       pThread.items = dbItemsAI;
       dbItemsAI.forEach(item => {
         const catalogItem = ITEMS_CATALOG[item.itemKey];
-        if (catalogItem?.category === 'WEAPON' && catalogItem.statBonus?.damage) {
-          pThread.baseDamage += catalogItem.statBonus.damage * item.quantity;
+        if (catalogItem) {
+          if (catalogItem.category === 'WEAPON' && catalogItem.statBonus?.damage) {
+            pThread.baseDamage += catalogItem.statBonus.damage * item.quantity;
+          } else if (catalogItem.category === 'MAGIC') {
+            if (catalogItem.statBonus?.damage) {
+              pThread.baseDamage += catalogItem.statBonus.damage * item.quantity;
+            }
+            if (catalogItem.statBonus?.spellReach) {
+              pThread.spellReach = (pThread.spellReach || 2) + catalogItem.statBonus.spellReach * item.quantity;
+            }
+          }
+        }
+      });
+      const dbArtifactsAI = dbSync.getPlayerArtifacts(payload.name);
+      pThread.artifacts = dbArtifactsAI;
+      dbArtifactsAI.forEach(art => {
+        if (art.damage_bonus) {
+          pThread.baseDamage += art.damage_bonus;
+        }
+        if (art.spell_reach_bonus) {
+          pThread.spellReach = (pThread.spellReach || 2) + art.spell_reach_bonus;
         }
       });
       const lockedRegistersAI = dbSync.getLockedRegisters(payload.name);
@@ -906,11 +964,30 @@ io.on('connection', (socket) => {
     thread.materials[costMat] = currentAmt - costAmt;
 
     try {
-      dbSync.addPlayerItem(thread.name, item.key, item.category);
-      thread.items = dbSync.getPlayerItems(thread.name);
+      if (item.category === 'MAGIC' && item.heroClass) {
+        dbSync.addPlayerArtifact(
+          thread.name,
+          item.key,
+          item.category,
+          item.heroClass,
+          item.statBonus?.spellReach ?? 0,
+          item.statBonus?.damage ?? 0
+        );
+        thread.artifacts = dbSync.getPlayerArtifacts(thread.name);
+      } else {
+        dbSync.addPlayerItem(thread.name, item.key, item.category);
+        thread.items = dbSync.getPlayerItems(thread.name);
+      }
 
       if (item.category === 'WEAPON' && item.statBonus?.damage) {
         thread.baseDamage += item.statBonus.damage;
+      } else if (item.category === 'MAGIC') {
+        if (item.statBonus?.damage) {
+          thread.baseDamage += item.statBonus.damage;
+        }
+        if (item.statBonus?.spellReach) {
+          thread.spellReach = (thread.spellReach || 2) + item.statBonus.spellReach;
+        }
       }
 
       console.log(`[SHOP] Player ${thread.name} bought ${item.name} for ${costAmt} ${costMat}.`);
@@ -943,19 +1020,32 @@ io.on('connection', (socket) => {
     if (!item) return;
 
     try {
-      const removed = dbSync.removePlayerItem(thread.name, item.key);
+      let removed = false;
+      if (item.category === 'MAGIC' && item.heroClass) {
+        removed = dbSync.removePlayerArtifact(thread.name, item.key);
+        thread.artifacts = dbSync.getPlayerArtifacts(thread.name);
+      } else {
+        removed = dbSync.removePlayerItem(thread.name, item.key);
+        thread.items = dbSync.getPlayerItems(thread.name);
+      }
+
       if (!removed) {
         socket.emit('error_message', { message: 'Tento item nevlastníte!' });
         return;
       }
-
-      thread.items = dbSync.getPlayerItems(thread.name);
       const sellMat = item.sellValue.material;
       const sellAmt = item.sellValue.amount;
       thread.materials[sellMat] = (thread.materials[sellMat] || 0) + sellAmt;
 
       if (item.category === 'WEAPON' && item.statBonus?.damage) {
         thread.baseDamage = Math.max(5, thread.baseDamage - item.statBonus.damage);
+      } else if (item.category === 'MAGIC') {
+        if (item.statBonus?.damage) {
+          thread.baseDamage = Math.max(5, thread.baseDamage - item.statBonus.damage);
+        }
+        if (item.statBonus?.spellReach) {
+          thread.spellReach = Math.max(1, (thread.spellReach || 2) - item.statBonus.spellReach);
+        }
       }
 
       console.log(`[SHOP] Player ${thread.name} sold ${item.name} for ${sellAmt} ${sellMat}.`);
@@ -1336,6 +1426,70 @@ app.delete('/api/admin/compositions/:id', (req, res) => {
     const { id } = req.params;
     dbSync.deleteComposition(id);
     res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/craft', (req, res) => {
+  try {
+    const { username, recipeId } = req.body;
+    if (!username || !recipeId) {
+      return res.status(400).json({ error: 'Chýba meno hráča (username) alebo ID receptu (recipeId).' });
+    }
+
+    const profile = dbSync.getOrCreatePlayer(username, 'crystal');
+    const materials = JSON.parse(profile.materials || '{}');
+
+    if (recipeId === 'GRAVITY_HARVESTER') {
+      const shardCost = 10;
+      const coreCost = 3;
+      const shardAmount = materials.CrystalShard ?? 0;
+      const coreAmount = materials.VoidCore ?? 0;
+
+      if (shardAmount >= shardCost && coreAmount >= coreCost) {
+        materials.CrystalShard = shardAmount - shardCost;
+        materials.VoidCore = coreAmount - coreCost;
+
+        dbSync.updatePlayerMaterials(username, materials);
+        dbSync.addPlayerItem(username, 'GRAVITY_HARVESTER', 'TOOL');
+
+        return res.json({
+          success: true,
+          message: 'Položka GRAVITY_HARVESTER bola úspešne vyrobená.',
+          materials
+        });
+      } else {
+        return res.status(400).json({
+          error: `Nedostatok surovín. Potrebné: ${shardCost} CrystalShard, ${coreCost} VoidCore. K dispozícii: ${shardAmount} CrystalShard, ${coreAmount} VoidCore.`
+        });
+      }
+    } else if (recipeId === 'AETHER_SABER') {
+      const shardCost = 5;
+      const coreCost = 1;
+      const shardAmount = materials.CrystalShard ?? 0;
+      const coreAmount = materials.VoidCore ?? 0;
+
+      if (shardAmount >= shardCost && coreAmount >= coreCost) {
+        materials.CrystalShard = shardAmount - shardCost;
+        materials.VoidCore = coreAmount - coreCost;
+
+        dbSync.updatePlayerMaterials(username, materials);
+        dbSync.addPlayerItem(username, 'AETHER_SABER', 'WEAPON');
+
+        return res.json({
+          success: true,
+          message: 'Položka AETHER_SABER bola úspešne vyrobená.',
+          materials
+        });
+      } else {
+        return res.status(400).json({
+          error: `Nedostatok surovín. Potrebné: ${shardCost} CrystalShard, ${coreCost} VoidCore. K dispozícii: ${shardAmount} CrystalShard, ${coreAmount} VoidCore.`
+        });
+      }
+    } else {
+      return res.status(400).json({ error: `Neznámy recept pre crafting: ${recipeId}.` });
+    }
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -1962,5 +2116,12 @@ server.listen(PORT, async () => {
      await ClickHouseTelemetryClient.init();
   } catch (err: any) {
      console.warn('[CLICKHOUSE] Initialization skipped/deferred:', err.message);
+  }
+
+  // Launch the backoffice telemetry server on port 3005
+  try {
+    startBackoffice(defaultEngine);
+  } catch (err: any) {
+    console.warn('[BACKOFFICE] Failed to start backoffice server:', err.message);
   }
 });

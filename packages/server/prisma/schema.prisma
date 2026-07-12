@@ -26,6 +26,7 @@ model Player {
   cardDeck     PlayerCard[]
   quests       PlayerQuest[]
   items        PlayerItem[]
+  artifacts    PlayerArtifact[]
 }
 
 // ── Inventory Surovin (Materials obtained from chests) ────────────────────────
@@ -85,6 +86,22 @@ model PlayerItem {
   unlockedAt DateTime @default(now())
 
   player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+}
+
+// ── Player Artifacts (Character Class Unique Items) ─────────────────────────
+model PlayerArtifact {
+  id               String   @id @default(uuid())
+  playerId         String
+  artifactKey      String   // e.g. "EXEMPLAR_CROWN", "SPELLWEAVER_AMULET"
+  category         String   // "MAGIC"
+  heroClass        String   // e.g. "SOVEREIGN_EXEMPLAR", "AETHER_SPELLWEAVER"
+  spellReachBonus  Int      @default(0)
+  damageBonus      Int      @default(0)
+  unlockedAt       DateTime @default(now())
+
+  player           Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@index([playerId])
 }
