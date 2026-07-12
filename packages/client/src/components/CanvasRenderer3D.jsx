@@ -34,20 +34,8 @@ import StarfieldBackground from './world/StarfieldBackground';
 import { getActiveProfile, WORLD_PROFILES } from '../design/worldProfiles';
 import FloatingShards3D from './world/FloatingShards3D';
 import PortalVortex3D from './world/PortalVortex3D';
-import { PORTAL_NODE_ID, computePropPlacements } from '../design/propPlacement';
-import CrystalSpire3D from './world/CrystalSpire3D';
-import BlossomTree3D from './world/BlossomTree3D';
-import AcidPool3D from './world/AcidPool3D';
-import RockSpikes3D from './world/RockSpikes3D';
-import DesertStones3D from './world/DesertStones3D';
-
-const PROP_COMPONENTS = {
-    CRYSTAL_SPIRE: CrystalSpire3D,
-    BLOSSOM_TREE: BlossomTree3D,
-    ACID_POOL: AcidPool3D,
-    ROCK_SPIKES: RockSpikes3D,
-    DESERT_STONES: DesertStones3D,
-};
+import { PORTAL_NODE_ID } from '../design/propPlacement';
+import InstancedWorldProps from './world/InstancedWorldProps';
 
 function ArenaGroup({ children, shakeIntensity }) {
     const groupRef = useRef();
@@ -302,7 +290,6 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
     const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
 
-    const propPlacements = useMemo(() => computePropPlacements(gridData), [gridData]);
 
     const activeBiome = useMemo(() => {
         if (!map || map.length === 0) return 'LUSH_FOREST';
@@ -452,17 +439,11 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         );
                     })}
 
-                    {/* Rekvizity biómov — deterministicky na "jadre" každého biómu.
-                        Kolabujúce dlaždice vyfiltruj — rekvizita nesmie visieť nad prázdnom. */}
-                    {gridData.filter(n => propPlacements.has(n.id) && !collapsingNodeIds.includes(n.id)).map(n => {
-                        const PropComponent = PROP_COMPONENTS[propPlacements.get(n.id)];
-                        if (!PropComponent) return null;
-                        return (
-                            <group key={`prop_${n.id}`} position={[n.position[0], 0.45, n.position[2]]}>
-                                <PropComponent seed={n.macroIndex * 7 + n.subIndex + 1} />
-                            </group>
-                        );
-                    })}
+                    {/* Rekvizity biómov — Optimalizované vykresľovanie cez Instanced Rendering a zdieľané materiály */}
+                    <InstancedWorldProps 
+                        gridData={gridData} 
+                        collapsingNodeIds={collapsingNodeIds} 
+                    />
 
                     {/* Floating mana particles across the whole arena */}
                     <ArenaAmbientParticles 
