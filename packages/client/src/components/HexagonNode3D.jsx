@@ -180,7 +180,7 @@ function SpellFlashBeam3D({ weatherOverride }) {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false }) {
     const tileRef = useRef();
     const radius = 2.0;
 
@@ -218,9 +218,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
     const edgeColor = useMemo(() => {
         if (isSelected || isHovered) return PALETTE.accent.magic;
-        if (isTargetable) return '#00ffcc'; // Glowing active target color
+        if (isTargetable) {
+            if (targetableType === 'move') return '#22c55e'; // Glowing green for movement reach
+            if (targetableType === 'attack') return '#ef4444'; // Glowing red for attack reach
+            if (targetableType === 'spell') return '#8b5cf6'; // Glowing violet/purple for spell reach
+            return '#00ffcc'; // Glowing active target fallback
+        }
         return PALETTE.rock.undersideDeep;
-    }, [isSelected, isHovered, isTargetable]);
+    }, [isSelected, isHovered, isTargetable, targetableType]);
 
     const [flash, setFlash] = React.useState(false);
 

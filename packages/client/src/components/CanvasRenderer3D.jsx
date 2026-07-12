@@ -394,17 +394,30 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         const hasChest = !!serverBlock?.hasOpportunity || !!serverBlock?.hasChest;
                         const hasTrap = serverBlock?.hasTrap || null;
 
-                        const isTargetable = (() => {
-                            if (!selectedCard) return false;
+                        const targetableType = (() => {
                             const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
-                            if (!activeHero || activeHero.position?.meta === undefined || activeHero.position?.meta === null) return false;
+                            if (!activeHero || activeHero.position?.meta === undefined || activeHero.position?.meta === null) return null;
                             const dist = getMetaDistance(activeHero.position.meta, node.macroIndex);
+
+                            if (!selectedCard) {
+                                if (activeHero.freeMovementUsed) return null;
+                                return dist <= (activeHero.movementBase || 1) ? 'move' : null;
+                            }
+
                             const base = allBases.find(b => b.id === selectedCard.id);
-                            if (!base) return false;
+                            if (!base) return null;
                             const isAttackNode = base.cardCategorization === 'attack' || base.damage > 0;
+                            const isMoveNode = selectedCard.id.includes('teleport') || selectedCard.id.includes('gate');
                             const reach = isAttackNode ? (activeHero.attackReach || 1) : (activeHero.spellReach || 2);
-                            return reach === 0 ? dist === 0 : dist <= reach;
+                            const isTargetable = reach === 0 ? dist === 0 : dist <= reach;
+                            if (!isTargetable) return null;
+
+                            if (isMoveNode) return 'move';
+                            if (isAttackNode) return 'attack';
+                            return 'spell';
                         })();
+
+                        const isTargetable = !!targetableType;
 
                         const handleDoubleClick = () => {
                             if (selectedCard) {
@@ -426,6 +439,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 isHovered={hoveredNode?.id === node.id || hoveredNode?.macroIndex === node.macroIndex}
                                 isSelected={selectedNode?.id === node.id}
                                 isTargetable={isTargetable}
+                                targetableType={targetableType}
                                 onHover={setHoveredNode}
                                 onClick={onNodeClick}
                                 onDoubleClick={handleDoubleClick}

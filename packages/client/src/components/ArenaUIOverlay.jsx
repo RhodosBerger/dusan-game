@@ -121,6 +121,59 @@ export default function ArenaUIOverlay({
         }, 450);
     };
 
+    React.useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Ignore when typing in inputs/textareas
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            const key = e.key;
+
+            // 1-9 keys to select cards in hand
+            if (key >= '1' && key <= '9') {
+                const idx = parseInt(key, 10) - 1;
+                if (idx < cards.length) {
+                    const card = cards[idx];
+                    setSelectedCard(prev => prev === card ? null : card);
+                }
+            }
+
+            // Escape to deselect current card
+            if (key === 'Escape') {
+                setSelectedCard(null);
+            }
+
+            // Space key for card execution or ending turn
+            if (key === ' ') {
+                e.preventDefault();
+                if (selectedCard && selectedNode) {
+                    handleExecuteClick();
+                } else if (!selectedCard) {
+                    onEndTurn();
+                }
+            }
+
+            // 'E' or 'e' to end turn
+            if (key === 'e' || key === 'E') {
+                onEndTurn();
+            }
+
+            // 'T' or 't' to toggle telemetry panel
+            if (key === 't' || key === 'T') {
+                setCollapsed(prev => ({ ...prev, telemetry: !prev.telemetry }));
+            }
+
+            // 'C' or 'c' to toggle tactical codex sliding drawer
+            if (key === 'c' || key === 'C') {
+                setIsCodexOpen(prev => !prev);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [cards, selectedCard, selectedNode, onEndTurn, setSelectedCard, onExecuteAction]);
+
     const [collapsed, setCollapsed] = React.useState({
         telemetry: window.innerWidth < 1024,
         sandbox: true, // predvolene zatvorené pre šetrenie miesta
@@ -163,7 +216,7 @@ export default function ArenaUIOverlay({
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, telemetry: !prev.telemetry }))}
                     className={`text-[10px] text-[color:var(--accent-magic)] tracking-widest font-mono uppercase mb-1 flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
                 >
-                    <span>Telemetry {!isMobile && (collapsed.telemetry ? '▶' : '▼')}</span>
+                    <span>Telemetry [T] {!isMobile && (collapsed.telemetry ? '▶' : '▼')}</span>
                     <span className="text-purple-400 font-bold">V2</span>
                 </div>
                 
@@ -175,7 +228,7 @@ export default function ArenaUIOverlay({
                                 onClick={(e) => { e.stopPropagation(); setIsCodexOpen(true); }}
                                 className="bg-purple-950/60 hover:bg-purple-900 border border-[#a855f7]/40 text-purple-300 text-[10px] font-mono px-2 py-0.5 rounded cursor-pointer font-bold transition-all flex items-center gap-1"
                             >
-                                📖 KÓDEX
+                                📖 KÓDEX [C]
                             </button>
                         </div>
                         
