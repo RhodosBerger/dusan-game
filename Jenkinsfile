@@ -12,7 +12,7 @@ pipeline {
         stage('Install Workspace Dependencies') {
             steps {
                 echo 'Installing monorepo Node modules...'
-                sh 'npm install'
+                sh 'yarn install --frozen-lockfile'
                 
                 echo 'Configuring Python virtual environment...'
                 sh 'python3 -m venv packages/server/.venv'
@@ -25,7 +25,7 @@ pipeline {
                 stage('Oxlint & Code Quality') {
                     steps {
                         echo 'Running lint checking...'
-                        sh 'npm run lint --workspaces'
+                        sh 'yarn workspace client lint'
                     }
                 }
                 stage('Python PEP8 Verification') {
@@ -66,7 +66,7 @@ pipeline {
                 stage('React WebGL Client') {
                     steps {
                         echo 'Compiling WebGL client bundle...'
-                        sh 'npm run build --workspace=client'
+                        sh 'yarn workspace client build'
                     }
                 }
             }
@@ -75,7 +75,7 @@ pipeline {
         stage('Container Image Creation') {
             steps {
                 echo 'Creating Docker production images...'
-                sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG} .'
+                sh 'docker build -f Dockerfile.server -t ${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG} .'
                 sh 'docker push ${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG}'
             }
         }

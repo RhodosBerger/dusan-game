@@ -2,13 +2,17 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy package config and lockfile
+# Copy package configs for caching
 COPY package.json package-lock.json ./
-COPY packages/shared ./packages/shared
-COPY packages/client ./packages/client
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/client/package.json ./packages/client/
 
 # Install dependencies via yarn
 RUN yarn install
+
+# Copy codebase source files
+COPY packages/shared ./packages/shared
+COPY packages/client ./packages/client
 
 # Build shared library
 RUN yarn workspace @dusan-game/shared build

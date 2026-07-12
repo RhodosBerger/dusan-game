@@ -5,13 +5,18 @@ RUN apk add --no-cache python3 py3-virtualenv build-base
 
 WORKDIR /app
 
-# Copy package config and lockfile
+# Copy package configs for caching
 COPY package.json package-lock.json ./
-COPY packages/shared ./packages/shared
-COPY packages/server ./packages/server
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/server/package.json ./packages/server/
+COPY packages/server/prisma ./packages/server/prisma/
 
 # Install dependencies via yarn
 RUN yarn install
+
+# Copy codebase source files
+COPY packages/shared ./packages/shared
+COPY packages/server ./packages/server
 
 # Setup Python virtual environment for ML spawner
 RUN python3 -m venv /app/packages/server/.venv

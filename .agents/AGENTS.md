@@ -11,3 +11,7 @@
 
 ## 3. Stateless Faction Mechanics
 *   **Environmental Scaling**: Faction energy consumption rules (like Void Walker casting) must dynamically adapt based on environmental variables (such as `globalEntropy > 0.7` reducing card cost to `0`). Ensure these are resolved consistently in both `SovereignEngine.ts` and `server.ts`.
+
+## 4. Pipeline & Monorepo Build Rules
+*   **Dependency Cache Layering**: In all Dockerfiles, copy the top-level package config and sub-project `package.json` configurations prior to running package installation. Keep code copy instructions after package installs to preserve Docker cache layers.
+*   **Monorepo Package Manager Consistency**: Always use `yarn` command line interfaces and workspace tasks (`yarn workspace <name> <cmd>`) to execute sub-project scripts. Do NOT execute `npm` commands inside monorepo packages to prevent lockfile conflicts.
