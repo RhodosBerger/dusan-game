@@ -180,7 +180,7 @@ function SpellFlashBeam3D({ weatherOverride }) {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false }) {
     const tileRef = useRef();
     const radius = 2.0;
 
@@ -248,7 +248,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         if (!tileRef.current) return;
         const time = state.clock.elapsedTime;
 
-        const targetLift = (isHovered || isSelected) && !isCollapsing ? 0.25 : 0;
+        const targetLift = (isHovered || isSelected) && !isCollapsing ? 0.25 : (isSurgeActive ? 0.8 : 0);
         tileRef.current.position.z = THREE.MathUtils.lerp(tileRef.current.position.z, targetLift, 0.15);
 
         if (isCollapsing) {
@@ -270,6 +270,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
     // Výpočet dynamického ligtingu na základe ML Light Emission a Biómu
     const emissiveColor = useMemo(() => {
         if (isCollapsing) return new THREE.Color(PALETTE.rock.undersideDeep);
+        if (isScorched) return new THREE.Color('#3a0e10').multiplyScalar(0.4); // Red hot ember glow
         if (flash) return new THREE.Color(PALETTE.portal.core).multiplyScalar(3.0);
         if (isHovered) return new THREE.Color(PALETTE.accent.magic).multiplyScalar(0.12);
         if (mlInfo.lightEmission > 0.4) {
@@ -281,11 +282,12 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             }
         }
         return new THREE.Color('#000000');
-    }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, isCollapsing]);
+    }, [flash, isHovered, mlInfo.lightEmission, biomeInfo.biome, isCollapsing, isScorched]);
 
     // Textúra sa maliarsky tónuje k `base` farbe biómu
     const baseTint = useMemo(() => {
         if (isCollapsing) return new THREE.Color(PALETTE.rock.underside);
+        if (isScorched) return new THREE.Color('#16141a'); // Burnt charcoal tint
         if (isSelected) return new THREE.Color(PALETTE.accent.magic);
         if (isHovered) {
             return new THREE.Color('#ffffff').lerp(new THREE.Color(PALETTE.accent.magic), 0.25);
@@ -296,7 +298,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             base.lerp(new THREE.Color('#888888'), 0.5 - mlInfo.colorSaturation);
         }
         return base;
-    }, [isSelected, isHovered, mlInfo.colorSaturation, biomeInfo.biome, isCollapsing]);
+    }, [isSelected, isHovered, mlInfo.colorSaturation, biomeInfo.biome, isCollapsing, isScorched]);
 
     const materialProps = useMemo(() => {
         let roughnessMultiplier = 1.0;

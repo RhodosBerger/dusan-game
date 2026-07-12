@@ -240,7 +240,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [] }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
@@ -435,6 +435,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 hasTrap={hasTrap}
                                 terrainTelemetry={terrainTelemetry}
                                 weatherOverride={weatherOverride}
+                                isSurgeActive={surgeTile && surgeTile.meta === node.macroIndex && surgeTile.hex === node.subIndex}
+                                isScorched={scorchedTiles.includes(`m${node.macroIndex}_s${node.subIndex}`)}
                             />
                         );
                     })}

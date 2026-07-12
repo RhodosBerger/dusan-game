@@ -510,12 +510,14 @@ io.on('connection', (socket) => {
         if (log.message.includes('Voltage Surge')) {
           targetEmit('voltage_surge', {
             playerId: log.threadId,
-            message: log.message
+            message: log.message,
+            targetHex: payload.targetHex
           });
         } else if (log.message.includes('Short Circuit')) {
           targetEmit('short_circuit', {
             playerId: log.threadId,
-            message: log.message
+            message: log.message,
+            targetHex: payload.targetHex
           });
         }
       }

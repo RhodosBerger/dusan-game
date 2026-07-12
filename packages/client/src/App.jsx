@@ -50,6 +50,8 @@ function App() {
   const [terrainTelemetry, setTerrainTelemetry] = useState(null);
   const [activeTransitions, setActiveTransitions] = useState([]);
   const [lastPosition, setLastPosition] = useState({ meta: null, hex: null });
+  const [surgeTile, setSurgeTile] = useState(null);
+  const [scorchedTiles, setScorchedTiles] = useState([]);
 
   // Pripojenie a synchronizácia cez Connection Engine
   useEffect(() => {
@@ -97,6 +99,10 @@ function App() {
       setUltimateFlash(true);
       setTimeout(() => setUltimateFlash(false), 800);
       arenaAudio.playSpellFeedback(2.5, 6.0, true);
+      if (payload.targetHex) {
+        setSurgeTile(payload.targetHex);
+        setTimeout(() => setSurgeTile(null), 1500);
+      }
     };
 
     const handleShortCircuit = (payload) => {
@@ -105,6 +111,10 @@ function App() {
       setShakeIntensity(4.0);
       setTimeout(() => setShakeIntensity(0), 1000);
       arenaAudio.playSpellFeedback(1.0, 1.0, false);
+      if (payload.targetHex) {
+        const key = `m${payload.targetHex.meta}_s${payload.targetHex.hex}`;
+        setScorchedTiles(prev => [...prev, key]);
+      }
     };
 
     socket.on('match_started', handleMatchStarted);
@@ -520,6 +530,8 @@ function App() {
         weatherOverride={weatherOverride}
         activeTransitions={activeTransitions}
         onTransitionComplete={(id) => setActiveTransitions(prev => prev.filter(t => t.id !== id))}
+        surgeTile={surgeTile}
+        scorchedTiles={scorchedTiles}
       />
       
       {/* Cyber-Glassmorphism Tailwind UI */}
