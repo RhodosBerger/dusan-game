@@ -245,12 +245,15 @@ function App() {
       arenaAudio.startCollapseAlarm();
     } else {
       // Stop/reset alarm if new/reset game
-      if (gameState.turnsElapsed < 8 && arenaAudio.isCollapseAlarmPlaying) {
-        arenaAudio.stopAmbient();
-        const currentAmbient = gameState?.threads?.find(t => t.id === gameState?.activePlayerId)?.position;
-        // restart ambient biome
-        if (currentAmbient?.biome) arenaAudio.startAmbient(currentAmbient.biome);
-      }
+        if (gameState.turnsElapsed < 8 && arenaAudio.isCollapseAlarmPlaying) {
+          arenaAudio.stopAmbient();
+          const activeThread = gameState?.threads?.find(t => t.id === gameState?.activePlayerId);
+          if (activeThread && activeThread.position) {
+            const chunk = gameState.map?.find(c => c.id === activeThread.position.meta);
+            const block = chunk?.blocks?.find(b => b.id === activeThread.position.hex);
+            if (block?.biome) arenaAudio.startAmbient(block.biome);
+          }
+        }
     }
 
     // 4. End Game Fanfare
@@ -271,7 +274,7 @@ function App() {
     if (!gameState || !gridData || gridData.length === 0) return;
     const myThreadId = socket.id || gameState.threads?.[0]?.id;
     const localThread = gameState.threads?.find(t => t.id === myThreadId) || gameState.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
-    if (!localThread || localThread.position.meta === null) return;
+    if (!localThread || !localThread.position || localThread.position.meta === null) return;
 
     const newMeta = localThread.position.meta;
     const newHex = localThread.position.hex;

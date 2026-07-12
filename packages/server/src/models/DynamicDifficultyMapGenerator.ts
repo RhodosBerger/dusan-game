@@ -38,7 +38,8 @@ export class DynamicDifficultyMapGenerator {
         
         // Zvýšenie alebo zníženie priechodnosti na základe obtiažnosti
         const baseWalkableChance = 0.95 - (difficulty * 0.05); // 5% blokov nepriechodných za každý stupeň obtiažnosti
-        if (chunk.id !== 0 && Math.random() > baseWalkableChance) {
+        const isStartBase = (chunk.id === 0 && block.id === 0) || (chunk.id === 8 && block.id === 6) || (chunk.id === 5 && block.id === 3);
+        if (chunk.id !== 0 && !isStartBase && Math.random() > baseWalkableChance) {
           block.walkable = false;
           block.color = '#1f2937'; // Kamenná stena
           totalWalkable--;
