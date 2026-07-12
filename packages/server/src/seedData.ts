@@ -1,12 +1,9 @@
 import { SovereignEngine } from './models/SovereignEngine';
 import { Thread } from './models/Thread';
 import { Instruction } from './models/Instruction';
-import { CardBase, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE } from '@dusan-game/shared';
-
-declare var require: any;
-declare var __dirname: string;
-const fs = require('fs');
-const path = require('path');
+import { CardBase, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, VOID_CARDS_BASE } from '@dusan-game/shared';
+import fs from 'fs';
+import path from 'path';
 
 // Načítanie slovenských prekladov pre server
 const skTranslationsPath = path.join(__dirname, '../../shared/src/translations/sk/cards.json');
@@ -86,9 +83,14 @@ export function initializeSeedData(engine: SovereignEngine) {
   hackerRoot.health = 12;
   hackerRoot.armor = 1;
 
+  const voidWeaver = new Thread('thread_void_weaver', 'PLAYER');
+  voidWeaver.health = 14;
+  voidWeaver.armor = 0;
+
   // Spawnovanie na mapu
   engine.spawnThread(kingAI, 0, 0);       // Crystal base at macro 0, hex 0
   engine.spawnThread(hackerRoot, 8, 6);   // Toxic base at macro 8, hex 6
+  engine.spawnThread(voidWeaver, 5, 3);   // Void base at macro 5, hex 3
 
   // 2. Crystal Deck Generation
   CRYSTAL_CARDS_BASE.forEach(card => {
@@ -107,6 +109,14 @@ export function initializeSeedData(engine: SovereignEngine) {
     }
   });
 
+  // 3b. Void Deck Generation
+  VOID_CARDS_BASE.forEach(card => {
+    for (let i = 0; i < card.count; i++) {
+      const inst = createInstructionFromCard(card);
+      voidWeaver.drawPile.push(inst);
+    }
+  });
+
   // Pomocná funkcia na zamiešanie balíčka
   const shuffle = (array: any[]) => {
     for (let i = array.length - 1; i > 0; i--) {
@@ -117,6 +127,7 @@ export function initializeSeedData(engine: SovereignEngine) {
 
   shuffle(kingAI.drawPile);
   shuffle(hackerRoot.drawPile);
+  shuffle(voidWeaver.drawPile);
 
   // 4. Rozdanie počiatočných kariet (handLimit = 4)
   for (let i = 0; i < 4; i++) {
@@ -125,6 +136,9 @@ export function initializeSeedData(engine: SovereignEngine) {
 
     const cardB = hackerRoot.drawPile.pop();
     if (cardB) hackerRoot.currentBuffer.push(cardB);
+
+    const cardC = voidWeaver.drawPile.pop();
+    if (cardC) voidWeaver.currentBuffer.push(cardC);
   }
 
   // 5. Spawning Neutral AI Monsters (PvEvP) cez Fraktálnu Distribúciu

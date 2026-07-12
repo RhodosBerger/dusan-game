@@ -154,7 +154,7 @@ export class DatabaseSyncManager {
     stmt.run(id);
   }
 
-  public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic'): DBPlayerProfile {
+  public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic' | 'void'): DBPlayerProfile {
     const row = this.db.prepare('SELECT * FROM players WHERE username = ?').get(username) as any;
     if (row) {
       // Rotácia denných úloh na základe času a dňa
@@ -179,8 +179,10 @@ export class DatabaseSyncManager {
     // Ak neexistuje, vytvoríme profil
     const id = `player_${username}_${Date.now()}`;
     const defaultMaterials = defaultHero === 'crystal' 
-      ? JSON.stringify({ CrystalShard: 5, Spores: 0 })
-      : JSON.stringify({ CrystalShard: 0, Spores: 5 });
+      ? JSON.stringify({ CrystalShard: 5, Spores: 0, VoidCore: 0 })
+      : defaultHero === 'toxic'
+      ? JSON.stringify({ CrystalShard: 0, Spores: 5, VoidCore: 0 })
+      : JSON.stringify({ CrystalShard: 0, Spores: 0, VoidCore: 5 });
       
     // Vygenerovanie úvodných denných úloh
     const defaultQuests = JSON.stringify({
@@ -188,7 +190,7 @@ export class DatabaseSyncManager {
       activeList: DailyQuestEngine.generateDailyQuests(defaultHero)
     });
 
-    const maxHealth = defaultHero === 'crystal' ? 15 : 12;
+    const maxHealth = defaultHero === 'crystal' ? 15 : defaultHero === 'toxic' ? 12 : 14;
 
     const insertStmt = this.db.prepare(`
       INSERT INTO players (id, username, level, xp, max_health, armor, luck, materials, quests)

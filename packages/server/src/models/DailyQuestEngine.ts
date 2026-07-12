@@ -67,7 +67,7 @@ export class DailyQuestEngine {
   /**
    * Vygeneruje 3 náhodné denné úlohy
    */
-  public static generateDailyQuests(heroType: 'crystal' | 'toxic'): Quest[] {
+  public static generateDailyQuests(heroType: 'crystal' | 'toxic' | 'void'): Quest[] {
     const shuffled = [...POSSIBLE_DAILY_QUESTS].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 3);
     
@@ -76,7 +76,7 @@ export class DailyQuestEngine {
       progress: 0,
       completed: false,
       materialReward: q.materialReward 
-        ? { type: heroType === 'crystal' ? 'CrystalShard' : 'Spores', amount: q.materialReward.amount }
+        ? { type: heroType === 'crystal' ? 'CrystalShard' : heroType === 'toxic' ? 'Spores' : 'VoidCore', amount: q.materialReward.amount }
         : undefined
     }));
   }
@@ -84,7 +84,7 @@ export class DailyQuestEngine {
   /**
    * Skontroluje, či prešiel kalendárny deň (od posledného refreshu) a podľa toho zrotuje úlohy.
    */
-  public static checkAndRefreshQuests(questsJson: string, heroType: 'crystal' | 'toxic'): string {
+  public static checkAndRefreshQuests(questsJson: string, heroType: 'crystal' | 'toxic' | 'void'): string {
     const now = Date.now();
     try {
       const data = JSON.parse(questsJson);

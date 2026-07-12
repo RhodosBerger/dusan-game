@@ -73,7 +73,8 @@ export class Thread {
     // Priradenie surovín podľa ID
     this.materials = {
       CrystalShard: id.includes('king') ? 5 : 0,
-      Spores: id.includes('hacker') ? 5 : 0
+      Spores: id.includes('hacker') ? 5 : 0,
+      VoidCore: id.includes('weaver') ? 5 : 0
     };
 
     this.isSlowed = false;

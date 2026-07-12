@@ -65,13 +65,13 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                 <div className="flex flex-col gap-4">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-l-2 border-cyan-500 pl-2">1. Výber Hrdinu</h3>
                     
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                         <div 
                             onClick={() => setSelectedHero('thread_king_ai')}
                             className={`p-2.5 sm:p-3 rounded-xl border cursor-pointer transition-all ${selectedHero === 'thread_king_ai' ? 'bg-cyan-950/40 border-cyan-500/80 shadow-[0_0_15px_rgba(0,255,255,0.15)]' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
                         >
                             <div className="text-[9px] sm:text-[10px] font-bold text-cyan-400 mb-1">CRYSTAL KING</div>
-                            <div className="text-[8px] sm:text-[9px] text-slate-400">Pevný pancier, stabilná entropia a vysoké HP.</div>
+                            <div className="text-[8px] sm:text-[9px] text-slate-400">Pevný pancier a vysoké HP.</div>
                         </div>
 
                         <div 
@@ -79,7 +79,15 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                             className={`p-2.5 sm:p-3 rounded-xl border cursor-pointer transition-all ${selectedHero === 'thread_hacker_root' ? 'bg-purple-950/40 border-purple-500/80 shadow-[0_0_15px_rgba(168,85,247,0.15)]' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
                         >
                             <div className="text-[9px] sm:text-[10px] font-bold text-purple-400 mb-1">TOXIC HACKER</div>
-                            <div className="text-[8px] sm:text-[9px] text-slate-400">Rýchly pohyb, odolnosť voči močiarom a loot bonusy.</div>
+                            <div className="text-[8px] sm:text-[9px] text-slate-400">Rýchly pohyb a loot bonusy.</div>
+                        </div>
+
+                        <div 
+                            onClick={() => setSelectedHero('thread_void_weaver')}
+                            className={`p-2.5 sm:p-3 rounded-xl border cursor-pointer transition-all ${selectedHero === 'thread_void_weaver' ? 'bg-fuchsia-950/40 border-fuchsia-500/80 shadow-[0_0_15px_rgba(217,70,239,0.15)]' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
+                        >
+                            <div className="text-[9px] sm:text-[10px] font-bold text-fuchsia-400 mb-1">VOID WEAVER</div>
+                            <div className="text-[8px] sm:text-[9px] text-slate-400">Zosielanie kúziel cez Entropiu.</div>
                         </div>
                     </div>
 
@@ -91,11 +99,17 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                                 <li>Brnenie: <span className="text-cyan-400">1 Armor</span></li>
                                 <li>Kombinatorika: Vyššia šanca na nájdenie Crystal shards.</li>
                             </ul>
-                        ) : (
+                        ) : selectedHero === 'thread_hacker_root' ? (
                             <ul className="list-disc pl-4 flex flex-col gap-1">
                                 <li>Max HP: <span className="text-purple-400">15 HP</span></li>
                                 <li>Pohyb: <span className="text-purple-400">+1 hex dosah</span> na klzkých plochách</li>
                                 <li>Toxic immun: Imunita voči toxic-damage na swamp tileoch.</li>
+                            </ul>
+                        ) : (
+                            <ul className="list-disc pl-4 flex flex-col gap-1">
+                                <li>Max HP: <span className="text-fuchsia-400">14 HP</span></li>
+                                <li>Kúzla: <span className="text-fuchsia-400">Lacnejšie zosielanie</span> pri entropii &gt; 0.7</li>
+                                <li>Entropia: Void karty nepridávajú systémové napätie.</li>
                             </ul>
                         )}
                     </div>

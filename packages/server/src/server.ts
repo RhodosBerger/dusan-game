@@ -267,7 +267,8 @@ io.on('connection', (socket) => {
     const pThread = matchEngine.threads.find(t => t.id === chosenHero);
     if (pThread) {
       pThread.name = payload.name;
-      const profile = dbSync.getOrCreatePlayer(payload.name, chosenHero === 'thread_king_ai' ? 'crystal' : 'toxic');
+      const dbHeroType = chosenHero === 'thread_king_ai' ? 'crystal' : chosenHero === 'thread_hacker_root' ? 'toxic' : 'void';
+      const profile = dbSync.getOrCreatePlayer(payload.name, dbHeroType);
       pThread.loadProfile({
         level: profile.level,
         xp: profile.xp,

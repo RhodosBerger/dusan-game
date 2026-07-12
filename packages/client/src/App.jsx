@@ -48,6 +48,8 @@ function App() {
   const [gameState, setGameState] = useState(null);
   const [semanticSector, setSemanticSector] = useState(null);
   const [terrainTelemetry, setTerrainTelemetry] = useState(null);
+  const [activeTransitions, setActiveTransitions] = useState([]);
+  const [lastPosition, setLastPosition] = useState({ meta: null, hex: null });
 
   // Pripojenie a synchronizácia cez Connection Engine
   useEffect(() => {
@@ -190,13 +192,18 @@ function App() {
 
     // 1. Turn Start Chime
     if (gameState.activePlayerId && gameState.activePlayerId !== lastActivePlayerId) {
-      const faction = gameState.activePlayerId === 'thread_king_ai' ? 'crystal' : 'toxic';
+      const faction = gameState.activePlayerId === 'thread_king_ai' 
+        ? 'crystal' 
+        : gameState.activePlayerId === 'thread_hacker_root' 
+        ? 'toxic' 
+        : 'void';
       arenaAudio.playTurnStart(faction);
       setLastActivePlayerId(gameState.activePlayerId);
     }
 
     // 2. Card Draw Sound
-    const localThread = gameState.threads?.find(t => t.id === 'thread_king_ai');
+    const myThreadId = socket.id || gameState.threads?.[0]?.id;
+    const localThread = gameState.threads?.find(t => t.id === myThreadId) || gameState.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
     const localHandCount = localThread?.currentBuffer?.length || 0;
     if (localHandCount > lastHandCount) {
       arenaAudio.playCardDraw();
@@ -228,6 +235,40 @@ function App() {
     }
 
   }, [gameState, lastActivePlayerId, lastHandCount, gameEnded]);
+
+  // Biome Transition VFX triggers on local player movement
+  useEffect(() => {
+    if (!gameState || !gridData || gridData.length === 0) return;
+    const myThreadId = socket.id || gameState.threads?.[0]?.id;
+    const localThread = gameState.threads?.find(t => t.id === myThreadId) || gameState.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
+    if (!localThread || localThread.position.meta === null) return;
+
+    const newMeta = localThread.position.meta;
+    const newHex = localThread.position.hex;
+
+    if (lastPosition.meta !== null && (lastPosition.meta !== newMeta || lastPosition.hex !== newHex)) {
+      const node = gridData.find(n => n.macroIndex === newMeta && n.subIndex === newHex);
+      if (node) {
+        const BIOME_COLORS = {
+          GLACIER: '#00eeff',
+          TOXIC_SWAMP: '#39ff14',
+          DESERT: '#f97316',
+          BARRENS: '#eab308',
+          LUSH_FOREST: '#22c55e'
+        };
+        const biome = node.biome || 'BARRENS';
+        const color = BIOME_COLORS[biome] || '#38bdf8';
+        const transId = `trans_${Date.now()}_${Math.random()}`;
+
+        setActiveTransitions(prev => [
+          ...prev,
+          { id: transId, position: node.position, color }
+        ]);
+      }
+    }
+
+    setLastPosition({ meta: newMeta, hex: newHex });
+  }, [gameState, gridData, lastPosition]);
 
   // Handler pre kliknutie na uzol v 3D aréne
   const handleNodeClick = (node) => {
@@ -457,6 +498,8 @@ function App() {
         ultimateFlash={ultimateFlash}
         gameMode={gameMode}
         weatherOverride={weatherOverride}
+        activeTransitions={activeTransitions}
+        onTransitionComplete={(id) => setActiveTransitions(prev => prev.filter(t => t.id !== id))}
       />
       
       {/* Cyber-Glassmorphism Tailwind UI */}

@@ -27,6 +27,7 @@ import ArenaAmbientParticles from './ArenaAmbientParticles';
 import HeroAura from './HeroAura';
 import { AdrenalineDirector } from '../../../shared/src/index';
 import AestheticCompositor from './AestheticCompositor';
+import BiomeTransitionVFX from './BiomeTransitionVFX';
 import VolumetricFog3D from './VolumetricFog3D';
 import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
 import StarfieldBackground from './world/StarfieldBackground';
@@ -251,7 +252,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
@@ -515,6 +516,16 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             key={`border_${idx}`} 
                             nodes={nodes} 
                             isHovered={hoveredNode?.macroIndex === idx}
+                        />
+                    ))}
+
+                    {/* Aktívne efekty prechodu hrdinu medzi biómami */}
+                    {activeTransitions?.map(t => (
+                        <BiomeTransitionVFX 
+                            key={t.id}
+                            position={t.position}
+                            color={t.color}
+                            onComplete={() => onTransitionComplete(t.id)}
                         />
                     ))}
                 </ArenaGroup>
