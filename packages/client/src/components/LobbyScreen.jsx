@@ -1,3 +1,5 @@
+import React, { useState } from 'react';
+
 function CrystalKingAvatar() {
     return (
         <svg viewBox="0 0 100 100" className="w-12 h-12 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] animate-pulse">
