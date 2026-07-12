@@ -92,6 +92,9 @@ export default function ArenaUIOverlay({
     isManualWeather = false,
     setIsManualWeather
 }) {
+    const activePlayer = gameState?.threads?.find(t => t.id === gameState?.activePlayerId) || gameState?.threads?.[0];
+    const cards = activePlayer?.currentBuffer || [];
+
     const [isCodexOpen, setIsCodexOpen] = React.useState(false);
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
     const [castingCard, setCastingCard] = React.useState(null);
@@ -182,8 +185,6 @@ export default function ArenaUIOverlay({
         compositor: true
     });
 
-    const activePlayer = gameState?.threads?.find(t => t.id === gameState?.activePlayerId) || gameState?.threads?.[0];
-    const cards = activePlayer?.currentBuffer || [];
     const isPlayerInTown = activePlayer?.position?.meta === 0 && activePlayer?.position?.hex === 0;
     const isStealthed = activePlayer?.isStealthed || false;
 
