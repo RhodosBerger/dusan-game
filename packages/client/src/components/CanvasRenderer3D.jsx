@@ -387,7 +387,12 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 <color attach="background" args={[PALETTE.space.background]} />
                 <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
                 <StarfieldBackground />
-                <BackgroundEnvironment3D activeBiome={activeBiome} entropy={entropy} />
+                <BackgroundEnvironment3D 
+                    activeBiome={activeBiome} 
+                    entropy={entropy} 
+                    ultimateFlash={ultimateFlash}
+                    scorchedTilesCount={scorchedTiles?.length || 0}
+                />
                 <FloatingShards3D />
 
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}

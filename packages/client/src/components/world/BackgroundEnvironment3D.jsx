@@ -18,7 +18,7 @@ const GodRaysShader = {
         varying vec2 vUv;
         
         void main() {
-            // Fade out radially and vertically (fade at top and bottom)
+            // Fade out radially and vertically
             float alpha = (1.0 - vUv.y) * sin(vUv.x * 3.14159);
             
             // Shimmering pattern with phase offsets (avoids dynamic branching for TDP safety)
@@ -36,22 +36,56 @@ const GodRaysShader = {
     `
 };
 
-export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4 }) {
-    const crystalMaterialRef = useRef();
+const BACKGROUND_PARTICLE_COUNT = 120;
+
+export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4, ultimateFlash = false, scorchedTilesCount = 0 }) {
+    const rayGroupRef = useRef();
+    const particlesRef = useRef();
 
     // Cache geometries (Rule 1: Geometry & Material Caching)
     const coneGeom = useMemo(() => new THREE.ConeGeometry(1, 1, 4), []);
     const crystalGeom = useMemo(() => new THREE.CylinderGeometry(0, 1, 1, 4), []);
-    const rayGeom = useMemo(() => new THREE.CylinderGeometry(1, 3.5, 1, 16, 1, true), []); // Open-ended cone of light!
+    const rayGeom = useMemo(() => new THREE.CylinderGeometry(1, 3.5, 1, 16, 1, true), []);
+    
+    // Cache background weather particles
+    const { positions, velocities, colors } = useMemo(() => {
+        const pos = new Float32Array(BACKGROUND_PARTICLE_COUNT * 3);
+        const vel = new Float32Array(BACKGROUND_PARTICLE_COUNT * 3);
+        const cols = new Float32Array(BACKGROUND_PARTICLE_COUNT * 3);
+        for (let i = 0; i < BACKGROUND_PARTICLE_COUNT; i++) {
+            // Orbit radius around the central crystal
+            const angle = Math.random() * Math.PI * 2;
+            const r = 5.0 + Math.random() * 20.0;
+            pos[i * 3] = Math.cos(angle) * r;
+            pos[i * 3 + 1] = 5.0 + Math.random() * 30.0;
+            pos[i * 3 + 2] = -42.0 + (Math.random() - 0.5) * 15.0;
 
-    // Determine colors based on biome & entropy
+            // Float velocity
+            vel[i * 3] = (Math.random() - 0.5) * 0.5; // drift X
+            vel[i * 3 + 1] = -0.4 - Math.random() * 0.8; // fall Y
+            vel[i * 3 + 2] = (Math.random() - 0.5) * 0.5; // drift Z
+
+            // Initial white colors
+            cols[i * 3] = 1.0;
+            cols[i * 3 + 1] = 1.0;
+            cols[i * 3 + 2] = 1.0;
+        }
+        return { positions: pos, velocities: vel, colors: cols };
+    }, []);
+
+    // Create a mutable position cache for particle updates
+    const mutablePositions = useMemo(() => new Float32Array(positions), [positions]);
+
+    // Determine environmental theme colors based on active biome & entropy
     const theme = useMemo(() => {
         if (activeBiome === 'TOXIC_SWAMP') {
             return {
                 crystalColor: '#a3e635',
                 emissiveColor: '#39ff14',
                 rayColor: new THREE.Color('#39ff14'),
-                mountainColor: '#0a0d08'
+                mountainColor: '#0a0d08',
+                particleColor: new THREE.Color('#a3e635'),
+                particleSize: 0.12
             };
         }
         if (entropy >= 0.6) {
@@ -59,7 +93,9 @@ export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4 }) 
                 crystalColor: '#c084fc',
                 emissiveColor: '#a855f7',
                 rayColor: new THREE.Color('#a855f7'),
-                mountainColor: '#060309'
+                mountainColor: '#060309',
+                particleColor: new THREE.Color('#c084fc'),
+                particleSize: 0.14
             };
         }
         if (entropy >= 0.3) {
@@ -67,7 +103,9 @@ export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4 }) 
                 crystalColor: '#22d3ee',
                 emissiveColor: '#00ffff',
                 rayColor: new THREE.Color('#00ffff'),
-                mountainColor: '#04070b'
+                mountainColor: '#04070b',
+                particleColor: new THREE.Color('#00ffff'),
+                particleSize: 0.1
             };
         }
         // Default / Lush Forest / Glacier
@@ -75,7 +113,9 @@ export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4 }) 
             crystalColor: '#0891b2',
             emissiveColor: '#2dd3f1',
             rayColor: new THREE.Color('#baf8fc'),
-            mountainColor: '#040508'
+            mountainColor: '#040508',
+            particleColor: new THREE.Color('#ffffff'),
+            particleSize: 0.08
         };
     }, [activeBiome, entropy]);
 
@@ -141,26 +181,112 @@ export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4 }) 
         blending: THREE.AdditiveBlending
     }), []);
 
-    // Update materials and shader uniforms dynamically on frame tick
-    useFrame((state) => {
+    const particlesMat = useMemo(() => new THREE.PointsMaterial({
+        size: theme.particleSize,
+        vertexColors: false,
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    }), [theme.particleSize]);
+
+    // Update materials, shader uniforms, and particles dynamically on frame tick
+    useFrame((state, delta) => {
         const time = state.clock.elapsedTime;
         
-        // Dynamic shader uniform updates
+        // --- 1. God Rays & Ultimate Flare ---
         if (godRaysMat) {
-            godRaysMat.uniforms.uTime.value = time;
+            // Speed up shimmering during ultimate flaring
+            godRaysMat.uniforms.uTime.value = time * (ultimateFlash ? 2.5 : 1.0);
             godRaysMat.uniforms.uEntropy.value = entropy;
-            godRaysMat.uniforms.uColor.value.copy(theme.rayColor);
+
+            // Blend light ray color to hot orange-red during high grid stress
+            const baseRayCol = theme.rayColor.clone();
+            if (scorchedTilesCount > 0) {
+                const stressFactor = Math.min(1.0, scorchedTilesCount / 4.0);
+                baseRayCol.lerp(new THREE.Color('#ff5500'), stressFactor * 0.7);
+            }
+            godRaysMat.uniforms.uColor.value.copy(baseRayCol);
         }
 
-        // Dynamic crystal emissive glow matching the active biome
+        // Dynamic scale flaring on ultimate flash
+        if (rayGroupRef.current) {
+            const baseScale = ultimateFlash ? (1.35 + Math.sin(time * 15.0) * 0.15) : 1.0;
+            rayGroupRef.current.scale.set(baseScale, baseScale, baseScale);
+        }
+
+        // --- 2. Central Crystal & Grid Stress (Scorched Tiles) ---
         if (crystalMat) {
+            const emissiveColorBase = new THREE.Color(theme.emissiveColor);
+            
+            // If the grid is scorched, melt/heat the crystals with hot red cores
+            if (scorchedTilesCount > 0) {
+                const meltFactor = Math.min(1.0, scorchedTilesCount / 5.0);
+                emissiveColorBase.lerp(new THREE.Color('#ff2200'), meltFactor);
+            }
+
             crystalMat.color.set(theme.crystalColor);
-            crystalMat.emissive.set(theme.emissiveColor);
-            crystalMat.emissiveIntensity = 2.0 + Math.sin(time * 1.5) * 0.4;
+            crystalMat.emissive.copy(emissiveColorBase);
+            
+            // Pulse emissive glow (intense spikes during ultimate casts)
+            const pulseRate = ultimateFlash ? 16.0 : 1.5;
+            const pulseAmp = ultimateFlash ? 2.0 : 0.45;
+            crystalMat.emissiveIntensity = 2.2 + Math.sin(time * pulseRate) * pulseAmp;
         }
 
+        // --- 3. Mountain Volcanic Glow ---
         if (mountainMat) {
-            mountainMat.color.set(theme.mountainColor);
+            const baseMountainCol = new THREE.Color(theme.mountainColor);
+            
+            if (scorchedTilesCount > 0) {
+                const burnFactor = Math.min(1.0, scorchedTilesCount / 6.0);
+                // Heat up the base of the mountains to simulated molten scoria
+                mountainMat.emissive.set('#ff2200');
+                mountainMat.emissiveIntensity = burnFactor * 1.6;
+                baseMountainCol.lerp(new THREE.Color('#1c0a05'), burnFactor);
+            } else {
+                mountainMat.emissive.set('#000000');
+                mountainMat.emissiveIntensity = 0.0;
+            }
+
+            mountainMat.color.copy(baseMountainCol);
+        }
+
+        // --- 4. Weather Particles Simulation ---
+        if (particlesRef.current) {
+            const posAttr = particlesRef.current.geometry.attributes.position;
+            const speedMultiplier = ultimateFlash ? 2.5 : 1.0;
+            
+            for (let i = 0; i < BACKGROUND_PARTICLE_COUNT; i++) {
+                const xi = i * 3, yi = xi + 1, zi = xi + 2;
+
+                // Apply fall velocities
+                mutablePositions[xi] += velocities[xi] * delta * speedMultiplier;
+                mutablePositions[yi] += velocities[yi] * delta * speedMultiplier;
+                mutablePositions[zi] += velocities[zi] * delta * speedMultiplier;
+
+                // Wrap boundaries
+                if (mutablePositions[yi] < 2.0) {
+                    mutablePositions[yi] = 35.0; // Reset height to top
+                    const angle = Math.random() * Math.PI * 2;
+                    const r = 5.0 + Math.random() * 20.0;
+                    mutablePositions[xi] = Math.cos(angle) * r;
+                    mutablePositions[zi] = -42.0 + (Math.random() - 0.5) * 15.0;
+                }
+
+                posAttr.setXYZ(i, mutablePositions[xi], mutablePositions[yi], mutablePositions[zi]);
+            }
+            posAttr.needsUpdate = true;
+
+            // Interpolate particle color
+            if (particlesRef.current.material) {
+                const targetParticleColor = theme.particleColor.clone();
+                if (scorchedTilesCount > 0) {
+                    const heatRatio = Math.min(1.0, scorchedTilesCount / 4.0);
+                    targetParticleColor.lerp(new THREE.Color('#ff8800'), heatRatio * 0.8); // turn to fire embers
+                }
+                particlesRef.current.material.color.copy(targetParticleColor);
+            }
         }
     });
 
@@ -198,7 +324,7 @@ export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4 }) 
             </group>
 
             {/* Volumetric God Rays / Crepuscular Light Shafts */}
-            <group position={[0, 18, -42]} rotation={[0.42, 0, 0]}>
+            <group ref={rayGroupRef} position={[0, 18, -42]} rotation={[0.42, 0, 0]}>
                 <mesh
                     geometry={rayGeom}
                     material={godRaysMat}
@@ -213,6 +339,17 @@ export default function BackgroundEnvironment3D({ activeBiome, entropy = 0.4 }) 
                     rotation={[0, Math.PI / 4, 0]}
                 />
             </group>
+
+            {/* Background Weather Particle System */}
+            <points ref={particlesRef}>
+                <bufferGeometry>
+                    <bufferAttribute
+                        attach="attributes-position"
+                        args={[positions, 3]}
+                    />
+                </bufferGeometry>
+                <primitive object={particlesMat} />
+            </points>
         </group>
     );
 }
