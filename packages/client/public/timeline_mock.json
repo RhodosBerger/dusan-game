@@ -1,0 +1,192 @@
+[
+  {
+    "timestamp": 0.2,
+    "track": "terrain",
+    "clipName": "Elevate Center Hex",
+    "parameters": {
+      "coordinateHex": "A_CENTER",
+      "zOffset": 0.0,
+      "biome": "GLACIER"
+    }
+  },
+  {
+    "timestamp": 0.45,
+    "track": "terrain",
+    "clipName": "Elevate Center Hex",
+    "parameters": {
+      "coordinateHex": "A_CENTER",
+      "zOffset": 1.41,
+      "biome": "GLACIER"
+    }
+  },
+  {
+    "timestamp": 0.7,
+    "track": "terrain",
+    "clipName": "Elevate Center Hex",
+    "parameters": {
+      "coordinateHex": "A_CENTER",
+      "zOffset": 2.0,
+      "biome": "GLACIER"
+    }
+  },
+  {
+    "timestamp": 0.95,
+    "track": "terrain",
+    "clipName": "Elevate Center Hex",
+    "parameters": {
+      "coordinateHex": "A_CENTER",
+      "zOffset": 1.41,
+      "biome": "GLACIER"
+    }
+  },
+  {
+    "timestamp": 1.2,
+    "track": "terrain",
+    "clipName": "Elevate Center Hex",
+    "parameters": {
+      "coordinateHex": "A_CENTER",
+      "zOffset": 0.0,
+      "biome": "GLACIER"
+    }
+  },
+  {
+    "timestamp": 1.2,
+    "track": "character",
+    "clipName": "Hero Voltage Overdrive",
+    "parameters": {
+      "coordinateHex": "A_BASE",
+      "voltage": 5.0,
+      "current": 4.17,
+      "heatSpike": 0.0
+    }
+  },
+  {
+    "timestamp": 1.5,
+    "track": "character",
+    "clipName": "Hero Voltage Overdrive",
+    "parameters": {
+      "coordinateHex": "A_BASE",
+      "voltage": 5.0,
+      "current": 4.17,
+      "heatSpike": 0.0
+    }
+  },
+  {
+    "timestamp": 1.8,
+    "track": "character",
+    "clipName": "Hero Voltage Overdrive",
+    "parameters": {
+      "coordinateHex": "A_BASE",
+      "voltage": 5.0,
+      "current": 4.17,
+      "heatSpike": 0.0
+    }
+  },
+  {
+    "timestamp": 2.1,
+    "track": "character",
+    "clipName": "Hero Voltage Overdrive",
+    "parameters": {
+      "coordinateHex": "A_BASE",
+      "voltage": 5.0,
+      "current": 4.17,
+      "heatSpike": 0.0
+    }
+  },
+  {
+    "timestamp": 2.4,
+    "track": "character",
+    "clipName": "Hero Voltage Overdrive",
+    "parameters": {
+      "coordinateHex": "A_BASE",
+      "voltage": 5.0,
+      "current": 4.17,
+      "heatSpike": 0.0
+    }
+  },
+  {
+    "timestamp": 2.2,
+    "track": "threat",
+    "clipName": "Spawn Droid Wave",
+    "parameters": {
+      "coordinateHex": "A_OVERHEAD",
+      "threatCount": 3
+    }
+  },
+  {
+    "timestamp": 2.4,
+    "track": "threat",
+    "clipName": "Spawn Droid Wave",
+    "parameters": {
+      "coordinateHex": "A_OVERHEAD",
+      "threatCount": 3
+    }
+  },
+  {
+    "timestamp": 2.6,
+    "track": "threat",
+    "clipName": "Spawn Droid Wave",
+    "parameters": {
+      "coordinateHex": "A_OVERHEAD",
+      "threatCount": 3
+    }
+  },
+  {
+    "timestamp": 2.8,
+    "track": "threat",
+    "clipName": "Spawn Droid Wave",
+    "parameters": {
+      "coordinateHex": "A_OVERHEAD",
+      "threatCount": 3
+    }
+  },
+  {
+    "timestamp": 3.0,
+    "track": "threat",
+    "clipName": "Spawn Droid Wave",
+    "parameters": {
+      "coordinateHex": "A_OVERHEAD",
+      "threatCount": 3
+    }
+  },
+  {
+    "timestamp": 3.2,
+    "track": "system",
+    "clipName": "Thermodynamic Purge",
+    "parameters": {
+      "heatLimit": 100
+    }
+  },
+  {
+    "timestamp": 3.33,
+    "track": "system",
+    "clipName": "Thermodynamic Purge",
+    "parameters": {
+      "heatLimit": 100
+    }
+  },
+  {
+    "timestamp": 3.45,
+    "track": "system",
+    "clipName": "Thermodynamic Purge",
+    "parameters": {
+      "heatLimit": 100
+    }
+  },
+  {
+    "timestamp": 3.58,
+    "track": "system",
+    "clipName": "Thermodynamic Purge",
+    "parameters": {
+      "heatLimit": 100
+    }
+  },
+  {
+    "timestamp": 3.7,
+    "track": "system",
+    "clipName": "Thermodynamic Purge",
+    "parameters": {
+      "heatLimit": 100
+    }
+  }
+]

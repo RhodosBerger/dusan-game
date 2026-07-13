@@ -68,14 +68,15 @@ function VoidWeaverAvatar() {
 export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, onOpenGraphicsDemo, onOpenBuilder, onOpenComposer, onOpenB2B }) {
     const [name, setName] = useState('');
     const [selectedHero, setSelectedHero] = useState('thread_king_ai');
+    const [mashupMode, setMashupMode] = useState('STANDARD');
 
     const handleSubmit = (e, isAI) => {
         e.preventDefault();
         const nickname = name.trim() || (selectedHero === 'thread_king_ai' ? 'King_AI_Player' : 'Root_Hacker_Player');
         if (isAI) {
-            onStartGame({ name: nickname, hero: selectedHero, vsAI: true });
+            onStartGame({ name: nickname, hero: selectedHero, vsAI: true, mode: mashupMode });
         } else {
-            onSearchMatch({ name: nickname, hero: selectedHero });
+            onSearchMatch({ name: nickname, hero: selectedHero, mode: mashupMode });
         }
     };
 
@@ -220,6 +221,19 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                                 maxLength={15}
                                 className="bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 text-cyan-300 font-bold transition-all placeholder-slate-600 font-mono"
                             />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 mt-2">
+                            <label className="text-[10px] text-slate-400 uppercase font-heading">Herné pravidlá (Mashup):</label>
+                            <select 
+                                value={mashupMode}
+                                onChange={(e) => setMashupMode(e.target.value)}
+                                className="bg-slate-950/70 border border-slate-850 rounded-xl px-4 py-2 text-xs text-cyan-300 font-bold focus:outline-none focus:border-cyan-550 font-mono"
+                            >
+                                <option value="STANDARD">Standard Arena Rules</option>
+                                <option value="VOLTAGE_GLACIER">Mashup: Voltage Overload & Frost Friction</option>
+                                <option value="VOID_TOXIC">Mashup: Void Rift & Toxic Corrosion</option>
+                            </select>
                         </div>
                     </div>
  
