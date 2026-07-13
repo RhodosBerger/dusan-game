@@ -5,7 +5,7 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { GameState, resolveEngineState } from './models/EnginePipeline';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
@@ -2394,7 +2394,60 @@ async function runTests() {
   console.log(`  [PASS] State machine transition to PLAYER_TURN verified.`);
   console.log(`  [PASS] Test 70 (Mulligan Phase & Setup) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive a Mulligan-Phase-Setup testy prebehli úspešne!");
+  console.log("\nTest 71: GoCoreMediator Reversible Parsing & Fallbacks");
+  const goMediator = new GoCoreMediator('http://localhost:8081');
+  
+  // 1. Validate forward/reverse serialization
+  const mockTsNodes = [
+    { macroIndex: 0, subIndex: 1, biome: 'LUSH_FOREST', walkable: true } as any,
+    { macroIndex: 0, subIndex: 2, biome: 'TOXIC_SWAMP', walkable: true } as any
+  ];
+  
+  const serialized = goMediator.serializeCanvasGrid(mockTsNodes);
+  assert(serialized.blocks.length === 2, "Serialized batch must contain 2 blocks.");
+  assert(serialized.blocks[0].metaId === 0 && serialized.blocks[0].hexId === 1, "First block ID must match.");
+  
+  const mockGoResponse = [
+    { metaId: 0, hexId: 1, biome: 'GLACIER', temperature: 5, humidity: 20, friction: 0.8, conductivity: 1.2, walkable: false, energyCostMultiplier: 1.5, hazardIndex: 0.6 },
+    { metaId: 0, hexId: 2, biome: 'TOXIC_SWAMP', temperature: 25, humidity: 80, friction: 1.1, conductivity: 0.4, walkable: true, energyCostMultiplier: 1.0, hazardIndex: 0.9 }
+  ];
+  
+  const deserialized = goMediator.deserializeGoGrid(mockGoResponse, mockTsNodes);
+  assert(deserialized[0].biome === 'GLACIER', "Deserialized biome must be updated to GLACIER.");
+  assert(deserialized[0].walkable === false, "Walkable flag must be set to false.");
+  assert(deserialized[1].hazardIndex === 0.9, "Hazard stress index must be 0.9.");
+  
+  // 2. Validate availability helper
+  const validationA = goMediator.validateUIElementAvailability(deserialized[0], 2);
+  assert(!validationA.placeable, "Should not be placeable on non-walkable tile.");
+  
+  const validationB = goMediator.validateUIElementAvailability(deserialized[1], 2);
+  assert(!validationB.placeable, "Should not be placeable on highly hazardous tile (hazard >= 0.9).");
+  
+  const validNode = { macroIndex: 0, subIndex: 3, biome: 'LUSH_FOREST', walkable: true, hazardIndex: 0.2 } as any;
+  const validationC = goMediator.validateUIElementAvailability(validNode, 2);
+  assert(validationC.placeable, "Should be placeable on safe walkable tile.");
+  
+  // 3. Validate local fallback logic
+  const fallbackPhysics = await goMediator.solvePhysicsCost(10, 0, 1, 1.5);
+  assert(fallbackPhysics.cost === 225, "Physics fallback cost should be 10 * 15 * 1.5 = 225.");
+  
+  const fallbackCombat = await goMediator.resolveCombatDamage({
+    damage: 10,
+    attackerHeroId: 'thread_king_ai',
+    defenderHeroId: 'thread_hacker_root',
+    defenderArmor: 2,
+    reactionsCount: 1,
+    isSnakeOrStealth: false
+  });
+  assert(fallbackCombat.finalDamage > 0, "Combat fallback damage must be computed.");
+  
+  console.log(`  [PASS] Forward and reverse serialization verified.`);
+  console.log(`  [PASS] Spawner UI availability validation verified.`);
+  console.log(`  [PASS] Deterministic local fallbacks verified.`);
+  console.log(`  [PASS] Test 71 (GoCoreMediator) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup a Go-Core-Mediator testy prebehli úspešne!");
 }
 
 runTests().catch(err => {
