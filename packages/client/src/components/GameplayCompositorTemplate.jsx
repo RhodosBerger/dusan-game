@@ -714,16 +714,17 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
                         {/* Active Reality Phase Switcher */}
                         <div className="flex flex-col gap-1.5 border border-slate-850 p-2 rounded bg-slate-950/40">
                             <span className="text-cyan-450 font-bold uppercase tracking-wider text-[8px]">Active Reality View: <span className="text-yellow-400 font-bold">{realityPhase}</span></span>
-                            <div className="grid grid-cols-2 gap-1 mt-1">
-                                {['STANDARD', 'SURGE', 'VOID', 'GLITCH'].map(phase => (
+                            <div className="grid grid-cols-3 gap-1 mt-1">
+                                {['STANDARD', 'SURGE', 'VOID', 'GLITCH', 'GRAVITY_WELL'].map(phase => (
                                     <button
                                         key={phase}
                                         onClick={() => handleSwitchRealityPhase(phase)}
-                                        className={`px-2 py-1 rounded text-[9px] font-bold border transition-all ${
+                                        className={`px-1 py-1 rounded text-[8px] font-bold border transition-all truncate ${
                                             realityPhase === phase
                                                 ? 'bg-cyan-600 border-cyan-400 text-white'
                                                 : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-400'
                                         }`}
+                                        title={phase}
                                     >
                                         {phase}
                                     </button>

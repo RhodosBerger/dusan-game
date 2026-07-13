@@ -2324,7 +2324,77 @@ async function runTests() {
   console.log(`  [PASS] Slovak and intercardinal string direction parsers verified.`);
   console.log(`  [PASS] Test 68 (8-Directional Vector Guidance) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories a Eight-Directional-Vector-Guidance testy prebehli úspešne!");
+  // ----------------------------------------------------
+  // TEST 69: Tactical Gravity Well Overdrive Math Resolver
+  // ----------------------------------------------------
+  console.log("\nTest 69: Tactical Gravity Well Overdrive Math Resolver");
+
+  const startPt = { x: 10, y: 0, z: 10 };
+  const targetTowards = { x: 2, y: 0, z: 2 };
+  const targetAway = { x: 20, y: 0, z: 20 };
+  
+  const baseVal = 100.0;
+  const frictionCoefficient = 0.6;
+  
+  const costTowards = SpatialGuidanceSystem.calculateGravityWellCost(baseVal, startPt, targetTowards, frictionCoefficient);
+  assert(costTowards === baseVal * 0.5, "Moving towards center must reduce cost by 50%.");
+  
+  const costAway = SpatialGuidanceSystem.calculateGravityWellCost(baseVal, startPt, targetAway, frictionCoefficient);
+  assert(costAway === baseVal * (2.5 * frictionCoefficient), "Moving away from center must amplify cost by 2.5x base friction.");
+
+  console.log(`  [PASS] Gravity Well math resolver verified: towards -> ${costTowards} W, away -> ${costAway} W`);
+  console.log(`  [PASS] Test 69 (Tactical Gravity Well Overdrive) validated successfully.`);
+
+  // ----------------------------------------------------
+  // TEST 70: Mulligan Phase & Setup Math Resolver
+  // ----------------------------------------------------
+  console.log("\nTest 70: Mulligan Phase & Setup Math Resolver");
+  
+  const testEngine = new SovereignEngine();
+  initializeSeedData(testEngine);
+  testEngine.addPlayer('thread_king_ai');
+  testEngine.addPlayer('thread_hacker_root');
+  
+  // Verify initial state is MULLIGAN
+  assert(testEngine.state === 'MULLIGAN', "Initial state must be MULLIGAN.");
+  assert(testEngine.turnStateMachine.currentPhase === 'MULLIGAN', "Initial phase must be MULLIGAN.");
+  
+  const kingThread = testEngine.threads.find(t => t.id === 'thread_king_ai');
+  const hackerThread = testEngine.threads.find(t => t.id === 'thread_hacker_root');
+  const voidThread = testEngine.threads.find(t => t.id === 'thread_void_weaver');
+  
+  assert(!!(kingThread && kingThread.currentBuffer.length === 4), "Player A must start with 4 cards.");
+  assert(!!(hackerThread && hackerThread.currentBuffer.length === 4), "Player B must start with 4 cards.");
+  
+  if (!kingThread || !hackerThread || !voidThread) {
+    throw new Error("Required player threads not initialized.");
+  }
+
+  const initialKingCardIds = kingThread.currentBuffer.map(c => c.id);
+  const cardIdsToReplace = [initialKingCardIds[0], initialKingCardIds[1]];
+  
+  // Run Mulligan swap for Player A
+  testEngine.turnStateMachine.executeMulligan('thread_king_ai', cardIdsToReplace);
+  assert(testEngine.turnStateMachine.mulliganComplete['thread_king_ai'] === true, "Player A mulligan must be marked complete.");
+  assert(testEngine.state === 'MULLIGAN', "Game must remain in MULLIGAN phase until all players submit.");
+  
+  // Run Mulligan for other active players
+  const initialHackerCardIds = hackerThread.currentBuffer.map(c => c.id);
+  const initialVoidCardIds = voidThread.currentBuffer.map(c => c.id);
+  
+  testEngine.turnStateMachine.executeMulligan('thread_hacker_root', [initialHackerCardIds[0]]);
+  testEngine.turnStateMachine.executeMulligan('thread_void_weaver', [initialVoidCardIds[0]]);
+  
+  // Verify transition to active match state
+  assert(testEngine.state === 'PLAYER_TURN', "Game state must transition to PLAYER_TURN after all mulligans.");
+  assert(testEngine.turnStateMachine.currentPhase === 'ACTION', "Phase must transition to ACTION.");
+  assert(kingThread.currentBuffer.length === 4, "Player A must still have exactly 4 cards in hand.");
+  
+  console.log(`  [PASS] Mulligan swap and redraw executed successfully.`);
+  console.log(`  [PASS] State machine transition to PLAYER_TURN verified.`);
+  console.log(`  [PASS] Test 70 (Mulligan Phase & Setup) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive a Mulligan-Phase-Setup testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

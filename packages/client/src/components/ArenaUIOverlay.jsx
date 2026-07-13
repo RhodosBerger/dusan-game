@@ -104,6 +104,16 @@ export default function ArenaUIOverlay({
     const [isShopOpen, setIsShopOpen] = React.useState(false);
     const [hoveredCardIndex, setHoveredCardIndex] = React.useState(null);
 
+    const [selectedMulliganCardIds, setSelectedMulliganCardIds] = React.useState([]);
+    const [mulliganSubmitted, setMulliganSubmitted] = React.useState(false);
+
+    React.useEffect(() => {
+        if (gameState?.state === 'MULLIGAN') {
+            setSelectedMulliganCardIds([]);
+            setMulliganSubmitted(false);
+        }
+    }, [gameState?.state]);
+
     React.useEffect(() => {
         const fetchTelemetry = () => {
             fetch('http://localhost:8081/api/telemetry/analytics')
@@ -184,8 +194,30 @@ export default function ArenaUIOverlay({
         sandbox: true,
         quests: true,
         logs: true,
-        compositor: true
+        compositor: true,
+        vectorGuidance: true
     });
+
+    const [gp8DEnabled, setGp8DEnabled] = React.useState(false);
+    const [gp8DDir, setGp8DDir] = React.useState('N');
+    const [gp8DDist, setGp8DDist] = React.useState(1);
+
+    React.useEffect(() => {
+        if (gp8DEnabled) {
+            const config = {
+                sourceId: gameState?.activePlayerId || 'thread_king_ai',
+                targetId: '',
+                targetType: '8direction',
+                customMeta: 0,
+                customHex: 0,
+                eightDDir: gp8DDir,
+                eightDDist: gp8DDist
+            };
+            window.dispatchEvent(new CustomEvent('spatial_guidance_update', { detail: config }));
+        } else {
+            window.dispatchEvent(new CustomEvent('spatial_guidance_update', { detail: null }));
+        }
+    }, [gp8DEnabled, gp8DDir, gp8DDist, gameState?.activePlayerId]);
 
     const isPlayerInTown = activePlayer?.position?.meta === 0 && activePlayer?.position?.hex === 0;
     const isStealthed = activePlayer?.isStealthed || false;
@@ -666,6 +698,133 @@ export default function ArenaUIOverlay({
         );
     };
 
+    const renderVectorGuidance = (isMobile = false) => {
+        // Resolve start & target coordinates to compute gravity well costs
+        const startPos = activePlayer?.position 
+            ? SpatialGuidanceSystem.resolveCartesian(activePlayer.position.meta, activePlayer.position.hex)
+            : { x: 0, y: 0, z: 0 };
+        const targetPos = SpatialGuidanceSystem.resolveEightDirectionTarget(startPos, gp8DDir, gp8DDist);
+        
+        const distStart = Math.sqrt(startPos.x * startPos.x + startPos.z * startPos.z);
+        const distTarget = Math.sqrt(targetPos.x * targetPos.x + targetPos.z * targetPos.z);
+        
+        let calculatedCost = gp8DDist * 6.8 * 10 * (activePlayer?.level || 1);
+        const isGravityActive = realityPhase === 'GRAVITY_WELL';
+        if (isGravityActive) {
+            const friction = 0.6;
+            if (distTarget < distStart) {
+                calculatedCost *= 0.5;
+            } else {
+                calculatedCost *= (2.5 * friction);
+            }
+        }
+
+        const isEscapeAmplified = isGravityActive && calculatedCost > 60;
+
+        return (
+            <div className="glass-panel-heavy text-white p-4 rounded-xl shadow-2xl min-w-[280px] w-full text-left border border-cyan-500/20">
+                <div 
+                    onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, vectorGuidance: !prev.vectorGuidance }))}
+                    className={`text-[10px] text-cyan-400 tracking-widest font-mono uppercase flex justify-between items-center font-bold ${!isMobile ? 'cursor-pointer select-none' : ''}`}
+                >
+                    <span>🧭 Vektorové Zameriavanie {!isMobile && (collapsed.vectorGuidance ? '▶' : '▼')}</span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${gp8DEnabled ? 'bg-cyan-950 text-cyan-400 border border-cyan-500/30' : 'bg-slate-800 text-slate-400'}`}>
+                        {gp8DEnabled ? 'Zapnuté' : 'Vypnuté'}
+                    </span>
+                </div>
+
+                {(!collapsed.vectorGuidance || isMobile) && (
+                    <div className="flex flex-col gap-3 font-mono text-xs mt-3">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+                            <span className="text-slate-400 text-[10px]">Aktivovať navádzanie:</span>
+                            <input 
+                                type="checkbox" 
+                                checked={gp8DEnabled} 
+                                onChange={(e) => setGp8DEnabled(e.target.checked)}
+                                className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                            />
+                        </div>
+
+                        {/* Gravity Well sub-space toggle */}
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+                            <span className="text-slate-400 text-[10px]">Gravitačná Studňa (Gravity Well):</span>
+                            <input 
+                                type="checkbox" 
+                                checked={realityPhase === 'GRAVITY_WELL'} 
+                                onChange={(e) => {
+                                    const nextPhase = e.target.checked ? 'GRAVITY_WELL' : 'STANDARD';
+                                    if (setRealityPhase) setRealityPhase(nextPhase);
+                                    // Also notify server via POST /api/scenarios/realities/active
+                                    fetch('http://localhost:3001/api/scenarios/realities/active', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ phase: nextPhase })
+                                    }).catch(() => {});
+                                }}
+                                className="w-3.5 h-3.5 accent-purple-500 cursor-pointer"
+                            />
+                        </div>
+
+                        {gp8DEnabled && (
+                            <>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-slate-400 text-[9px]">Smer (8-Smerový vektor):</span>
+                                    <select
+                                        value={gp8DDir}
+                                        onChange={(e) => setGp8DDir(e.target.value)}
+                                        className="bg-slate-950 border border-slate-800 px-2 py-1 rounded text-white focus:outline-none w-full text-[10px]"
+                                    >
+                                        <option value="N">Sever (N)</option>
+                                        <option value="NE">Severovýchod (NE)</option>
+                                        <option value="E">Východ (E)</option>
+                                        <option value="SE">Juhovýchod (SE)</option>
+                                        <option value="S">Juh (S)</option>
+                                        <option value="SW">Juhozápad (SW)</option>
+                                        <option value="W">Západ (W)</option>
+                                        <option value="NW">Severozápad (NW)</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-slate-400 text-[9px]">Počet krokov (Vzdialenosť):</span>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="6"
+                                        value={gp8DDist}
+                                        onChange={(e) => setGp8DDist(Math.max(1, Math.min(6, Number(e.target.value))))}
+                                        className="bg-slate-950 border border-slate-800 px-2 py-1 rounded text-white focus:outline-none w-full text-[10px]"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-1 bg-slate-950/60 p-2 border border-slate-850 rounded text-[9.5px]">
+                                    <span className="text-yellow-450 font-bold uppercase tracking-wider text-[8px] mb-1">Systémový Tooltip</span>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-400">Náklady na akciu:</span>
+                                        <span className="font-bold text-cyan-400">{Math.round(calculatedCost)} W</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-400">Aktuálny level:</span>
+                                        <span className="font-bold text-emerald-400">Lvl {activePlayer?.level || 1}</span>
+                                    </div>
+                                    <div className="text-[8.5px] text-yellow-500 italic mt-1.5 border-t border-slate-900 pt-1.5 leading-normal">
+                                        {isEscapeAmplified ? (
+                                            <span className="text-red-450 font-bold">UPOZORNENIE: Únikový manéver vyžaduje kritické množstvo energie!</span>
+                                        ) : gp8DDist > (activePlayer?.movementBase || 1) ? (
+                                            "⚠️ Varovanie: Zvolená vzdialenosť presahuje základný pohyb hrdinu!"
+                                        ) : (
+                                            "✓ Odporúčanie: Bezpečná trasa, optimálna energetická záťaž pre presun."
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderCompositor = (isMobile = false) => {
         return (
             <div className="glass-panel-heavy text-white p-4 rounded-xl shadow-2xl min-w-[280px] w-full text-left border border-cyan-500/20">
@@ -687,6 +846,114 @@ export default function ArenaUIOverlay({
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 z-10 font-sans">
+            {/* FULLSCREEN MULLIGAN OVERLAY */}
+            {gameState?.state === 'MULLIGAN' && (() => {
+                const oponentId = activePlayer?.id === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
+                const isOponentReady = gameState?.turnStateMachine?.mulliganComplete?.[oponentId];
+                return (
+                    <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col items-center justify-center pointer-events-auto p-4 md:p-8">
+                        <div className="text-center max-w-xl mb-8">
+                            <h2 className="text-3xl font-extrabold uppercase tracking-widest text-[#a855f7] drop-shadow-[0_0_15px_rgba(168,85,247,0.4)] mb-2">
+                                🃏 Mulligan Phase 🃏
+                            </h2>
+                            <p className="text-slate-400 text-sm">
+                                Vyberte ľubovoľný počet kariet, ktoré chcete vrátiť na spodok balíčka, zamiešať a vymeniť.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap justify-center gap-6 max-w-4xl mb-8">
+                            {cards.map((card, idx) => {
+                                const meta = getCardMetadata(card.id);
+                                const isSelected = selectedMulliganCardIds.includes(card.id);
+                                const isAttack = meta.type.includes('ATTACK') || card.id.toLowerCase().includes('attack') || card.id.toLowerCase().includes('cleave') || card.id.toLowerCase().includes('shards') || card.id.toLowerCase().includes('meteor');
+                                const isMagic = meta.type.includes('MAGIC') || card.id.toLowerCase().includes('spell') || card.id.toLowerCase().includes('lance') || card.id.toLowerCase().includes('shield');
+                                const isMove = meta.type.includes('MOVE') || card.id.toLowerCase().includes('move') || card.id.toLowerCase().includes('teleport') || card.id.toLowerCase().includes('dash');
+
+                                let cardThemeColor = 'border-slate-800 bg-slate-900/40 text-slate-300';
+                                if (isAttack) cardThemeColor = 'border-red-900/60 bg-red-950/20 text-red-200';
+                                else if (isMagic) cardThemeColor = 'border-blue-900/60 bg-blue-950/20 text-blue-200';
+                                else if (isMove) cardThemeColor = 'border-yellow-900/60 bg-yellow-950/20 text-yellow-200';
+
+                                return (
+                                    <div 
+                                        key={card.id + '_' + idx}
+                                        onClick={() => {
+                                            if (mulliganSubmitted) return;
+                                            setSelectedMulliganCardIds(prev => 
+                                                prev.includes(card.id) 
+                                                    ? prev.filter(id => id !== card.id) 
+                                                    : [...prev, card.id]
+                                            );
+                                        }}
+                                        className={`relative w-48 h-72 border rounded-2xl p-4 flex flex-col justify-between cursor-pointer transition-all duration-300 select-none ${cardThemeColor} ${
+                                            isSelected 
+                                                ? 'scale-105 border-red-500 bg-red-950/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
+                                                : 'hover:scale-102 hover:border-slate-600 shadow-xl'
+                                        }`}
+                                    >
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="flex justify-between items-start gap-1">
+                                                <span className="font-bold text-sm tracking-tight text-left">{meta.name}</span>
+                                                <span className="text-[10px] bg-slate-800/80 px-1.5 py-0.5 rounded font-mono font-bold text-purple-400">
+                                                    {meta.cost}W
+                                                </span>
+                                            </div>
+                                            <span className="text-[8px] uppercase tracking-wider font-mono font-semibold text-slate-500 text-left">
+                                                {meta.type}
+                                            </span>
+                                            <p className="text-[10px] text-slate-400 text-left leading-relaxed mt-2 italic">
+                                                {meta.desc}
+                                            </p>
+                                        </div>
+
+                                        {isSelected && (
+                                            <div className="absolute inset-0 bg-red-950/50 rounded-2xl flex items-center justify-center backdrop-blur-[1px]">
+                                                <span className="bg-red-600 text-white font-mono text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-lg border border-red-400">
+                                                    🔄 VYMENIŤ
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-4">
+                            {mulliganSubmitted ? (
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-slate-400 text-xs font-mono">
+                                        Čaká sa na oponenta... ({isOponentReady ? 'Oponent pripravený' : 'Oponent premýšľa'})
+                                    </span>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setMulliganSubmitted(true);
+                                        fetch('http://localhost:3001/api/match/mulligan', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ playerId: activePlayer?.id, cardIds: selectedMulliganCardIds })
+                                        })
+                                        .then(res => res.json())
+                                        .then(data => {
+                                            console.log('[MULLIGAN SUCCESS]', data);
+                                        })
+                                        .catch(err => {
+                                            console.error('[MULLIGAN ERROR]', err);
+                                            setMulliganSubmitted(false);
+                                        });
+                                    }}
+                                    className="px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold uppercase tracking-wider rounded-xl shadow-lg hover:shadow-purple-500/20 active:scale-95 transition-all duration-150 text-sm border border-purple-400/30"
+                                >
+                                    Potvrdiť výmenu ({selectedMulliganCardIds.length} kariet)
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* REACTIVE INTERRUPT WINDOW OVERLAY */}
             {gameState?.turnStateMachine?.currentPhase === 'INTERRUPT_WINDOW' && (() => {
                 const currentAction = gameState?.turnStateMachine?.currentAction;
@@ -824,6 +1091,17 @@ export default function ArenaUIOverlay({
                 >
                     📝 Záznamy
                 </button>
+                <button 
+                    onClick={() => setCollapsed(prev => ({ ...prev, vectorGuidance: !prev.vectorGuidance }))}
+                    className={`cyber-btn px-3 py-1.5 border font-heading text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        !collapsed.vectorGuidance 
+                            ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-[0.98]' 
+                            : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                    title="Prepnúť panel smerového navádzania"
+                >
+                    🧭 Zameriavanie
+                </button>
             </div>
 
             {/* Desktop-only side panels — kontajner je celoplošný, preto NESMIE chytať
@@ -836,6 +1114,7 @@ export default function ArenaUIOverlay({
                     {!collapsed.sandbox && renderSandbox(false)}
                     {!collapsed.quests && renderQuests(false)}
                     {!collapsed.compositor && renderCompositor(false)}
+                    {!collapsed.vectorGuidance && renderVectorGuidance(false)}
                 </div>
                 <div className="pointer-events-auto max-h-full overflow-y-auto">
                     {!collapsed.logs && renderLogs(false)}

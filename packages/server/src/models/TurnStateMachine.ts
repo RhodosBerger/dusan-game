@@ -2,7 +2,7 @@ import { ActionNode } from './ActionNode';
 import { SovereignEngine } from './SovereignEngine';
 import { CombinatoricProbabilityEngine, getPhysicsSpecs } from '@dusan-game/shared';
 
-export type TurnPhase = 'PREPARATION' | 'ACTION' | 'INTERRUPT_WINDOW' | 'RESOLVE_NETWORK' | 'END_TURN';
+export type TurnPhase = 'MULLIGAN' | 'PREPARATION' | 'ACTION' | 'INTERRUPT_WINDOW' | 'RESOLVE_NETWORK' | 'END_TURN';
 
 export class TurnStateMachine {
   activePlayerId: string;
@@ -13,6 +13,7 @@ export class TurnStateMachine {
   turnNumber: number;
 
   lastPlayedSpecs: Record<string, { voltage: number; resistance: number }> = {};
+  mulliganComplete: Record<string, boolean> = {};
 
   constructor(private engine: SovereignEngine) {
     this.activePlayerId = '';
@@ -22,6 +23,57 @@ export class TurnStateMachine {
     this.currentAction = null;
     this.turnNumber = 1;
     this.lastPlayedSpecs = {};
+    this.mulliganComplete = {};
+  }
+
+  /**
+   * Vykoná výmenu počiatočných kariet počas Mulligan fázy
+   */
+  executeMulligan(playerId: string, cardIds: string[]): void {
+    const thread = this.engine.threads.find(t => t.id === playerId);
+    if (!thread || thread.type !== 'PLAYER') return;
+
+    const toKeep: any[] = [];
+    const toReplace: any[] = [];
+
+    thread.currentBuffer.forEach(card => {
+      if (cardIds.includes(card.id) && toReplace.length < cardIds.length) {
+        toReplace.push(card);
+      } else {
+        toKeep.push(card);
+      }
+    });
+
+    // Umiestniť vymenené karty na spodok balíčka
+    thread.drawPile = [...toReplace, ...thread.drawPile];
+
+    // Zamiešať balíček
+    for (let i = thread.drawPile.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [thread.drawPile[i], thread.drawPile[j]] = [thread.drawPile[j], thread.drawPile[i]];
+    }
+
+    // Dobrať si späť do 4 kariet
+    const drawAmount = 4 - toKeep.length;
+    for (let i = 0; i < drawAmount; i++) {
+      const newCard = thread.drawPile.pop();
+      if (newCard) {
+        toKeep.push(newCard);
+      }
+    }
+
+    thread.currentBuffer = toKeep;
+    this.mulliganComplete[playerId] = true;
+
+    console.log(`[MULLIGAN] Hráč ${playerId} dokončil Mulligan. Vymenených ${toReplace.length} kariet.`);
+
+    const activePlayers = this.engine.threads.filter(t => t.type === 'PLAYER');
+    const allDone = activePlayers.every(p => this.mulliganComplete[p.id]);
+    if (allDone) {
+      console.log(`[MULLIGAN] Všetci hráči dokončili Mulligan. Prechod do herného ťahu.`);
+      this.engine.state = 'PLAYER_TURN';
+      this.startTurn(this.baseActivePlayerId || this.engine.playerIds[0]);
+    }
   }
 
   /**

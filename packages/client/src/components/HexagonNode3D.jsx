@@ -184,6 +184,7 @@ function SpellFlashBeam3D({ weatherOverride }) {
 
 export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null }) {
     const tileRef = useRef();
+    const materialRef = useRef();
     const radius = 2.0;
 
     // Generovanie 3D tvaru hexagónu (ExtrudeGeometry pre 3D podstavec)
@@ -220,6 +221,28 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         });
     }, [selectedCard, biomeInfo.biome, node.friction, node.hazardIndex, mlInfo]);
 
+    const handleBeforeCompile = React.useCallback((shader) => {
+        shader.uniforms.uGravityPulse = { value: 0.0 };
+        shader.vertexShader = `
+            uniform float uGravityPulse;
+            ${shader.vertexShader}
+        `.replace(
+            '#include <begin_vertex>',
+            `
+            #include <begin_vertex>
+            if (uGravityPulse > 0.05) {
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                float distToCenter = length(worldPos.xz);
+                float sinkFactor = 1.0 - smoothstep(0.0, 15.0, distToCenter);
+                transformed.z -= sinkFactor * 1.5 * uGravityPulse;
+            }
+            `
+        );
+        if (materialRef.current) {
+            materialRef.current.userData.shader = shader;
+        }
+    }, []);
+
     const realityConfig = useMemo(() => {
         const phase = node.realityPhase || realityPhase || 'STANDARD';
         if (phase === 'SURGE') {
@@ -248,6 +271,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 emissive: new THREE.Color('#ff003c').multiplyScalar(r * 2.0)
             };
         }
+        if (phase === 'GRAVITY_WELL') {
+            return {
+                roughness: 0.35,
+                metalness: 0.9,
+                color: new THREE.Color('#4b0082'), // Indigo
+                emissive: new THREE.Color('#8a2be2').multiplyScalar(2.2) // BlueViolet
+            };
+        }
         return null;
     }, [node.realityPhase, realityPhase, node.macroIndex, node.subIndex]);
 
@@ -268,6 +299,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 baseCost *= 1.35;
             } else if (phase === 'GLITCH') {
                 baseCost *= (1.0 + Math.sin(node.macroIndex + node.subIndex) * 0.25);
+            } else if (phase === 'GRAVITY_WELL') {
+                const distStart = Math.sqrt(startPos.x * startPos.x + startPos.z * startPos.z);
+                const distTarget = Math.sqrt(nodePos.x * nodePos.x + nodePos.z * nodePos.z);
+                if (distTarget < distStart) {
+                    baseCost *= 0.5;
+                } else {
+                    baseCost *= (2.5 * friction);
+                }
             }
             
             const dx = nodePos.x - startPos.x;
@@ -294,6 +333,20 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
     const edgeColor = useMemo(() => {
         if (isSelected || isHovered) return PALETTE.accent.magic;
+        
+        const phase = node.realityPhase || realityPhase || 'STANDARD';
+        if (phase === 'GRAVITY_WELL' && matrixSource) {
+            try {
+                const startPos = SpatialGuidanceSystem.resolveCartesian(matrixSource.meta, matrixSource.hex);
+                const nodePos = SpatialGuidanceSystem.resolveCartesian(node.macroIndex, node.subIndex);
+                const distStart = Math.sqrt(startPos.x * startPos.x + startPos.z * startPos.z);
+                const distTarget = Math.sqrt(nodePos.x * nodePos.x + nodePos.z * nodePos.z);
+                if (distTarget >= distStart) {
+                    return '#8a2be2'; // Purple/Violet pulse for amplified cost
+                }
+            } catch (e) {}
+        }
+
         if (matrixInfo) {
             if (matrixInfo.cost < 20) return '#00ffcc'; // Teal for cheap
             if (matrixInfo.cost < 45) return '#fb923c'; // Orange for medium
@@ -331,6 +384,11 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
     }, [node.macroIndex, node.subIndex]);
 
     useFrame((state) => {
+        if (materialRef.current && materialRef.current.userData && materialRef.current.userData.shader) {
+            const phase = node.realityPhase || realityPhase || 'STANDARD';
+            materialRef.current.userData.shader.uniforms.uGravityPulse.value = phase === 'GRAVITY_WELL' ? 1.0 : 0.0;
+        }
+
         if (!tileRef.current) return;
         const time = state.clock.elapsedTime;
 
@@ -505,7 +563,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             <group ref={tileRef}>
                 <mesh castShadow receiveShadow frustumCulled={false}>
                     <extrudeGeometry args={[hexShape, extrudeSettings]} />
-                    <meshStandardMaterial {...materialProps} />
+                    <meshStandardMaterial ref={materialRef} onBeforeCompile={handleBeforeCompile} {...materialProps} />
                 </mesh>
                 <lineSegments position={[0, 0, 0.41]}>
                     <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />

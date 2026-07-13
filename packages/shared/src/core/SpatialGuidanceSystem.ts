@@ -137,4 +137,22 @@ SYNC_CARTEZIAN_COORDINATES();
     if (cleaned === 'severozapad' || cleaned === 'severozápad' || cleaned === 'nw' || cleaned === 'northwest') return 'NW';
     return 'N';
   }
+
+  /**
+   * Modulates action cost under gravity well conditions
+   */
+  public static calculateGravityWellCost(
+    baseCost: number,
+    startPos: CartesianPoint,
+    targetPos: CartesianPoint,
+    friction: number
+  ): number {
+    const distStart = Math.sqrt(startPos.x * startPos.x + startPos.z * startPos.z);
+    const distTarget = Math.sqrt(targetPos.x * targetPos.x + targetPos.z * targetPos.z);
+    if (distTarget < distStart) {
+      return baseCost * 0.5;
+    } else {
+      return baseCost * (2.5 * friction);
+    }
+  }
 }

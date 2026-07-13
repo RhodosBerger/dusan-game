@@ -1909,6 +1909,17 @@ app.post('/api/end-turn', (req, res) => {
   }
 });
 
+app.post('/api/match/mulligan', (req, res) => {
+  try {
+    const { playerId, cardIds } = req.body;
+    defaultEngine.turnStateMachine.executeMulligan(playerId, cardIds || []);
+    io.emit('state_resolved', defaultEngine.getState());
+    res.status(200).json({ success: true, state: defaultEngine.getState() });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/', (req, res) => {
   res.redirect('/goal');
 });

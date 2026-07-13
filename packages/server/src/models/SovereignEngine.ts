@@ -175,8 +175,11 @@ export class SovereignEngine {
   }
 
   startGame(): void {
-    this.state = 'PLAYER_TURN';
-    this.turnStateMachine.startTurn(this.playerIds[0]);
+    this.state = 'MULLIGAN';
+    this.turnStateMachine.currentPhase = 'MULLIGAN';
+    this.turnStateMachine.mulliganComplete = {};
+    this.turnStateMachine.activePlayerId = this.playerIds[0] || '';
+    this.turnStateMachine.baseActivePlayerId = this.playerIds[0] || '';
   }
 
   initializeStartingQuests(thread: Thread): void {
