@@ -34,6 +34,45 @@ export default function SovereignBoardComposer() {
     const [currentBoard, setCurrentBoard] = useState(() => PRESET_BOARDS.GLACIER_ARENA);
     const [activeNodeId, setActiveNodeId] = useState(null);
 
+    // Multi-Track Timeline States
+    const [currentTime, setCurrentTime] = useState(0.0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [selectedClipId, setSelectedClipId] = useState('c1');
+    const [timelineClips, setTimelineClips] = useState([
+        { id: 'c1', track: 'terrain', name: 'Elevate Center Hex', start: 0.2, duration: 1.0, hex: 'A_CENTER', zOffset: 2.0, biome: 'GLACIER' },
+        { id: 'c2', track: 'character', name: 'Hero Voltage Overdrive', start: 1.2, duration: 1.2, hex: 'A_BASE', voltage: 5.0, resistance: 1.2 },
+        { id: 'c3', track: 'threat', name: 'Spawn Droid Wave', start: 2.2, duration: 0.8, hex: 'A_OVERHEAD', threatCount: 3 },
+        { id: 'c4', track: 'system', name: 'Thermodynamic Purge', start: 3.2, duration: 0.5, heatLimit: 100 }
+    ]);
+
+    const activeClip = useMemo(() => {
+        return timelineClips.find(c => c.id === selectedClipId);
+    }, [selectedClipId, timelineClips]);
+
+    const updateClipAttribute = (key, val) => {
+        if (!selectedClipId) return;
+        setTimelineClips(prev => prev.map(c => {
+            if (c.id === selectedClipId) {
+                return { ...c, [key]: val };
+            }
+            return c;
+        }));
+    };
+
+    // Playhead animation loop (emulating video timeline playback)
+    React.useEffect(() => {
+        let timer;
+        if (isPlaying) {
+            timer = setInterval(() => {
+                setCurrentTime(prev => {
+                    if (prev >= 4.0) return 0.0;
+                    return parseFloat((prev + 0.05).toFixed(2));
+                });
+            }, 50);
+        }
+        return () => clearInterval(timer);
+    }, [isPlaying]);
+
     // Sync board layout when user changes template dropdown
     const handleBoardTemplateChange = (key) => {
         setSelectedBoardKey(key);
@@ -126,6 +165,87 @@ export default function SovereignBoardComposer() {
                             <option value="EMPTY_PLATE">Empty Sandbox Plate</option>
                         </select>
                     </div>
+
+                    {/* Multi-Track Clip Inspector */}
+                    {activeClip ? (
+                        <div style={{ background: '#13131a', border: '1px solid #242430', padding: 14, borderRadius: 8, marginBottom: 20 }}>
+                            <h3 style={{ margin: '0 0 12px 0', fontSize: 13, color: '#a855f7' }}>🎞️ Clip: {activeClip.name}</h3>
+                            
+                            <div style={{ marginBottom: 10 }}>
+                                <label style={{ display: 'block', fontSize: 10, opacity: 0.8, marginBottom: 4 }}>Clip Name</label>
+                                <input 
+                                    type="text" value={activeClip.name} 
+                                    onChange={(e) => updateClipAttribute('name', e.target.value)} 
+                                    style={{ width: '100%', padding: '6px', background: '#0a0a0f', color: '#fff', border: '1px solid #242430', borderRadius: 4, fontSize: 10 }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', fontSize: 10, opacity: 0.8, marginBottom: 4 }}>Start (s)</label>
+                                    <input 
+                                        type="number" step="0.1" value={activeClip.start} 
+                                        onChange={(e) => updateClipAttribute('start', parseFloat(e.target.value) || 0)} 
+                                        style={{ width: '100%', padding: '6px', background: '#0a0a0f', color: '#fff', border: '1px solid #242430', borderRadius: 4, fontSize: 10 }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', fontSize: 10, opacity: 0.8, marginBottom: 4 }}>Duration (s)</label>
+                                    <input 
+                                        type="number" step="0.1" value={activeClip.duration} 
+                                        onChange={(e) => updateClipAttribute('duration', parseFloat(e.target.value) || 0)} 
+                                        style={{ width: '100%', padding: '6px', background: '#0a0a0f', color: '#fff', border: '1px solid #242430', borderRadius: 4, fontSize: 10 }}
+                                    />
+                                </div>
+                            </div>
+
+                            {activeClip.track === 'terrain' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 10, opacity: 0.8, marginBottom: 4 }}>Z-Offset Elevation</label>
+                                        <input 
+                                            type="number" step="0.5" value={activeClip.zOffset} 
+                                            onChange={(e) => updateClipAttribute('zOffset', parseFloat(e.target.value) || 0)} 
+                                            style={{ width: '100%', padding: '6px', background: '#0a0a0f', color: '#fff', border: '1px solid #242430', borderRadius: 4, fontSize: 10 }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 10, opacity: 0.8, marginBottom: 4 }}>Biome Type</label>
+                                        <select 
+                                            value={activeClip.biome} 
+                                            onChange={(e) => updateClipAttribute('biome', e.target.value)}
+                                            style={{ width: '100%', padding: '6px', background: '#0a0a0f', color: '#fff', border: '1px solid #242430', borderRadius: 4, fontSize: 10 }}
+                                        >
+                                            <option value="GLACIER">Glacier</option>
+                                            <option value="TOXIC_SWAMP">Toxic Swamp</option>
+                                            <option value="LUSH_FOREST">Lush Forest</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeClip.track === 'character' && (
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: 'block', fontSize: 10, opacity: 0.8, marginBottom: 4 }}>Voltage (V)</label>
+                                        <input 
+                                            type="number" step="0.5" value={activeClip.voltage} 
+                                            onChange={(e) => updateClipAttribute('voltage', parseFloat(e.target.value) || 0)} 
+                                            style={{ width: '100%', padding: '6px', background: '#0a0a0f', color: '#fff', border: '1px solid #242430', borderRadius: 4, fontSize: 10 }}
+                                        />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: 'block', fontSize: 10, opacity: 0.8, marginBottom: 4 }}>Resistance (R)</label>
+                                        <input 
+                                            type="number" step="0.1" value={activeClip.resistance} 
+                                            onChange={(e) => updateClipAttribute('resistance', parseFloat(e.target.value) || 0)} 
+                                            style={{ width: '100%', padding: '6px', background: '#0a0a0f', color: '#fff', border: '1px solid #242430', borderRadius: 4, fontSize: 10 }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : null}
 
                     <hr style={{ border: 'none', borderBottom: '1px solid #242430', margin: '20px 0' }} />
 
@@ -245,14 +365,16 @@ export default function SovereignBoardComposer() {
 
                 {/* Grid Canvas Representation */}
                 <div style={{
-                    flex: 1,
+                    height: '50%',
                     display: 'flex',
                     flexWrap: 'wrap',
                     alignContent: 'center',
                     justifyContent: 'center',
                     gap: 16,
-                    padding: 40,
-                    background: '#07070a'
+                    padding: 20,
+                    background: '#07070a',
+                    borderBottom: '1px solid #242430',
+                    overflowY: 'auto'
                 }}>
                     {currentBoard.map(node => {
                         const isSelected = activeNodeId === node.id;
@@ -261,13 +383,13 @@ export default function SovereignBoardComposer() {
                                 key={node.id}
                                 onClick={() => setActiveNodeId(node.id)}
                                 style={{
-                                    width: 110,
-                                    height: 110,
+                                    width: 100,
+                                    height: 100,
                                     background: '#13131a',
                                     borderRadius: 12,
                                     border: isSelected ? '3px solid #00ffff' : '1px solid #242430',
                                     cursor: 'pointer',
-                                    padding: 12,
+                                    padding: 10,
                                     boxSizing: 'border-box',
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -279,7 +401,7 @@ export default function SovereignBoardComposer() {
                                     <span style={{ fontSize: 9, opacity: 0.5 }}>[{node.x}, {node.y}]</span>
                                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: node.color }} />
                                 </div>
-                                <div style={{ fontSize: 11, fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontSize: 10, fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {node.name}
                                 </div>
                                 <div style={{ fontSize: 9, opacity: 0.7, textTransform: 'uppercase', color: node.color }}>
@@ -288,6 +410,153 @@ export default function SovereignBoardComposer() {
                             </div>
                         );
                     })}
+                </div>
+
+                {/* ─── BOTTOM: Scenario Multi-Track Timeline Workspace ─── */}
+                <div style={{ height: '50%', background: '#0a0a0f', display: 'flex', flexDirection: 'column', padding: '16px 20px', boxSizing: 'border-box' }}>
+                    {/* Timeline Controls */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <button 
+                                onClick={() => setIsPlaying(!isPlaying)}
+                                style={{
+                                    background: isPlaying ? '#ef4444' : '#22c55e',
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '6px 12px',
+                                    borderRadius: 4,
+                                    fontSize: 11,
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {isPlaying ? '❚❚ PAUSE' : '▶ PLAY'}
+                            </button>
+                            <button 
+                                onClick={() => setCurrentTime(0.0)}
+                                style={{
+                                    background: '#242430',
+                                    color: '#fff',
+                                    border: '1px solid #3c3c4e',
+                                    padding: '6px 12px',
+                                    borderRadius: 4,
+                                    fontSize: 11,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🔄 RESET
+                            </button>
+                            <span style={{ fontSize: 12, color: '#00ffff', fontFamily: 'monospace' }}>
+                                PLAYHEAD: {currentTime.toFixed(2)}s / 4.00s
+                            </span>
+                        </div>
+                        <span style={{ fontSize: 10, color: '#a855f7', fontWeight: 'bold', letterSpacing: 1 }}>
+                            🎞️ SCENARIO MULTI-TRACK TIMELINE
+                        </span>
+                    </div>
+
+                    {/* Timeline Tracks Grid */}
+                    <div style={{ flex: 1, border: '1px solid #242430', borderRadius: 8, background: '#0e0e14', position: 'relative', overflow: 'hidden' }}>
+                        {/* Vertical Playhead Bar */}
+                        <div 
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                bottom: 0,
+                                left: `${(currentTime / 4.0) * 100}%`,
+                                width: 2,
+                                background: '#00ffff',
+                                boxShadow: '0 0 8px #00ffff',
+                                zIndex: 10,
+                                pointerEvents: 'none',
+                                transition: 'left 0.05s linear'
+                            }}
+                        />
+
+                        {/* Tracks */}
+                        {['terrain', 'character', 'threat', 'system'].map((trackType, tIdx) => {
+                            const trackClips = timelineClips.filter(c => c.track === trackType);
+                            const trackLabels = {
+                                terrain: '🏔️ TERRAIN (Z)',
+                                character: '🚶 HERO (V/R)',
+                                threat: '🤖 NPC SPAWNS',
+                                system: '⚡ SYSTEM OVERLOAD'
+                            };
+
+                            return (
+                                <div 
+                                    key={trackType}
+                                    style={{
+                                        display: 'flex',
+                                        height: '25%',
+                                        alignItems: 'center',
+                                        borderBottom: tIdx < 3 ? '1px solid #1a1a24' : 'none',
+                                        position: 'relative',
+                                        paddingLeft: 120
+                                    }}
+                                >
+                                    {/* Track Header Label */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        left: 0,
+                                        width: 120,
+                                        height: '100%',
+                                        background: '#13131a',
+                                        borderRight: '1px solid #242430',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        paddingLeft: 8,
+                                        fontSize: 9,
+                                        fontWeight: 'bold',
+                                        color: '#8e8e9f'
+                                    }}>
+                                        {trackLabels[trackType]}
+                                    </div>
+
+                                    {/* Track Lane Body */}
+                                    <div style={{ flex: 1, height: '100%', position: 'relative' }}>
+                                        {trackClips.map(clip => {
+                                            const leftPct = (clip.start / 4.0) * 100;
+                                            const widthPct = (clip.duration / 4.0) * 100;
+                                            const isSelected = selectedClipId === clip.id;
+
+                                            return (
+                                                <div 
+                                                    key={clip.id}
+                                                    onClick={() => setSelectedClipId(clip.id)}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: `${leftPct}%`,
+                                                        width: `${widthPct}%`,
+                                                        height: '75%',
+                                                        top: '12.5%',
+                                                        background: isSelected ? 'rgba(168, 85, 247, 0.35)' : 'rgba(0, 255, 255, 0.15)',
+                                                        border: isSelected ? '2px solid #a855f7' : '1px solid #00ffff',
+                                                        borderRadius: 6,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        cursor: 'pointer',
+                                                        color: '#fff',
+                                                        fontSize: 9,
+                                                        fontWeight: 'bold',
+                                                        padding: '0 4px',
+                                                        boxSizing: 'border-box',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        zIndex: 5
+                                                    }}
+                                                >
+                                                    {clip.name}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
