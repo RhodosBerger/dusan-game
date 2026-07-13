@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { executeKineticOverrideTransition } from '../../../shared/src/index';
+import SovereignElementorSandbox from './SovereignElementorSandbox';
 
 // Mock datasets representing game state configurations
 const DATASETS = {
@@ -369,6 +370,21 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                         >
                             HTML5 Entities
                         </button>
+                        <button 
+                            onClick={() => setActiveTab3D('ELEMENTOR')}
+                            style={{
+                                padding: '6px 12px',
+                                background: activeTab3D === 'ELEMENTOR' ? '#00ffff' : '#1c1c28',
+                                color: activeTab3D === 'ELEMENTOR' ? '#000' : '#fff',
+                                border: 'none',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Elementor Sandbox
+                        </button>
                     </div>
                 </div>
 
@@ -384,7 +400,9 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                     padding: 20,
                     boxSizing: 'border-box'
                 }}>
-                    {activeTab3D === 'HTML5' ? (
+                    {activeTab3D === 'ELEMENTOR' ? (
+                        <SovereignElementorSandbox />
+                    ) : activeTab3D === 'HTML5' ? (
                         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                                 <input 
