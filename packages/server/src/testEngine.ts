@@ -7,6 +7,7 @@ import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
 import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
+import { TelemetryBigQueryService } from './services/TelemetryBigQueryService';
 import { GameState, resolveEngineState } from './models/EnginePipeline';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
@@ -2447,7 +2448,39 @@ async function runTests() {
   console.log(`  [PASS] Deterministic local fallbacks verified.`);
   console.log(`  [PASS] Test 71 (GoCoreMediator) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup a Go-Core-Mediator testy prebehli úspešne!");
+  console.log("\nTest 72: TelemetryBigQueryService SQL Analytics");
+  const telemetryService = new TelemetryBigQueryService(syncManager);
+  const testSessionId = `session_test_${Date.now()}`;
+  
+  // 1. Log test telemetry events
+  telemetryService.logEvent(testSessionId, 'combat_resolve', { damage: 15, sourceId: 'thread_king_ai' });
+  telemetryService.logEvent(testSessionId, 'combat_resolve', { damage: 25, sourceId: 'thread_king_ai' });
+  telemetryService.logEvent(testSessionId, 'terrain_stress_update', {
+    blocks: [
+      { macro_index: 0, sub_index: 1, hazard_index: 0.8 },
+      { macro_index: 0, sub_index: 2, hazard_index: 0.4 },
+      { macro_index: 0, sub_index: 3, hazard_index: 0.9 }
+    ]
+  });
+
+  // 2. Fetch and assert event summary
+  const summary = telemetryService.getSummary(testSessionId);
+  assert(summary.totalEvents === 3, "Total events logged must be 3.");
+  assert(summary.eventsByType['combat_resolve'] === 2, "Combat resolve events must count 2.");
+  assert(summary.eventsByType['terrain_stress_update'] === 1, "Terrain stress events must count 1.");
+
+  // 3. Fetch and assert high stress sectors query
+  const stressReport = telemetryService.getHighStressSectors(testSessionId);
+  assert(stressReport.sectorCount === 2, "Should identify 2 sectors with hazard index >= 0.7.");
+  assert(stressReport.highStressSectors[0].macroId === 0 && stressReport.highStressSectors[0].subId === 1, "First high stress sector coordinates match.");
+  assert(stressReport.highStressSectors[1].hazardIndex === 0.9, "Second high stress sector hazard index matches.");
+
+  console.log(`  [PASS] Telemetry event ingestion validated.`);
+  console.log(`  [PASS] Event summaries aggregation validated.`);
+  console.log(`  [PASS] High stress algebraic query filtering validated.`);
+  console.log(`  [PASS] Test 72 (TelemetryBigQueryService) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

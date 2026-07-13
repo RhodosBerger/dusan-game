@@ -394,4 +394,8 @@ export class DatabaseSyncManager {
     const stmt = this.db.prepare('DELETE FROM reality_templates WHERE id = ?');
     stmt.run(id);
   }
+
+  public getDbInstance(): any {
+    return this.db;
+  }
 }
