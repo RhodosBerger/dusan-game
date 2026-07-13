@@ -1,9 +1,6 @@
 // packages/shared/src/core/QuestTriggerManager.ts
 import { Quest } from './PredictiveDirector';
 
-declare var require: any;
-declare var process: any;
-
 export interface PlayerWithQuests {
   id: string;
   quests: Quest[];
@@ -12,6 +9,9 @@ export interface PlayerWithQuests {
 }
 
 export class QuestTriggerManager {
+  // Delegátor pre serverovo-špecifické spracovanie interaktívneho obsahu (Rule 6)
+  static onInteractiveTrigger: ((engine: any, player: PlayerWithQuests, quest: Quest) => void) | null = null;
+
   // --- CRUD: Create ---
   static createAndAssignQuest(
     player: PlayerWithQuests,
@@ -119,39 +119,18 @@ export class QuestTriggerManager {
   static triggerInteractiveContent(engine: any, player: PlayerWithQuests, quest: Quest): void {
     console.log(`[QUEST_TRIGGER] Running interactive trigger for completed quest "${quest.title}"...`);
 
-    if (quest.id === 'q_defeat_npcs') {
-      try {
-        const path = require('path');
-        const DatabaseSyncManager = require(path.join(process.cwd(), 'packages/server/src/models/DatabaseSyncManager')).DatabaseSyncManager;
-        const dbManager = new DatabaseSyncManager();
-        
-        const username = player.id === 'thread_king_ai' ? 'king_player' : 'hacker_player';
-        dbManager.addPlayerItem(username, 'aether_saber', 'WEAPON');
-        console.log(`[QUEST_TRIGGER] Interactive Reward: Added Aether Saber to database inventory for ${username}.`);
-        
-        engine.traceLog.push({
-          type: 'ChestClaim',
-          threadId: player.id,
-          message: `Interactive Quest Reward: Added Aether Saber to database inventory for ${username}!`,
-          timestamp: Date.now()
-        } as any);
-      } catch (e) {
-        console.log(`[QUEST_TRIGGER_WARN] Failed to insert DB item (non-db context): ${e}`);
-      }
-    } else if (quest.id === 'q_reach_swamp') {
-      const targetChunk = engine.map.chunks.find((c: any) => c.id === 5);
-      const targetBlock = targetChunk?.blocks.find((b: any) => b.id === 3);
+    if (QuestTriggerManager.onInteractiveTrigger) {
+      QuestTriggerManager.onInteractiveTrigger(engine, player, quest);
+      return;
+    }
+
+    // Základný fallback pre klientské prostredie (bez platformovo špecifického require)
+    if (quest.id === 'q_reach_swamp') {
+      const targetChunk = engine.map?.chunks?.find((c: any) => c.id === 5);
+      const targetBlock = targetChunk?.blocks?.find((b: any) => b.id === 3);
       if (targetBlock) {
         targetBlock.hasOpportunity = 'SURGE_NODE';
         console.log(`[QUEST_TRIGGER] Interactive Spawner: Spawned SURGE_NODE at Chunk 5 Hex 3 due to quest completion.`);
-        
-        engine.traceLog.push({
-          type: 'Spawn',
-          threadId: 'opp_surge_node',
-          chunkId: 5,
-          blockId: 3,
-          timestamp: Date.now()
-        });
       }
     }
   }

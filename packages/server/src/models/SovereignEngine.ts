@@ -8,6 +8,41 @@ import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
 import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
 import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator } from '@dusan-game/shared';
 
+// Register Server-Side Interactive Quest Triggers (Rule 6 decoupling)
+QuestTriggerManager.onInteractiveTrigger = (engine: any, player: any, quest: any) => {
+  if (quest.id === 'q_defeat_npcs') {
+    try {
+      const dbManager = new DatabaseSyncManager();
+      const username = player.id === 'thread_king_ai' ? 'king_player' : 'hacker_player';
+      dbManager.addPlayerItem(username, 'aether_saber', 'WEAPON');
+      console.log(`[QUEST_TRIGGER] Interactive Reward: Added Aether Saber to database inventory for ${username}.`);
+      
+      engine.traceLog.push({
+        type: 'ChestClaim',
+        threadId: player.id,
+        message: `Interactive Quest Reward: Added Aether Saber to database inventory for ${username}!`,
+        timestamp: Date.now()
+      });
+    } catch (e) {
+      console.log(`[QUEST_TRIGGER_WARN] Failed to insert DB item (non-db context): ${e}`);
+    }
+  } else if (quest.id === 'q_reach_swamp') {
+    const targetChunk = engine.map?.chunks?.find((c: any) => c.id === 5);
+    const targetBlock = targetChunk?.blocks?.find((b: any) => b.id === 3);
+    if (targetBlock) {
+      targetBlock.hasOpportunity = 'SURGE_NODE';
+      console.log(`[QUEST_TRIGGER] Interactive Spawner: Spawned SURGE_NODE at Chunk 5 Hex 3 due to quest completion.`);
+      engine.traceLog.push({
+        type: 'Spawn',
+        threadId: 'opp_surge_node',
+        chunkId: 5,
+        blockId: 3,
+        timestamp: Date.now()
+      });
+    }
+  }
+};
+
 function syncPost(url: string, payload: any): any {
   try {
     const payloadStr = JSON.stringify(payload).replace(/'/g, "'\\''");
