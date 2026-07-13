@@ -188,7 +188,14 @@ io.on('connection', (socket) => {
           }
         });
         const dbArtifacts1 = dbSync.getPlayerArtifacts(p1.name);
-        t1.artifacts = dbArtifacts1;
+        t1.artifacts = dbArtifacts1.map((art: any) => ({
+          id: art.id,
+          artifactKey: art.artifact_key,
+          category: art.category,
+          heroClass: art.hero_class,
+          spellReachBonus: art.spell_reach_bonus,
+          damageBonus: art.damage_bonus
+        }));
         dbArtifacts1.forEach(art => {
           if (art.damage_bonus) {
             t1.baseDamage += art.damage_bonus;
@@ -240,7 +247,14 @@ io.on('connection', (socket) => {
           }
         });
         const dbArtifacts2 = dbSync.getPlayerArtifacts(p2.name);
-        t2.artifacts = dbArtifacts2;
+        t2.artifacts = dbArtifacts2.map((art: any) => ({
+          id: art.id,
+          artifactKey: art.artifact_key,
+          category: art.category,
+          heroClass: art.hero_class,
+          spellReachBonus: art.spell_reach_bonus,
+          damageBonus: art.damage_bonus
+        }));
         dbArtifacts2.forEach(art => {
           if (art.damage_bonus) {
             t2.baseDamage += art.damage_bonus;
@@ -335,7 +349,14 @@ io.on('connection', (socket) => {
         }
       });
       const dbArtifactsAI = dbSync.getPlayerArtifacts(payload.name);
-      pThread.artifacts = dbArtifactsAI;
+      pThread.artifacts = dbArtifactsAI.map((art: any) => ({
+        id: art.id,
+        artifactKey: art.artifact_key,
+        category: art.category,
+        heroClass: art.hero_class,
+        spellReachBonus: art.spell_reach_bonus,
+        damageBonus: art.damage_bonus
+      }));
       dbArtifactsAI.forEach(art => {
         if (art.damage_bonus) {
           pThread.baseDamage += art.damage_bonus;
@@ -973,7 +994,14 @@ io.on('connection', (socket) => {
           item.statBonus?.spellReach ?? 0,
           item.statBonus?.damage ?? 0
         );
-        thread.artifacts = dbSync.getPlayerArtifacts(thread.name);
+        thread.artifacts = dbSync.getPlayerArtifacts(thread.name).map((art: any) => ({
+          id: art.id,
+          artifactKey: art.artifact_key,
+          category: art.category,
+          heroClass: art.hero_class,
+          spellReachBonus: art.spell_reach_bonus,
+          damageBonus: art.damage_bonus
+        }));
       } else {
         dbSync.addPlayerItem(thread.name, item.key, item.category);
         thread.items = dbSync.getPlayerItems(thread.name);
@@ -1023,7 +1051,14 @@ io.on('connection', (socket) => {
       let removed = false;
       if (item.category === 'MAGIC' && item.heroClass) {
         removed = dbSync.removePlayerArtifact(thread.name, item.key);
-        thread.artifacts = dbSync.getPlayerArtifacts(thread.name);
+        thread.artifacts = dbSync.getPlayerArtifacts(thread.name).map((art: any) => ({
+          id: art.id,
+          artifactKey: art.artifact_key,
+          category: art.category,
+          heroClass: art.hero_class,
+          spellReachBonus: art.spell_reach_bonus,
+          damageBonus: art.damage_bonus
+        }));
       } else {
         removed = dbSync.removePlayerItem(thread.name, item.key);
         thread.items = dbSync.getPlayerItems(thread.name);

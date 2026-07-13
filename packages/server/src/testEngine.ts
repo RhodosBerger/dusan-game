@@ -2185,7 +2185,48 @@ async function runTests() {
   console.log(`  [PASS] Modul 2 (Stateless State Engine Pipeline) computed Ohm's Law physics transition.`);
   console.log(`  [PASS] Test 63 (Draggable Canvas Distance Rulesets & Mortar AoE) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts a Modular-Integration-Framework testy prebehli úspešne!");
+  // ----------------------------------------------------
+  // TEST 64: Decoupled Go Core Microservices & Fallback Validation
+  // ----------------------------------------------------
+  console.log("\nTest 64: Decoupled Go Core Microservices & Fallback Validation");
+
+  const testEngine64 = new SovereignEngine();
+
+  // 1. Verify PHYSICS_RESOLVER through mediator
+  const physicsRes = mediator.request('PHYSICS_RESOLVER', 'GET_ENERGY_COST', {
+    baseCost: 2.0,
+    chunkId: 0,
+    blockId: 0
+  });
+  assert(physicsRes !== null, "Physics cost resolver should return resolved data.");
+  assert(typeof physicsRes.cost === 'number', "Physics resolved cost must be a number.");
+  assert(typeof physicsRes.costMultiplier === 'number', "Physics costMultiplier must be a number.");
+
+  // 2. Verify COMBAT_ENGINE through mediator
+  const mockAttacker = { id: "swift_harbinger_test" };
+  const mockDefender = { id: "behemoth_defender_test", armor: 2.0 };
+  const mockNode = {
+    instruction: { damage: 10, id: "strike_physical" },
+    reactions: [],
+    calculateTotalArmor: () => 0.0
+  };
+
+  const combatRes = mediator.request('COMBAT_ENGINE', 'RESOLVE_COMBAT', {
+    node: mockNode,
+    source: mockAttacker,
+    target: mockDefender
+  });
+
+  assert(combatRes !== null, "Combat resolver should return resolved data.");
+  assert(typeof combatRes.finalDamage === 'number', "Final combat damage must be a number.");
+  assert(combatRes.finalDamage > 0, "Final combat damage must be positive.");
+  assert(typeof combatRes.log === 'string', "Combat log must be a string.");
+
+  console.log(`  [PASS] PHYSICS_RESOLVER microservice/fallback verified: cost -> ${physicsRes.cost}, multiplier -> ${physicsRes.costMultiplier}`);
+  console.log(`  [PASS] COMBAT_ENGINE microservice/fallback verified: damage -> ${combatRes.finalDamage}, log -> "${combatRes.log.substring(0, 40)}..."`);
+  console.log(`  [PASS] Test 64 (Decoupled Go Core Microservices & Fallback) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework a Decoupled-Go-Core-Microservices testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

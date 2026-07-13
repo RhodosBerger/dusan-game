@@ -21,6 +21,8 @@ function getDustColor(entropy) {
 
 export default function ArenaAmbientParticles({ entropy = 0.4, hazardIndex = 0.4 }) {
     const pointsRef = useRef();
+    const activeCountRef = useRef(150); // Evolving active particle count, starts at 150
+    const frameTimeHistory = useRef([]);
 
     // Each particle has: position (x, y, z), velocity (dx, dy, dz), phase offset
     const { positions, velocities, phases } = useMemo(() => {
@@ -52,28 +54,58 @@ export default function ArenaAmbientParticles({ entropy = 0.4, hazardIndex = 0.4
         const posAttr = pointsRef.current.geometry.attributes.position;
         const chaos = 1.0 + entropy * 2.5;
 
+        // --- ADAPTIVE PERFORMANCE GOVERNOR (TDP EVOLUTION LOOP) ---
+        // Maintain a history of the last 15 frames
+        frameTimeHistory.current.push(delta);
+        if (frameTimeHistory.current.length > 15) {
+            frameTimeHistory.current.shift();
+        }
+
+        const avgDelta = frameTimeHistory.current.reduce((a, b) => a + b, 0) / frameTimeHistory.current.length;
+        
+        // Define target ceilings based on global entropy to protect TDP margins
+        const maxAllowed = entropy > 0.8 ? 100 : PARTICLE_COUNT;
+
+        if (frameTimeHistory.current.length >= 15) {
+            if (avgDelta > 0.018) {
+                // Performance drop: prune particles to reduce GPU fill rate
+                activeCountRef.current = Math.max(30, activeCountRef.current - 2);
+            } else if (avgDelta < 0.015 && activeCountRef.current < maxAllowed) {
+                // High performance headroom: spawn/reveal more particles
+                activeCountRef.current = Math.min(maxAllowed, activeCountRef.current + 1);
+            }
+        }
+
+        const activeCount = Math.floor(activeCountRef.current);
+
+        // Update positions up to the activeCount ceiling
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             const xi = i * 3, yi = xi + 1, zi = xi + 2;
             const ph = phases[i];
 
-            // Sinusoidal shimmer on top of linear drift
-            workPos[xi] += velocities[xi] * delta * chaos + Math.sin(time * 0.7 + ph) * 0.003;
-            workPos[yi] += velocities[yi] * delta + Math.sin(time * 1.1 + ph * 1.3) * 0.002;
-            workPos[zi] += velocities[zi] * delta * chaos + Math.cos(time * 0.9 + ph) * 0.003;
+            if (i < activeCount) {
+                // Sinusoidal shimmer on top of linear drift
+                workPos[xi] += velocities[xi] * delta * chaos + Math.sin(time * 0.7 + ph) * 0.003;
+                workPos[yi] += velocities[yi] * delta + Math.sin(time * 1.1 + ph * 1.3) * 0.002;
+                workPos[zi] += velocities[zi] * delta * chaos + Math.cos(time * 0.9 + ph) * 0.003;
 
-            // Wrap when particle drifts out of arena bounds or floats too high
-            if (workPos[xi] >  ARENA_HALF) workPos[xi] = -ARENA_HALF;
-            if (workPos[xi] < -ARENA_HALF) workPos[xi] =  ARENA_HALF;
-            if (workPos[zi] >  ARENA_HALF) workPos[zi] = -ARENA_HALF;
-            if (workPos[zi] < -ARENA_HALF) workPos[zi] =  ARENA_HALF;
-            if (workPos[yi] > 7.0) {
-                // Reset Y and re-randomise XZ
-                workPos[yi] = 0.2;
-                workPos[xi] = (Math.random() - 0.5) * ARENA_HALF * 2;
-                workPos[zi] = (Math.random() - 0.5) * ARENA_HALF * 2;
+                // Wrap when particle drifts out of arena bounds or floats too high
+                if (workPos[xi] >  ARENA_HALF) workPos[xi] = -ARENA_HALF;
+                if (workPos[xi] < -ARENA_HALF) workPos[xi] =  ARENA_HALF;
+                if (workPos[zi] >  ARENA_HALF) workPos[zi] = -ARENA_HALF;
+                if (workPos[zi] < -ARENA_HALF) workPos[zi] =  ARENA_HALF;
+                if (workPos[yi] > 7.0) {
+                    // Reset Y and re-randomise XZ
+                    workPos[yi] = 0.2;
+                    workPos[xi] = (Math.random() - 0.5) * ARENA_HALF * 2;
+                    workPos[zi] = (Math.random() - 0.5) * ARENA_HALF * 2;
+                }
+
+                posAttr.setXYZ(i, workPos[xi], workPos[yi], workPos[zi]);
+            } else {
+                // Inactive particle: move out of view (GPU culling)
+                posAttr.setXYZ(i, 0, -999, 0);
             }
-
-            posAttr.setXYZ(i, workPos[xi], workPos[yi], workPos[zi]);
         }
         posAttr.needsUpdate = true;
 

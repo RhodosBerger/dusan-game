@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -380,8 +382,167 @@ func handleVisionTelemetry(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type PhysicsCostRequest struct {
+	BaseCost float64 `json:"baseCost"`
+	MetaId   int     `json:"metaId"`
+	HexId    int     `json:"hexId"`
+}
+
+type PhysicsCostResponse struct {
+	Cost           int     `json:"cost"`
+	CostMultiplier float64 `json:"costMultiplier"`
+}
+
+func handlePhysicsCost(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req PhysicsCostRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	synth := engine.SynthesizeBlock(req.MetaId, req.HexId)
+	costMultiplier := synth.EnergyCostMultiplier
+
+	cost := int(math.Round(req.BaseCost * 15.0 * costMultiplier))
+
+	resp := PhysicsCostResponse{
+		Cost:           cost,
+		CostMultiplier: costMultiplier,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+type CombatResolveRequest struct {
+	Damage           float64 `json:"damage"`
+	AttackerHeroId   string  `json:"attackerHeroId"`
+	DefenderHeroId   string  `json:"defenderHeroId"`
+	DefenderArmor    float64 `json:"defenderArmor"`
+	ReactionsCount   int     `json:"reactionsCount"`
+	IsSnakeOrStealth bool    `json:"isSnakeOrStealth"`
+}
+
+type CombatResolveResponse struct {
+	FinalDamage int    `json:"finalDamage"`
+	BaseArmor   float64 `json:"baseArmor"`
+	Log         string `json:"log"`
+}
+
+func handleCombatResolve(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req CombatResolveRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// 1. Calculate combo damage reduction
+	k := 0.35
+	reduction := 1.0 - math.Exp(-k*(req.DefenderArmor+float64(req.ReactionsCount)*0.5))
+	comboFactor := 1.0 - reduction
+	if comboFactor < 0.1 {
+		comboFactor = 0.1
+	}
+
+	netDamage := req.Damage * comboFactor
+
+	// 2. Dice Rolls (Attacker & Defender sides)
+	attackerSides := 12
+	if req.AttackerHeroId != "" && (contains(req.AttackerHeroId, "scout") || contains(req.AttackerHeroId, "harbinger") || contains(req.AttackerHeroId, "vanguard")) {
+		attackerSides = 6
+	}
+	defenderSides := 12
+	if req.DefenderHeroId != "" && (contains(req.DefenderHeroId, "scout") || contains(req.DefenderHeroId, "harbinger") || contains(req.DefenderHeroId, "vanguard")) {
+		defenderSides = 6
+	}
+
+	attackerRoll := rand.Intn(attackerSides) + 1
+	defenderRoll := rand.Intn(defenderSides) + 1
+
+	// 3. Contested comparison
+	condition := "MORE"
+	if req.IsSnakeOrStealth {
+		condition = "LESS"
+	}
+
+	success := false
+	if condition == "MORE" {
+		success = attackerRoll > defenderRoll
+	} else {
+		success = attackerRoll < defenderRoll
+	}
+
+	finalDmg := netDamage
+	var rollLog string
+	if success {
+		finalDmg = math.Round(netDamage * 1.5)
+		rollLog = fmt.Sprintf("Contested Roll Success! Attacker rolled %d vs Defender's %d (%s condition met). Damage amplified to %.0f (1.5x).", attackerRoll, defenderRoll, condition, finalDmg)
+	} else {
+		finalDmg = math.Round(netDamage * 0.5)
+		if finalDmg < 1 {
+			finalDmg = 1
+		}
+		rollLog = fmt.Sprintf("Contested Roll Failed! Attacker rolled %d vs Defender's %d (%s condition NOT met). Damage mitigated to %.0f (0.5x).", attackerRoll, defenderRoll, condition, finalDmg)
+	}
+
+	resp := CombatResolveResponse{
+		FinalDamage: int(finalDmg),
+		BaseArmor:   req.DefenderArmor,
+		Log:         rollLog,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func contains(s, substr string) bool {
+	sLower := toLower(s)
+	subLower := toLower(substr)
+	return len(sLower) >= len(subLower) && (indexOf(sLower, subLower) >= 0)
+}
+
+func toLower(s string) string {
+	b := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		} else {
+			b[i] = c
+		}
+	}
+	return string(b)
+}
+
+func indexOf(s, sub string) int {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
+}
+
 func main() {
 	http.HandleFunc("/", handleRoot)
+	http.HandleFunc("/api/physics/energy-cost", handlePhysicsCost)
+	http.HandleFunc("/api/combat/resolve", handleCombatResolve)
 	http.HandleFunc("/api/physics/solve", handleSolve)
 	http.HandleFunc("/api/tensor/infer-unknown", handleInfer)
 	http.HandleFunc("/api/synthesize", handleSynthesize)

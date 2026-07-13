@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import { GameMap } from './Map';
 import { Thread } from './Thread';
 import { ActionNode } from './ActionNode';
@@ -6,6 +7,17 @@ import { DatabaseSyncManager } from './DatabaseSyncManager';
 import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
 import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
 import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator } from '@dusan-game/shared';
+
+function syncPost(url: string, payload: any): any {
+  try {
+    const payloadStr = JSON.stringify(payload).replace(/'/g, "'\\''");
+    const cmd = `curl -s -X POST -H "Content-Type: application/json" -d '${payloadStr}' "${url}"`;
+    const output = execSync(cmd, { timeout: 1500 });
+    return JSON.parse(output.toString());
+  } catch (e) {
+    throw new Error(`Sync HTTP POST failed: ${e}`);
+  }
+}
 
 export class SovereignEngine {
   map: GameMap;
@@ -53,6 +65,16 @@ export class SovereignEngine {
     mediator.registerModule('PHYSICS_RESOLVER', (requestType, payload) => {
       if (requestType === 'GET_ENERGY_COST') {
         const { baseCost, chunkId, blockId } = payload;
+        
+        try {
+          const resp = syncPost('http://localhost:8081/api/physics/energy-cost', { baseCost, chunkId, blockId });
+          if (resp && typeof resp.cost === 'number') {
+            return { cost: resp.cost, costMultiplier: resp.costMultiplier };
+          }
+        } catch (e) {
+          // Fallback to local resolver if service is offline
+        }
+
         let costMultiplier = 1.0;
         if (chunkId !== null && blockId !== null) {
           const chunk = this.map.chunks.find(c => c.id === chunkId);
@@ -83,9 +105,31 @@ export class SovereignEngine {
         const { node, source, target } = payload;
         const dmg = node.instruction.damage;
         const baseArmor = target.armor + node.calculateTotalArmor();
+        const reactionsCount = node.reactions.length;
+        const isSnakeOrStealth = node.instruction.id.includes('snake') || node.instruction.id.includes('stealth');
+
+        try {
+          const resp = syncPost('http://localhost:8081/api/combat/resolve', {
+            damage: dmg,
+            attackerHeroId: source.id,
+            defenderHeroId: target.id,
+            defenderArmor: baseArmor,
+            reactionsCount: reactionsCount,
+            isSnakeOrStealth: isSnakeOrStealth
+          });
+          if (resp && typeof resp.finalDamage === 'number') {
+            return {
+              finalDamage: resp.finalDamage,
+              baseArmor,
+              log: resp.log
+            };
+          }
+        } catch (e) {
+          // Fallback to local resolver if service is offline
+        }
         
         // Výpočet faktoru poškodenia cez kombinatorickú redukciu
-        const comboFactor = CombinatoricProbabilityEngine.calculateComboDamageFactor(baseArmor, node.reactions.length);
+        const comboFactor = CombinatoricProbabilityEngine.calculateComboDamageFactor(baseArmor, reactionsCount);
         const netDamage = Math.round(dmg * comboFactor);
 
         // Aetheric Contested Dice Roll logic
@@ -96,7 +140,7 @@ export class SovereignEngine {
         const attackerRoll = AethericDiceEngine.rollDie(attackerSides);
         const defenderRoll = AethericDiceEngine.rollDie(defenderSides);
 
-        const condition = (node.instruction.id.includes('snake') || node.instruction.id.includes('stealth')) ? 'LESS' : 'MORE';
+        const condition = isSnakeOrStealth ? 'LESS' : 'MORE';
         const contestedResult = AethericDiceEngine.calculateContestedDamage(attackerRoll, defenderRoll, netDamage, condition);
 
         return {
