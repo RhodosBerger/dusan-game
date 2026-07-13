@@ -33,3 +33,4 @@ export * from './data/itemsCatalog';
 export * from './core/SpatialGuidanceSystem';
 export * from './core/GoCoreMediator';
 export * from './core/UniversalWasmBridge';
+export * from './core/SovereignStateEngine';

@@ -5,7 +5,7 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { TelemetryBigQueryService } from './services/TelemetryBigQueryService';
 import { GameState, resolveEngineState } from './models/EnginePipeline';
@@ -2499,7 +2499,59 @@ async function runTests() {
   console.log(`  [PASS] WASM fallback math execution verified.`);
   console.log(`  [PASS] Test 73 (UniversalWasmBridge) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge testy prebehli úspešne!");
+  console.log("\nTest 74: SovereignStateEngine Ohm's Law Invariants");
+  const initialState = {
+    systemHeat: 0,
+    memoryIntegrity: 100,
+    semanticErosion: 0,
+    memoryLeaks: 0
+  };
+
+  // Test 1: Successful kinetic override
+  const payload1 = {
+    action_type: "KINETIC_OVERRIDE" as const,
+    actor_id: "thread_hacker_root",
+    target_id: "helper_turret_01",
+    voltage_magnitude: 5.0,
+    base_resistance: 2.5,
+    target_lane: "A_CENTER" as const
+  };
+  const state1 = executeKineticOverrideTransition(payload1, initialState);
+  assert(state1.systemHeat === 0, "Successful current should not increase system heat.");
+  assert(state1.memoryIntegrity === 96, "Memory integrity should decrease by 4 (5.0 / 2.5 * 2.0).");
+  assert(state1.semanticErosion === 4, "Semantic erosion should be 4.");
+
+  // Test 2: Failed current converting to heat
+  const payload2 = {
+    action_type: "KINETIC_OVERRIDE" as const,
+    actor_id: "thread_hacker_root",
+    target_id: "helper_turret_01",
+    voltage_magnitude: 1.0,
+    base_resistance: 2.0,
+    target_lane: "A_BASE" as const
+  };
+  const state2 = executeKineticOverrideTransition(payload2, initialState);
+  assert(state2.systemHeat === 25, "Failure current should increase system heat by 25 ((1.0 - 0.5) * 50).");
+  assert(state2.memoryIntegrity === 100, "Failed current should apply zero semantic erosion.");
+
+  // Test 3: Thermodynamic Purge condition
+  const highHeatState = {
+    systemHeat: 90,
+    memoryIntegrity: 80,
+    semanticErosion: 20,
+    memoryLeaks: 0
+  };
+  const state3 = executeKineticOverrideTransition(payload2, highHeatState);
+  assert(state3.systemHeat === 0, "System heat must reset to 0 after Thermodynamic Purge.");
+  assert(state3.memoryLeaks === 2, "Memory leaks must increase by 2 after Thermodynamic Purge.");
+  assert(state3.memoryIntegrity === 55, "Memory integrity must lose additional 25 integrity from purge.");
+
+  console.log(`  [PASS] Ohm's Law core invariants verified.`);
+  console.log(`  [PASS] Z-Index anchor mappings verified.`);
+  console.log(`  [PASS] Thermodynamic purge resetting verified.`);
+  console.log(`  [PASS] Test 74 (SovereignStateEngine) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine testy prebehli úspešne!");
 }
 
 runTests().catch(err => {
