@@ -613,7 +613,7 @@ function App() {
                 blocks: gameState.map.blocks.map(b => ({
                   ...b,
                   hazardIndex: ds.hazard,
-                  frictionCoefficient: ds.friction
+                  friction: ds.friction
                 }))
               };
               setGameState(prev => ({

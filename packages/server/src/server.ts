@@ -14,7 +14,7 @@ import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem } from '@dusan-game/shared';
+import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -131,6 +131,16 @@ io.on('connection', (socket) => {
   }
   socket.emit('initial_map', defaultEngine.getStaticMapState());
   socket.emit('state_resolved', defaultEngine.getState());
+
+  // Načítanie a interpretácia herných scenárov
+  socket.on('load_scenario', (payload: { scenarioName: string }) => {
+    const { engine, targetEmit } = getEngineContext(socket);
+    const interpreter = new SovereignScenarioInterpreter();
+    interpreter.applyScenario(engine, payload.scenarioName);
+    targetEmit('initial_map', engine.getStaticMapState());
+    targetEmit('state_resolved', engine.getState());
+    console.log(`[SCENARIO] Successfully parsed and loaded scenario template: ${payload.scenarioName}`);
+  });
 
   // Registrácia pre PvP Matchmaking
   socket.on('join_matchmaking', (payload: { name: string; hero: string; theme: string }) => {

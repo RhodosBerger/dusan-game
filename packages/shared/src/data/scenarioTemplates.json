@@ -1,0 +1,69 @@
+{
+  "scenarios": [
+    {
+      "id": "cyberpunk_infiltration",
+      "name": "Neon Cyberpunk Infiltration",
+      "difficulty": 2,
+      "description": "High entropy sector dominated by security registers and RAM buffer overflows.",
+      "nodeMappings": [
+        {
+          "nodeId": "thread_king_ai",
+          "heroClass": "thread_king_ai",
+          "buildType": "STATIC_SHIELD",
+          "health": 20,
+          "armor": 3,
+          "coordinates": [0, 0]
+        },
+        {
+          "nodeId": "thread_hacker_root",
+          "heroClass": "thread_hacker_root",
+          "buildType": "SURGE_OVERDRIVE",
+          "health": 15,
+          "armor": 1,
+          "coordinates": [8, 6]
+        }
+      ],
+      "hazardFactor": 0.35,
+      "frictionFactor": 0.40,
+      "npcSpawnDivisor": 5
+    },
+    {
+      "id": "dread_void_collapse",
+      "name": "Dread Void Collapse",
+      "difficulty": 4,
+      "description": "Gravity anomlies and event horizons destabilize the hex matrix grid.",
+      "nodeMappings": [
+        {
+          "nodeId": "thread_void_weaver",
+          "heroClass": "thread_void_weaver",
+          "buildType": "GRAVITY_ANOMALY",
+          "health": 16,
+          "armor": 0,
+          "coordinates": [5, 3]
+        }
+      ],
+      "hazardFactor": 0.85,
+      "frictionFactor": 0.70,
+      "npcSpawnDivisor": 3
+    },
+    {
+      "id": "fantasy_siege",
+      "name": "High Fantasy Realm Siege",
+      "difficulty": 5,
+      "description": "High friction terrain and massive hazard levels force precision maneuvers.",
+      "nodeMappings": [
+        {
+          "nodeId": "thread_king_ai",
+          "heroClass": "thread_king_ai",
+          "buildType": "DEFENSIVE_KEEP",
+          "health": 25,
+          "armor": 4,
+          "coordinates": [0, 0]
+        }
+      ],
+      "hazardFactor": 0.90,
+      "frictionFactor": 0.95,
+      "npcSpawnDivisor": 2
+    }
+  ]
+}
