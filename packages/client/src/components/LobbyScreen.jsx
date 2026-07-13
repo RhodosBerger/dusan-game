@@ -65,7 +65,7 @@ function VoidWeaverAvatar() {
     );
 }
 
-export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, onOpenGraphicsDemo, onOpenBuilder, onOpenComposer }) {
+export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, onOpenGraphicsDemo, onOpenBuilder, onOpenComposer, onOpenB2B }) {
     const [name, setName] = useState('');
     const [selectedHero, setSelectedHero] = useState('thread_king_ai');
 
@@ -259,6 +259,13 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                             className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-yellow-800/80 text-yellow-400 hover:text-yellow-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
                         >
                             <span>📋</span> Board Composer
+                        </button>
+
+                        <button 
+                            onClick={onOpenB2B}
+                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-emerald-800/80 text-emerald-400 hover:text-emerald-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            <span>💼</span> B2B Backoffice Portal
                         </button>
                     </div>
                 </div>

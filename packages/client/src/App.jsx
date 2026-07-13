@@ -5,6 +5,7 @@ import ArenaUIOverlay from './components/ArenaUIOverlay';
 import SovereignBuilderCMS from './components/SovereignBuilderCMS';
 import SovereignBoardComposer from './components/SovereignBoardComposer';
 import AdminDiagnosticsPanel from './components/AdminDiagnosticsPanel';
+import SovereignB2BPortal from './components/SovereignB2BPortal';
 import { EvolutionarySceneGenerator, ConnectionEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '../../shared/src/index';
 import LobbyScreen from './components/LobbyScreen';
 import AdrenalineVignette from './components/AdrenalineVignette';
@@ -594,6 +595,20 @@ function App() {
     );
   }
 
+  if (activeLayoutView === 'B2B') {
+    return (
+      <div className="relative w-full h-screen">
+        <button 
+          onClick={() => setActiveLayoutView('LOBBY')}
+          className="absolute top-4 right-4 z-50 px-4 py-2 bg-slate-900/90 text-emerald-400 border border-emerald-500/50 hover:bg-slate-800 text-xs font-bold font-mono tracking-wider rounded-xl cursor-pointer"
+        >
+          ← Späť do Lobby
+        </button>
+        <SovereignB2BPortal />
+      </div>
+    );
+  }
+
   if (!matchId) {
     return (
       <LobbyScreen 
@@ -603,6 +618,7 @@ function App() {
         onOpenGraphicsDemo={() => setIsGraphicsShowcaseOpen(true)}
         onOpenBuilder={() => setActiveLayoutView('BUILDER')}
         onOpenComposer={() => setActiveLayoutView('COMPOSER')}
+        onOpenB2B={() => setActiveLayoutView('B2B')}
       />
     );
   }
