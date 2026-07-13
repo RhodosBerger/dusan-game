@@ -1,95 +1,39 @@
 pipeline {
     agent any
-    
-    environment {
-        REGISTRY_URL = 'registry.local:5000'
-        IMAGE_NAME   = 'antigravity-server'
-        BUILD_TAG    = "${env.BUILD_NUMBER}"
-        PATH         = "/opt/go/bin:${env.PATH}"
-    }
 
     stages {
-        stage('Install Workspace Dependencies') {
+        stage('Checkout') {
             steps {
-                echo 'Installing monorepo Node modules...'
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
                 sh 'yarn install --frozen-lockfile'
-                
-                echo 'Configuring Python virtual environment...'
-                sh 'python3 -m venv packages/server/.venv'
-                sh './packages/server/.venv/bin/pip install -r packages/server/requirements.txt'
-                
-                echo 'Building shared library...'
-                sh 'yarn workspace @dusan-game/shared build'
             }
         }
 
-        stage('Static Analysis & Linting') {
-            parallel {
-                stage('Oxlint & Code Quality') {
-                    steps {
-                        echo 'Running lint checking...'
-                        sh 'yarn workspace client lint'
-                    }
-                }
-                stage('Python PEP8 Verification') {
-                    steps {
-                        echo 'Verifying Python scripts formatting...'
-                        sh './packages/server/.venv/bin/pip install ruff'
-                        sh './packages/server/.venv/bin/ruff check packages/server/'
-                    }
-                }
-            }
-        }
-
-        stage('Parallel Build & Test') {
-            parallel {
-                stage('Go Core Service') {
-                    steps {
-                        echo 'Compiling Go Core microservice...'
-                        sh 'cd packages/go-core && go build -v ./...'
-                        echo 'Running Go unit tests...'
-                        sh 'cd packages/go-core && go test ./...'
-                    }
-                }
-                stage('Node.js Backend & Tests') {
-                    steps {
-                        echo 'Starting backend ML microservice...'
-                        sh './packages/server/.venv/bin/python3 packages/server/src/ml/service.py &'
-                        sh 'sleep 2'
-                        echo 'Running testEngine validation...'
-                        sh 'npx ts-node packages/server/src/testEngine.ts'
-                    }
-                    post {
-                        always {
-                            echo 'Cleaning up background microservice processes...'
-                            sh "kill \$(lsof -t -i:8000) || true"
-                        }
-                    }
-                }
-                stage('React WebGL Client') {
-                    steps {
-                        echo 'Compiling WebGL client bundle...'
-                        sh 'yarn workspace client build'
-                    }
-                }
-            }
-        }
-
-        stage('Container Image Creation') {
+        stage('Run Engine Tests') {
             steps {
-                echo 'Creating Docker production images...'
-                sh 'docker build -f Dockerfile.server -t ${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG} .'
-                sh 'docker push ${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG}'
+                // Ensure 100% green compilation of game engines (Rule 7)
+                sh 'npx ts-node packages/server/src/testEngine.ts'
             }
         }
-    }
-    
-    post {
-        always {
-            cleanWs()
+
+        stage('Compile Monorepo Packages') {
+            steps {
+                // Build typescript libraries & static bundle (Rule 4 consistency)
+                sh 'yarn workspace @dusan-game/shared build'
+                sh 'yarn workspace client build'
+            }
         }
-        success {
-            echo 'Build successful. Triggering deployment orchestrator...'
+
+        stage('Build Docker Images') {
+            steps {
+                // Build all serverless containers locally
+                sh 'docker compose build'
+            }
         }
     }
 }

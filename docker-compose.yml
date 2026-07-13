@@ -1,63 +1,29 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: dusan-game-db
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: dusan-game
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    container_name: dusan-game-redis
-    restart: always
-    ports:
-      - "6379:6379"
-
   go-core:
     build:
       context: .
-      dockerfile: Dockerfile.go-core
-    container_name: dusan-game-go-core
-    restart: always
+      dockerfile: packages/go-core/Dockerfile
     ports:
       - "8081:8081"
+    restart: always
 
-  server:
+  node-server:
     build:
       context: .
-      dockerfile: Dockerfile.server
-    container_name: dusan-game-server
-    restart: always
-    environment:
-      - PORT=3001
-      - GO_CORE_URL=http://go-core:8081
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/dusan-game?schema=public
+      dockerfile: packages/server/Dockerfile
     ports:
       - "3001:3001"
-    depends_on:
-      - db
-      - redis
-      - go-core
+    restart: always
 
-  client:
+  client-router:
     build:
       context: .
-      dockerfile: Dockerfile.client
-    container_name: dusan-game-client
-    restart: always
+      dockerfile: Dockerfile
     ports:
-      - "5173:5173"
+      - "8080:8080"
     depends_on:
-      - server
-
-volumes:
-  pgdata:
+      - go-core
+      - node-server
+    restart: always
