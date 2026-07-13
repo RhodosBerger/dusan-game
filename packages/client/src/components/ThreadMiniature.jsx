@@ -426,7 +426,66 @@ function FootprintGlow({ position, color }) {
 // ─── ThreadMiniature ─────────────────────────────────────────────────────────
 export default function ThreadMiniature({ thread, gridData, onClick, onDoubleClick, isLocalPlayer }) {
     const groupRef   = useRef();
-    const spriteRef  = useRef();
+
+    // Refs for joint animations
+    const torsoRef = useRef();
+    const headRef = useRef();
+    const leftArmRef = useRef();
+    const rightArmRef = useRef();
+    const leftLegRef = useRef();
+    const rightLegRef = useRef();
+
+    const attackProgressRef = useRef(1.0); // 1.0 = not attacking
+
+    useEffect(() => {
+        const handleAttack = (e) => {
+            if (e.detail.playerId === thread.id) {
+                attackProgressRef.current = 0.0;
+            }
+        };
+        window.addEventListener('hero_attack_start', handleAttack);
+        return () => window.removeEventListener('hero_attack_start', handleAttack);
+    }, [thread.id]);
+
+    const faction = useMemo(() => getFaction(thread?.id, thread?.type), [thread?.id, thread?.type]);
+    const tint    = FACTION_TINT[faction] || FACTION_TINT.crystal;
+    const isNPC   = thread?.type === 'NPC';
+
+    // Cache geometries and materials to satisfy rule 1 (Geometry & Material Caching)
+    const geometries = useMemo(() => ({
+        head: new THREE.SphereGeometry(0.18, 12, 12),
+        eyes: new THREE.BoxGeometry(0.24, 0.04, 0.04),
+        torso: new THREE.CylinderGeometry(0.2, 0.15, 0.5, 6),
+        limbUpper: new THREE.CylinderGeometry(0.06, 0.05, 0.28, 5),
+        limbLower: new THREE.CylinderGeometry(0.05, 0.04, 0.25, 5),
+        joint: new THREE.SphereGeometry(0.06, 8, 8)
+    }), []);
+
+    const materials = useMemo(() => {
+        const baseColor = isNPC ? "#2a0005" : "#1a1a1a";
+        const glowColor = tint;
+        return {
+            torso: new THREE.MeshStandardMaterial({
+                color: baseColor,
+                roughness: 0.9,
+                metalness: 0.1
+            }),
+            armor: new THREE.MeshStandardMaterial({
+                color: glowColor,
+                roughness: 0.5,
+                metalness: 0.8
+            }),
+            eyes: new THREE.MeshBasicMaterial({
+                color: isNPC ? "#ff0033" : "#00ffff"
+            }),
+            glow: new THREE.MeshStandardMaterial({
+                color: glowColor,
+                emissive: glowColor,
+                emissiveIntensity: 1.5,
+                roughness: 0.2
+            })
+        };
+    }, [isNPC, tint]);
 
     // Track footprint positions (up to 3 historical)
     const footprintRef = useRef([]);
@@ -450,10 +509,6 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
     // Idle float animation
     const floatTimeRef = useRef(Math.random() * Math.PI * 2); // stagger heroes
     const isLowHp      = (thread?.health ?? 99) <= 5;
-
-    const faction = useMemo(() => getFaction(thread?.id, thread?.type), [thread?.id, thread?.type]);
-    const tint    = FACTION_TINT[faction] || FACTION_TINT.crystal;
-    const isNPC   = thread?.type === 'NPC';
 
     // Target world position from current hex
     const targetPos = useMemo(() => {
@@ -520,10 +575,63 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
         const t = floatTimeRef.current;
         const isStealthed = thread.isStealthed;
 
+        if (attackProgressRef.current < 1.0) {
+            attackProgressRef.current = Math.min(1.0, attackProgressRef.current + delta * 1.25); // 0.8s attack duration
+        }
+
         const anim = activeAnimationRef.current;
         let currentOpacity = isStealthed ? 0.35 : 1.0;
         let currentScale = [1, 1, 1];
         let currentRotation = [0, 0, 0];
+
+        // ── 3D Joint Animations ───────────────────────────────────────────
+        const isMoving = anim && anim.keyframes && anim.progress < 1.0;
+        const walkCycleSpeed = isMoving ? 14.0 : 4.0;
+        const moveTime = t * walkCycleSpeed;
+
+        if (torsoRef.current && leftArmRef.current && rightArmRef.current && leftLegRef.current && rightLegRef.current && headRef.current) {
+            // Reset rotations
+            leftArmRef.current.rotation.set(0, 0, 0);
+            rightArmRef.current.rotation.set(0, 0, 0);
+            leftLegRef.current.rotation.set(0, 0, 0);
+            rightLegRef.current.rotation.set(0, 0, 0);
+            torsoRef.current.rotation.set(0, 0, 0);
+            headRef.current.rotation.set(0, 0, 0);
+            torsoRef.current.position.y = 0.6;
+
+            const isAttacking = attackProgressRef.current < 1.0;
+            if (isAttacking) {
+                // Attack animation loop (0.8s duration)
+                const attackProgress = attackProgressRef.current;
+                const swing = Math.sin(attackProgress * Math.PI);
+                
+                torsoRef.current.rotation.y = swing * 0.5;
+                torsoRef.current.rotation.x = swing * 0.2;
+                rightArmRef.current.rotation.x = -swing * 1.6;
+                rightArmRef.current.rotation.z = -swing * 0.4;
+                leftArmRef.current.rotation.x = swing * 0.6;
+            } else if (isMoving) {
+                // Moving / Running animation
+                const swing = Math.sin(moveTime);
+                
+                leftLegRef.current.rotation.x = swing * 0.6;
+                rightLegRef.current.rotation.x = -swing * 0.6;
+                
+                leftArmRef.current.rotation.x = -swing * 0.5;
+                rightArmRef.current.rotation.x = swing * 0.5;
+                
+                // Add slight torso bobbing
+                torsoRef.current.position.y = 0.6 - Math.abs(Math.sin(moveTime * 2)) * 0.08;
+                torsoRef.current.rotation.z = swing * 0.05;
+            } else {
+                // Idle breathing animation
+                const breathe = Math.sin(t * 2.2);
+                torsoRef.current.position.y = 0.6 + breathe * 0.02;
+                leftArmRef.current.rotation.z = -0.1 - breathe * 0.03;
+                rightArmRef.current.rotation.z = 0.1 + breathe * 0.03;
+                headRef.current.rotation.y = Math.sin(t * 0.8) * 0.1;
+            }
+        }
 
         // ── Keyframe Animation Player ─────────────────────────────────────
         if (anim && anim.keyframes && anim.progress < 1.0) {
@@ -578,27 +686,17 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
             setDecoyTrail([]);
         }
 
-        // ── Idle float animation on sprite ────────────────────────────────
-        if (spriteRef.current) {
-            const bob = Math.sin(t * 1.8) * 0.12 + Math.sin(t * 3.1) * 0.03;
-            spriteRef.current.position.y = 0.8 + bob;
-            spriteRef.current.rotation.set(currentRotation[0], currentRotation[1], currentRotation[2]);
-
-            if (isLowHp && spriteRef.current.material) {
-                const flicker = 0.5 + 0.5 * Math.sign(Math.sin(t * 75.4));
-                spriteRef.current.material.opacity = 0.6 + flicker * 0.4;
-            } else if (spriteRef.current.material) {
-                if (isStealthed) {
-                    // Hologram shimmer while standing still
-                    const stealthShimmer = 0.28 + Math.sin(t * 18) * 0.06;
-                    spriteRef.current.material.opacity = stealthShimmer;
-                } else {
-                    spriteRef.current.material.opacity = currentOpacity;
-                }
+        // ── 3D Visibility and Shimmer Animations ─────────────────────────
+        if (torsoRef.current) {
+            torsoRef.current.scale.set(currentScale[0], currentScale[1], currentScale[2]);
+            if (isLowHp) {
+                const flicker = Math.sin(t * 75.4) > 0;
+                torsoRef.current.visible = flicker;
+            } else if (isStealthed) {
+                torsoRef.current.visible = Math.sin(t * 18.0) > -0.5;
+            } else {
+                torsoRef.current.visible = true;
             }
-
-            // Apply scale
-            spriteRef.current.scale.set(1.8 * currentScale[0], 1.8 * currentScale[1], 1.0 * currentScale[2]);
         }
 
         // Update active raster particles
@@ -734,16 +832,35 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
                     <GlitchCore3D tintColor="#ff0055" />
                 ) : (
                     <>
-                        {/* Billboard sprite with idle float applied via spriteRef */}
-                        <sprite ref={spriteRef} position={[0, 0.8, 0]} scale={[1.8, 1.8, 1.0]} renderOrder={40}>
-                            <spriteMaterial
-                                map={texture}
-                                color={tint}
-                                transparent
-                                alphaTest={0.1}
-                                opacity={1.0}
-                            />
-                        </sprite>
+                        {/* 3D Hierarchical Low-Poly Stylized Robot */}
+                        <group ref={torsoRef} position={[0, 0.6, 0]}>
+                            <mesh geometry={geometries.torso} material={materials.torso} castShadow receiveShadow />
+                            
+                            <group ref={headRef} position={[0, 0.38, 0]}>
+                                <mesh geometry={geometries.head} material={materials.torso} castShadow />
+                                <mesh geometry={geometries.eyes} material={materials.eyes} position={[0, 0.05, 0.14]} />
+                            </group>
+                            
+                            <group ref={leftArmRef} position={[-0.28, 0.15, 0]}>
+                                <mesh geometry={geometries.limbUpper} material={materials.armor} position={[0, -0.14, 0]} castShadow />
+                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
+                            </group>
+                            
+                            <group ref={rightArmRef} position={[0.28, 0.15, 0]}>
+                                <mesh geometry={geometries.limbUpper} material={materials.armor} position={[0, -0.14, 0]} castShadow />
+                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
+                            </group>
+                            
+                            <group ref={leftLegRef} position={[-0.14, -0.25, 0]}>
+                                <mesh geometry={geometries.limbLower} material={materials.torso} position={[0, -0.125, 0]} castShadow />
+                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
+                            </group>
+                            
+                            <group ref={rightLegRef} position={[0.14, -0.25, 0]}>
+                                <mesh geometry={geometries.limbLower} material={materials.torso} position={[0, -0.125, 0]} castShadow />
+                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
+                            </group>
+                        </group>
 
                         {/* Floating Aetheric Dice representation based on class */}
                         <FloatingDice3D categoryKey={AethericDiceEngine.getCategoryByHero(thread.id)} tintColor={tint} isLocalPlayer={isLocalPlayer} />

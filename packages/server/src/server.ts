@@ -622,7 +622,8 @@ io.on('connection', (socket) => {
       voltage: finalSpecs.voltage,
       current: finalSpecs.current,
       isUltimate: isCardUltimate,
-      damage: Math.round(finalSpecs.voltage * 1.2)
+      damage: Math.round(finalSpecs.voltage * 1.2),
+      sourceId: activePlayerId
     });
 
     // ── Log Combat Telemetry to Go Core (GPS/Magnitude/Manner) ───────────────

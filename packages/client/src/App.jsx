@@ -135,7 +135,7 @@ function App() {
 
     // ── Audio + VFX wire-up ─────────────────────────────────────────────────
     const handleCardEffect = (e) => {
-      const { voltage = 2, current = 1, isUltimate = false, damage = 3, targetHex } = e.detail;
+      const { voltage = 2, current = 1, isUltimate = false, damage = 3, targetHex, sourceId } = e.detail;
       // Play Audio feedback
       arenaAudio.playSpellFeedback(current, voltage, isUltimate);
       // Trigger Camera Shake — stronger for ultimates or high damage
@@ -147,6 +147,12 @@ function App() {
       if (isUltimate) {
         setUltimateFlash(true);
         setTimeout(() => setUltimateFlash(false), 150);
+      }
+
+      // Trigger 3D attack animation
+      const attackerId = sourceId || gameState?.activePlayerId;
+      if (attackerId) {
+        window.dispatchEvent(new CustomEvent('hero_attack_start', { detail: { playerId: attackerId } }));
       }
 
       // Update ambient biome based on target hex biome (if grid data available)
