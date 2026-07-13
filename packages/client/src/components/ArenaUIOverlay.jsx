@@ -92,7 +92,8 @@ export default function ArenaUIOverlay({
     weatherOverride = null,
     setWeatherOverride,
     isManualWeather = false,
-    setIsManualWeather
+    setIsManualWeather,
+    hoveredNode = null
 }) {
     const activePlayer = gameState?.threads?.find(t => t.id === gameState?.activePlayerId) || gameState?.threads?.[0];
     const cards = activePlayer?.currentBuffer || [];
@@ -1257,6 +1258,51 @@ export default function ArenaUIOverlay({
                         <span className="text-slate-400 font-bold">{activePlayer.freeMovementUsed ? "🚫 Ťah využitý" : "🚶 Voľný pohyb"}</span>
                     </div>
                 )}
+                {/* Rollout target hexagon keyframe preview */}
+                {selectedCard && hoveredNode && (
+                    <div 
+                        className="fixed bottom-[180px] left-1/2 -translate-x-1/2 bg-[#09090f]/95 border border-cyan-400/40 p-4 rounded-xl shadow-[0_0_30px_rgba(0,255,204,0.15)] flex flex-col gap-2 z-40 w-80 font-mono text-left animate-slide-up backdrop-blur"
+                    >
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                            <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">🔮 TARGET HEX KEYFRAME PREVIEW</span>
+                            <span className="text-[9px] bg-cyan-950 text-cyan-400 px-1.5 py-0.5 rounded">
+                                M:{hoveredNode.macroIndex} H:{hoveredNode.subIndex}
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[9px] text-slate-300">
+                            <div>
+                                <span className="text-slate-500 block text-[8px]">BIOME TYPE</span>
+                                <span className="font-bold text-white text-[10px]">{hoveredNode.type?.toUpperCase() || 'NEUTRAL'}</span>
+                            </div>
+                            <div>
+                                <span className="text-slate-500 block text-[8px]">WALKABILITY</span>
+                                <span className={hoveredNode.walkable !== false ? "text-emerald-400 font-bold" : "text-red-400 font-bold"}>
+                                    {hoveredNode.walkable !== false ? "PASSABLE" : "BLOCKED"}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-slate-500 block text-[8px]">FRICTION MULTIPLIER</span>
+                                <span>{hoveredNode.friction || 0.2}x</span>
+                            </div>
+                            <div>
+                                <span className="text-slate-500 block text-[8px]">HAZARD STRESS INDEX</span>
+                                <span className="text-red-400">{hoveredNode.hazardIndex || 0.1}</span>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-slate-800 pt-2 flex items-center justify-between text-[9px]">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-purple-400">Trajectory:</span>
+                                <span className="bg-slate-900 px-1 py-0.5 rounded text-[8px]">
+                                    {activePlayer?.position?.meta} ➜ {hoveredNode.macroIndex}
+                                </span>
+                            </div>
+                            <span className="text-yellow-400 font-bold">Vector Path Active</span>
+                        </div>
+                    </div>
+                )}
+
                 <div className="glass-panel-heavy p-3 md:p-4 rounded-2xl flex gap-2.5 md:gap-3 shadow-2xl max-w-full overflow-x-auto custom-scrollbar border border-cyan-500/20">
                     {cards.length === 0 ? (
                         <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>

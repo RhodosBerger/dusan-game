@@ -712,6 +712,7 @@ function App() {
         setWeatherOverride={setWeatherOverride}
         isManualWeather={isManualWeather}
         setIsManualWeather={setIsManualWeather}
+        hoveredNode={hoveredNode}
       />
       {/* Adrenaline vignette overlay — purely CSS, no 3D cost */}
       <AdrenalineVignette
