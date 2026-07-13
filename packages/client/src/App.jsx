@@ -604,7 +604,35 @@ function App() {
         >
           ← Späť do Lobby
         </button>
-        <SovereignB2BPortal />
+        <SovereignB2BPortal 
+          onLoadDataset={(ds) => {
+            setEntropy(ds.entropy);
+            if (gameState?.map) {
+              const updatedMap = {
+                ...gameState.map,
+                blocks: gameState.map.blocks.map(b => ({
+                  ...b,
+                  hazardIndex: ds.hazard,
+                  frictionCoefficient: ds.friction
+                }))
+              };
+              setGameState(prev => ({
+                ...prev,
+                globalEntropy: ds.entropy,
+                map: updatedMap
+              }));
+            }
+          }}
+          onApplyCSS={(css) => {
+            let styleTag = document.getElementById('b2b-dynamic-styles');
+            if (!styleTag) {
+              styleTag = document.createElement('style');
+              styleTag.id = 'b2b-dynamic-styles';
+              document.head.appendChild(styleTag);
+            }
+            styleTag.innerHTML = css;
+          }}
+        />
       </div>
     );
   }

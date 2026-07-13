@@ -75,7 +75,7 @@ const FILE_SYSTEM = {
     ]
 };
 
-export default function SovereignB2BPortal() {
+export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
     const [selectedDatasetKey, setSelectedDatasetKey] = useState('NEON_CYBERPUNK');
     const [activeTab3D, setActiveTab3D] = useState('THREE'); // 'THREE' or 'BABYLON'
     const [cssSnippet, setCssSnippet] = useState(DATASETS.NEON_CYBERPUNK.cssOverride);
@@ -89,12 +89,19 @@ export default function SovereignB2BPortal() {
 
     const handleSelectFile = (file) => {
         if (file.datasetKey) {
+            const ds = DATASETS[file.datasetKey];
             setSelectedDatasetKey(file.datasetKey);
-            setCssSnippet(DATASETS[file.datasetKey].cssOverride);
-            logToConsole(`Loaded dataset: ${DATASETS[file.datasetKey].name}`);
+            setCssSnippet(ds.cssOverride);
+            logToConsole(`Loaded dataset: ${ds.name}`);
+            if (onLoadDataset) {
+                onLoadDataset(ds);
+            }
         } else if (file.content) {
             setCssSnippet(file.content);
             logToConsole(`Loaded CSS snippet: ${file.name}`);
+            if (onApplyCSS) {
+                onApplyCSS(file.content);
+            }
         } else {
             logToConsole(`Selected asset model: ${file.name}`);
         }
@@ -102,7 +109,9 @@ export default function SovereignB2BPortal() {
 
     const handleApplyCSS = () => {
         logToConsole("Injected CSS overrides to frontend layers.");
-        // Simulated injection log
+        if (onApplyCSS) {
+            onApplyCSS(cssSnippet);
+        }
     };
 
     const handlePingBabylon = () => {
