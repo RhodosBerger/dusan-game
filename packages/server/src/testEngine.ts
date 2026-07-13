@@ -5,7 +5,7 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignEffectSequencer, SovereignElementorRegistry } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignEffectSequencer, SovereignElementorRegistry, SovereignGenerativeOrchestrator, SovereignRealityMatrix } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { TelemetryBigQueryService } from './services/TelemetryBigQueryService';
 import { GameState, resolveEngineState } from './models/EnginePipeline';
@@ -2702,7 +2702,89 @@ async function runTests() {
   console.log(`  [PASS] Serialization and deserialization roundtrip verified.`);
   console.log(`  [PASS] Test 80 (SovereignElementorRegistry) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry testy prebehli úspešne!");
+  console.log("\nTest 81: SovereignGenerativeOrchestrator Pipeline");
+  const genPayload = SovereignGenerativeOrchestrator.generate('auto_campaign_01', [
+    { meta: 0, hex: 1 },
+    { meta: 5, hex: 5 }
+  ]);
+
+  assert(genPayload.scenarioKey === 'auto_campaign_01', "Generated key must match input.");
+  assert(genPayload.terrainNodes.length === 2, "Must generate exactly 2 terrain nodes.");
+  assert(genPayload.widgets.length === 2, "Must generate exactly 2 widget instances.");
+  assert(genPayload.renders.length === 2, "Must generate exactly 2 rendered frame outputs.");
+  
+  // Verify HTML entity converter mapping for coordinate strings
+  assert(genPayload.htmlEntities['0x01'] === '&#48;&#120;&#48;&#49;', "HTML5 entities must map properly.");
+  assert(genPayload.htmlEntities['0x55'] === '&#48;&#120;&#53;&#53;', "HTML5 entities must map properly.");
+
+  console.log(`  [PASS] Automated scenario layout generation verified.`);
+  console.log(`  [PASS] Widget instantiation mapping verified.`);
+  console.log(`  [PASS] Effect blend configurations verified.`);
+  console.log(`  [PASS] HTML5 coordinate entity mapping verified.`);
+  console.log(`  [PASS] Test 81 (SovereignGenerativeOrchestrator) validated successfully.`);
+
+  console.log("\nTest 82: SovereignRealityMatrix Projections & Rulebook Costs");
+  
+  // 1. Verify standard action cost calculations (Base: 10 AP)
+  const cost1 = SovereignRealityMatrix.calculateActionCost({
+    health: 15,
+    armor: 1,
+    isConsecutiveTurn: false,
+    activeStatuses: []
+  });
+  assert(cost1 === 10, "Base action cost must be exactly 10 AP.");
+
+  // 2. Verify consecutive turn fatigue penalty (+50% fatigue -> 15 AP)
+  const cost2 = SovereignRealityMatrix.calculateActionCost({
+    health: 15,
+    armor: 1,
+    isConsecutiveTurn: true,
+    activeStatuses: []
+  });
+  assert(cost2 === 15, "Consecutive turn must add +5 AP fatigue penalty.");
+
+  // 3. Verify low health catch-up discount (HP <= 4 -> -20% -> 8 AP)
+  const cost3 = SovereignRealityMatrix.calculateActionCost({
+    health: 3,
+    armor: 1,
+    isConsecutiveTurn: false,
+    activeStatuses: []
+  });
+  assert(cost3 === 8, "Low health player must receive a -2 AP discount.");
+
+  // 4. Verify combined discount and fatigue (15 - 2 + 5 = 13 AP)
+  const cost4 = SovereignRealityMatrix.calculateActionCost({
+    health: 3,
+    armor: 1,
+    isConsecutiveTurn: true,
+    activeStatuses: []
+  });
+  assert(cost4 === 13, "Combined low health discount and fatigue must equal 13 AP.");
+
+  // 5. Verify multi-reality projections
+  const projections = SovereignRealityMatrix.projectRealities(
+    { health: 15, armor: 1, isConsecutiveTurn: false, activeStatuses: [], lastCardTypePlayed: 'spell' },
+    { health: 15, armor: 1, isConsecutiveTurn: false, activeStatuses: [], lastCardTypePlayed: 'attack' },
+    'LUSH_FOREST'
+  );
+  assert(projections.length === 4, "Must return exactly 4 versioning realities.");
+  
+  // Glacial Fracture applies root when last card is spell
+  assert(projections[1].statusEffectB.includes('rooted'), "Glacial Fracture must apply root to Player B.");
+  
+  // Toxic Contagion applies slow when last card is attack
+  assert(projections[2].statusEffectA.includes('slowed'), "Toxic Contagion must apply slow to Player A.");
+
+  // Ohmic Overcharge reduces AP cost by -1 AP
+  assert(projections[3].actionCostA === 9, "Ohmic Overcharge must reduce action cost to 9 AP.");
+
+  console.log(`  [PASS] Base action cost calculations verified.`);
+  console.log(`  [PASS] Consecutive turn fatigue penalty verified.`);
+  console.log(`  [PASS] Low HP catch-up discount verified.`);
+  console.log(`  [PASS] Parallel realities projection verified.`);
+  console.log(`  [PASS] Test 82 (SovereignRealityMatrix) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

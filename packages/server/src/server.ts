@@ -14,7 +14,7 @@ import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter } from '@dusan-game/shared';
+import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -1939,6 +1939,88 @@ app.post('/api/scenarios/html5-entities', async (req, res) => {
     } else {
       res.status(fetchResponse.status).json({ error: 'Failed call to Go Core' });
     }
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/scenarios/self-generate', (req, res) => {
+  const { scenarioKey, coordinates } = req.body;
+  try {
+    const payload = SovereignGenerativeOrchestrator.generate(
+      scenarioKey || 'custom_generated_modality',
+      coordinates || [
+        { meta: 0, hex: 1 },
+        { meta: 1, hex: 3 },
+        { meta: 5, hex: 5 }
+      ]
+    );
+    res.status(200).json(payload);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/scenarios/realities', (req, res) => {
+  const { playerA, playerB, activeBiome } = req.body;
+  try {
+    const defaultPlayerA = {
+      health: 15,
+      armor: 1,
+      isConsecutiveTurn: false,
+      activeStatuses: [],
+      ...playerA
+    };
+    const defaultPlayerB = {
+      health: 15,
+      armor: 1,
+      isConsecutiveTurn: false,
+      activeStatuses: [],
+      ...playerB
+    };
+
+    // Save default templates if DB is clean
+    const db = new DatabaseSyncManager();
+    const currentTemplates = db.getRealityTemplates();
+    if (currentTemplates.length === 0) {
+      db.saveRealityTemplate({
+        id: 't_alpha',
+        name: 'Timeline Alpha',
+        priority: 1,
+        speciesAllowed: 'all',
+        proceduralRules: 'standard',
+        combinatoricsMultiplier: 1.0
+      });
+      db.saveRealityTemplate({
+        id: 't_glacier',
+        name: 'Glacial Fracture',
+        priority: 2,
+        speciesAllowed: 'crystal',
+        proceduralRules: 'root_on_spell',
+        combinatoricsMultiplier: 1.2
+      });
+      db.saveRealityTemplate({
+        id: 't_toxic',
+        name: 'Toxic Contagion',
+        priority: 3,
+        speciesAllowed: 'toxic',
+        proceduralRules: 'slow_on_attack',
+        combinatoricsMultiplier: 1.5
+      });
+    }
+
+    const realities = SovereignRealityMatrix.projectRealities(
+      defaultPlayerA,
+      defaultPlayerB,
+      activeBiome || 'LUSH_FOREST'
+    );
+
+    const dbTemplates = db.getRealityTemplates();
+
+    res.status(200).json({
+      realities,
+      dbTemplates
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

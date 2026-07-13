@@ -38,3 +38,5 @@ export * from './core/SovereignScenarioInterpreter';
 export * from './core/SovereignKeyframeInterpreter';
 export * from './core/SovereignEffectSequencer';
 export * from './core/SovereignElementorRegistry';
+export * from './core/SovereignGenerativeOrchestrator';
+export * from './core/SovereignRealityMatrix';
