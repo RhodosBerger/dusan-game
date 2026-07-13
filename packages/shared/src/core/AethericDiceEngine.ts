@@ -138,4 +138,44 @@ export class AethericDiceEngine {
 
         return { finalDamage, success, log };
     }
+
+    /**
+     * Probabilistically determines the hit zone based on the attacker's luck stat.
+     * Higher luck shifts weight towards Head and Chest critical zones.
+     */
+    static rollHitZone(luck: number): 'head' | 'chest' | 'left_arm' | 'right_arm' | 'left_leg' | 'right_leg' {
+        let wHead = 5;
+        let wChest = 50;
+        let wLeftArm = 12.5;
+        let wRightArm = 12.5;
+        let wLeftLeg = 10;
+        let wRightLeg = 10;
+
+        // Luck shift: scale Head and Chest weights positively
+        const luckShift = Math.max(-4, (luck - 0.5) * 30);
+        wHead = Math.max(1, wHead + luckShift);
+        wChest = Math.max(10, wChest + luckShift * 0.5);
+
+        const total = wHead + wChest + wLeftArm + wRightArm + wLeftLeg + wRightLeg;
+        const roll = Math.random() * total;
+
+        let cumulative = 0;
+        
+        cumulative += wHead;
+        if (roll < cumulative) return 'head';
+        
+        cumulative += wChest;
+        if (roll < cumulative) return 'chest';
+        
+        cumulative += wLeftArm;
+        if (roll < cumulative) return 'left_arm';
+        
+        cumulative += wRightArm;
+        if (roll < cumulative) return 'right_arm';
+        
+        cumulative += wLeftLeg;
+        if (roll < cumulative) return 'left_leg';
+        
+        return 'right_leg';
+    }
 }

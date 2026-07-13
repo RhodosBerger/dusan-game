@@ -2827,7 +2827,34 @@ async function runTests() {
   console.log(`  [PASS] Arm capacity overload applying 'disarmed' status verified.`);
   console.log(`  [PASS] Test 83 (SovereignLIFOArbiter) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter testy prebehli úspešne!");
+  console.log("\nTest 84: AethericDiceEngine HitZone Probability Model");
+  
+  // 1. Run probabilistic rolls under different luck conditions
+  let headCountLowLuck = 0;
+  let headCountHighLuck = 0;
+  const iterations = 1000;
+
+  for (let i = 0; i < iterations; i++) {
+    const zoneLow = AethericDiceEngine.rollHitZone(0.1);
+    if (zoneLow === 'head') headCountLowLuck++;
+
+    const zoneHigh = AethericDiceEngine.rollHitZone(1.0);
+    if (zoneHigh === 'head') headCountHighLuck++;
+  }
+
+  // 2. High luck must statistically favor head hits more than low luck
+  assert(headCountHighLuck >= headCountLowLuck, "High luck must statistically yield more head criticals than low luck.");
+  
+  // 3. Roll zone with base luck (0.5) and verify it returns a valid hit zone
+  const baseZone = AethericDiceEngine.rollHitZone(0.5);
+  assert(['head', 'chest', 'left_arm', 'right_arm', 'left_leg', 'right_leg'].includes(baseZone), "rollHitZone must return a valid zone.");
+
+  console.log(`  [PASS] Statistically verified head hit rate under low luck (headCount: ${headCountLowLuck}).`);
+  console.log(`  [PASS] Statistically verified head hit rate under high luck (headCount: ${headCountHighLuck}).`);
+  console.log(`  [PASS] Valid hit zone type resolution verified.`);
+  console.log(`  [PASS] Test 84 (AethericDiceEngine rollHitZone) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability testy prebehli úspešne!");
 }
 
 runTests().catch(err => {
