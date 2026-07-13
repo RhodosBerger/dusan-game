@@ -93,10 +93,53 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
         memoryLeaks: 0
     });
 
+    // Timeframe & Transition Orchestrator States
+    const [compareSlider, setCompareSlider] = useState(50);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [playhead, setPlayhead] = useState(0);
+    const [transitionSpeed, setTransitionSpeed] = useState(1.0);
+    const [scriptInput, setScriptInput] = useState(JSON.stringify([
+        { "time": 0.0, "event": "GRID_COMPOSITION_INIT" },
+        { "time": 0.35, "event": "THREAD_NPC_SPAWN" },
+        { "time": 0.70, "event": "GEOMETRIC_TERRAIN_DEFORM" },
+        { "time": 1.0, "event": "THERMODYNAMIC_PURGE_RESET" }
+    ], null, 2));
+
     const currentDataset = DATASETS[selectedDatasetKey];
 
     const logToConsole = (msg) => {
         setConsoleLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
+    };
+
+    useEffect(() => {
+        let interval;
+        if (isPlaying) {
+            interval = setInterval(() => {
+                setPlayhead(prev => {
+                    if (prev >= 100) return 0;
+                    return Math.min(100, prev + (1 * transitionSpeed));
+                });
+            }, 50);
+        }
+        return () => clearInterval(interval);
+    }, [isPlaying, transitionSpeed]);
+
+    const handleExecuteScript = () => {
+        try {
+            const parsed = JSON.parse(scriptInput);
+            logToConsole(`[Orchestrator] Ingested ${parsed.length} keyframe events.`);
+            parsed.forEach((frame) => {
+                setTimeout(() => {
+                    logToConsole(`[Keyframe T:${frame.time.toFixed(2)}] Fired event: ${frame.event}`);
+                    if (frame.event === "GEOMETRIC_TERRAIN_DEFORM") {
+                        // Increment system heat to simulate activity
+                        setSimState(prev => ({ ...prev, systemHeat: Math.min(120, prev.systemHeat + 15) }));
+                    }
+                }, frame.time * 2000);
+            });
+        } catch (e) {
+            logToConsole(`[Orchestrator Error] Invalid script JSON structure.`);
+        }
     };
 
     const handleRunKineticOverride = () => {
@@ -311,6 +354,117 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                                     {n.label} [{n.x}, {n.y}]
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ─── Center: Timeframe & Transition Orchestrator ─── */}
+                <div style={{
+                    background: '#0d0d12',
+                    borderTop: '1px solid #1c1c28',
+                    padding: 16,
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: '#00ffff', fontWeight: 'bold' }}>⏱️ TIMEFRAME & TRANSITION ORCHESTRATOR</span>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button 
+                                onClick={() => setIsPlaying(!isPlaying)}
+                                style={{
+                                    background: isPlaying ? '#ef4444' : '#22c55e',
+                                    color: '#000',
+                                    border: 'none',
+                                    padding: '4px 10px',
+                                    borderRadius: 4,
+                                    fontSize: 9,
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {isPlaying ? '❚❚ Pause' : '▶ Play Sequence'}
+                            </button>
+                            <select 
+                                value={transitionSpeed} 
+                                onChange={(e) => setTransitionSpeed(parseFloat(e.target.value))}
+                                style={{ background: '#040406', color: '#fff', border: '1px solid #1c1c28', fontSize: 9, padding: '2px 4px', borderRadius: 4 }}
+                            >
+                                <option value="0.5">0.5x Speed</option>
+                                <option value="1.0">1.0x Speed</option>
+                                <option value="2.0">2.0x Speed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        {/* Timeline & Compare Slider */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, marginBottom: 4 }}>
+                                    <span style={{ color: '#888' }}>Before/After Compare State</span>
+                                    <span style={{ color: '#00ffff', fontWeight: 'bold' }}>{compareSlider}% Target Elevation</span>
+                                </div>
+                                <input 
+                                    type="range" min="0" max="100" value={compareSlider}
+                                    onChange={(e) => setCompareSlider(parseInt(e.target.value))}
+                                    style={{ width: '100%', accentColor: '#00ffff', cursor: 'pointer' }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, opacity: 0.5, marginTop: 2 }}>
+                                    <span>Z:0 Baseline (Before)</span>
+                                    <span>Z:20 Target (After)</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, marginBottom: 4 }}>
+                                    <span style={{ color: '#888' }}>Animation Playhead</span>
+                                    <span style={{ color: '#a855f7', fontWeight: 'bold' }}>T: {(playhead / 100).toFixed(2)}s</span>
+                                </div>
+                                <div style={{ width: '100%', height: 6, background: '#1c1c28', borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
+                                    <div style={{ width: `${playhead}%`, height: '100%', background: '#a855f7' }} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Script JSON Ingestion */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 9, color: '#ffd700' }}>Keyframe Event Script</span>
+                                <button 
+                                    onClick={handleExecuteScript}
+                                    style={{
+                                        background: '#a855f7',
+                                        color: '#fff',
+                                        border: 'none',
+                                        padding: '2px 8px',
+                                        borderRadius: 4,
+                                        fontSize: 8,
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Ingest Script
+                                </button>
+                            </div>
+                            <textarea 
+                                value={scriptInput}
+                                onChange={(e) => setScriptInput(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    height: 52,
+                                    background: '#040406',
+                                    color: '#a855f7',
+                                    border: '1px solid #1c1c28',
+                                    borderRadius: 4,
+                                    fontSize: 8,
+                                    fontFamily: 'monospace',
+                                    padding: 4,
+                                    resize: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
                         </div>
                     </div>
                 </div>
