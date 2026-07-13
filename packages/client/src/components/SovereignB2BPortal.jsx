@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { executeKineticOverrideTransition } from '../../../shared/src/index';
 
 // Mock datasets representing game state configurations
 const DATASETS = {
@@ -81,10 +82,45 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
     const [cssSnippet, setCssSnippet] = useState(DATASETS.NEON_CYBERPUNK.cssOverride);
     const [consoleLogs, setConsoleLogs] = useState(['[B2B PORTAL] Initialized localhost session...']);
 
+    // Ohm's Law Simulator State
+    const [testVoltage, setTestVoltage] = useState(5.0);
+    const [testResistance, setTestResistance] = useState(2.5);
+    const [testLane, setTestLane] = useState('A_CENTER');
+    const [simState, setSimState] = useState({
+        systemHeat: 0,
+        memoryIntegrity: 100,
+        semanticErosion: 0,
+        memoryLeaks: 0
+    });
+
     const currentDataset = DATASETS[selectedDatasetKey];
 
     const logToConsole = (msg) => {
         setConsoleLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
+    };
+
+    const handleRunKineticOverride = () => {
+        const payload = {
+            action_type: 'KINETIC_OVERRIDE',
+            actor_id: 'thread_hacker_root',
+            target_id: 'helper_turret_01',
+            voltage_magnitude: testVoltage,
+            base_resistance: testResistance,
+            target_lane: testLane
+        };
+        const nextState = executeKineticOverrideTransition(payload, simState);
+        setSimState(nextState);
+        
+        const currentMagnitude = testVoltage / Math.max(0.1, testResistance);
+        logToConsole(`[State Engine] Transition executed: Current I = ${currentMagnitude.toFixed(2)}.`);
+        if (currentMagnitude < 1.0) {
+            logToConsole(`[State Engine] Failure: Current < 1.0. Converted to heat. System Heat = ${nextState.systemHeat}.`);
+        } else {
+            logToConsole(`[State Engine] Success: Applied Semantic Erosion. Target Integrity = ${nextState.memoryIntegrity.toFixed(1)}.`);
+        }
+        if (nextState.systemHeat === 0 && simState.systemHeat + (1.0 - currentMagnitude) * 50.0 > 100) {
+            logToConsole(`[State Engine] Purge Condition: Thermodynamic Purge triggered! Integrity penalized, Heat reset.`);
+        }
     };
 
     const handleSelectFile = (file) => {
@@ -337,6 +373,87 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                         </div>
                         <div style={{ width: '100%', height: 8, background: '#1c1c28', borderRadius: 4, overflow: 'hidden' }}>
                             <div style={{ width: `${currentDataset.hazard * 100}%`, height: '100%', background: '#ef4444' }} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Ohm's Law Kinetic Override Tester */}
+                <div style={{ background: '#07070a', border: '1px solid #1c1c28', padding: 14, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontSize: 10, color: '#00ffff', fontWeight: 'bold', letterSpacing: '0.05em' }}>⚡ KINETIC OVERRIDE SIMULATOR</div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 9 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Voltage (V):</span>
+                            <span style={{ color: '#00ffff', fontWeight: 'bold' }}>{testVoltage.toFixed(1)} V</span>
+                        </div>
+                        <input 
+                            type="range" min="0.5" max="10.0" step="0.5" value={testVoltage} 
+                            onChange={(e) => setTestVoltage(parseFloat(e.target.value))} 
+                            style={{ accentColor: '#00ffff', cursor: 'pointer', width: '100%' }}
+                        />
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Resistance (R):</span>
+                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{testResistance.toFixed(2)} R</span>
+                        </div>
+                        <input 
+                            type="range" min="0.1" max="5.0" step="0.1" value={testResistance} 
+                            onChange={(e) => setTestResistance(parseFloat(e.target.value))} 
+                            style={{ accentColor: '#ef4444', cursor: 'pointer', width: '100%' }}
+                        />
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                            <span>Target Z-Anchor:</span>
+                            <select 
+                                value={testLane} 
+                                onChange={(e) => setTestLane(e.target.value)} 
+                                style={{ background: '#0a0a0f', border: '1px solid #1c1c28', color: '#fff', fontSize: 9, padding: 3, borderRadius: 4 }}
+                            >
+                                <option value="A_BASE">A_BASE (Z:0)</option>
+                                <option value="A_AURA_RING">A_AURA_RING (Z:5)</option>
+                                <option value="A_CENTER">A_CENTER (Z:10)</option>
+                                <option value="A_OVERHEAD">A_OVERHEAD (Z:20)</option>
+                            </select>
+                        </div>
+
+                        <button 
+                            onClick={handleRunKineticOverride}
+                            style={{
+                                marginTop: 6,
+                                padding: '8px',
+                                background: '#a855f7',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: 10,
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Execute Transition Pipeline
+                        </button>
+                    </div>
+
+                    <hr style={{ border: 'none', borderBottom: '1px solid #1c1c28', margin: '4px 0' }} />
+
+                    {/* Live State Variables Indicators */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, fontSize: 9 }}>
+                        <div style={{ background: '#0a0a0f', padding: 6, borderRadius: 4 }}>
+                            <span style={{ opacity: 0.5, display: 'block', fontSize: 8 }}>MEMORY INTEGRITY</span>
+                            <strong style={{ color: '#22c55e' }}>{simState.memoryIntegrity.toFixed(1)}</strong>
+                        </div>
+                        <div style={{ background: '#0a0a0f', padding: 6, borderRadius: 4 }}>
+                            <span style={{ opacity: 0.5, display: 'block', fontSize: 8 }}>SEMANTIC EROSION</span>
+                            <strong style={{ color: '#ef4444' }}>{simState.semanticErosion.toFixed(1)}</strong>
+                        </div>
+                        <div style={{ background: '#0a0a0f', padding: 6, borderRadius: 4 }}>
+                            <span style={{ opacity: 0.5, display: 'block', fontSize: 8 }}>SYSTEM HEAT</span>
+                            <strong style={{ color: simState.systemHeat > 100 ? '#ef4444' : '#ffd700' }}>{simState.systemHeat.toFixed(1)}</strong>
+                        </div>
+                        <div style={{ background: '#0a0a0f', padding: 6, borderRadius: 4 }}>
+                            <span style={{ opacity: 0.5, display: 'block', fontSize: 8 }}>MEMORY LEAKS</span>
+                            <strong style={{ color: '#a855f7' }}>{simState.memoryLeaks}</strong>
                         </div>
                     </div>
                 </div>
