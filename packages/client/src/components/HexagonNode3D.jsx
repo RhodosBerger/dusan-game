@@ -28,6 +28,43 @@ Object.values(textures).forEach(tex => {
     tex.repeat.set(0.3, 0.3);
 });
 
+const radius = 2.0;
+
+// Shared cached geometries to prevent memory bloat and GC spikes (Rule 1)
+const hexShape = (() => {
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + (Math.PI / 6);
+        const x = radius * Math.cos(angle);
+        const z = radius * Math.sin(angle);
+        if (i === 0) shape.moveTo(x, z);
+        else shape.lineTo(x, z);
+    }
+    shape.closePath();
+    return shape;
+})();
+
+const extrudeSettings = { depth: 0.4, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
+const sharedHexGeometry = new THREE.ExtrudeGeometry(hexShape, extrudeSettings);
+
+const innerHexShape = (() => {
+    const innerRadius = 1.75;
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + (Math.PI / 6);
+        const x = innerRadius * Math.cos(angle);
+        const z = innerRadius * Math.sin(angle);
+        if (i === 0) shape.moveTo(x, z);
+        else shape.lineTo(x, z);
+    }
+    shape.closePath();
+    return shape;
+})();
+const sharedInnerHexGeometry = new THREE.ExtrudeGeometry(innerHexShape, { depth: 0.05, bevelEnabled: false });
+
+const sharedStalactiteGeometry = new THREE.CylinderGeometry(radius * 0.92, 0.18, 1.0, 6, 1, false, Math.PI / 6);
+const sharedConeEdgeGeometry = new THREE.ConeGeometry(radius, 0, 6);
+
 const heroTextures = {
     thread_king_ai: textureLoader.load('/heroes/crystal_hero.png'),
     thread_hacker_root: textureLoader.load('/heroes/toxic_hero.png')
@@ -185,7 +222,8 @@ function SpellFlashBeam3D({ weatherOverride }) {
 export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, threads = [], isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null }) {
     const tileRef = useRef();
     const materialRef = useRef();
-    const radius = 2.0;
+    const innerMaterialRef = useRef();
+    const [waveTrigger, setWaveTrigger] = React.useState({ time: 0, originMeta: null, originHex: null });
 
     const activeOccupyingThread = useMemo(() => {
         return threads.find(t => t.position && t.position.meta === node.macroIndex && t.position.hex === node.subIndex);
@@ -369,7 +407,15 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
     React.useEffect(() => {
         const handleEffect = (e) => {
-            const { targetHex } = e.detail;
+            const { targetHex, sourceHex } = e.detail;
+            const origin = sourceHex || targetHex;
+            if (origin) {
+                setWaveTrigger({
+                    time: Date.now(),
+                    originMeta: origin.macroIndex !== undefined ? origin.macroIndex : origin.meta,
+                    originHex: origin.subIndex !== undefined ? origin.subIndex : origin.hex
+                });
+            }
             if (targetHex && targetHex.meta === node.macroIndex && targetHex.hex === node.subIndex) {
                 setFlash(true);
                 const timer = setTimeout(() => setFlash(false), 500);
@@ -387,7 +433,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         return (node.macroIndex * 7 + node.subIndex) * 0.05;
     }, [node.macroIndex, node.subIndex]);
 
-    useFrame((state) => {
+    useFrame((state, delta) => {
         if (materialRef.current && materialRef.current.userData && materialRef.current.userData.shader) {
             const phase = node.realityPhase || realityPhase || 'STANDARD';
             materialRef.current.userData.shader.uniforms.uGravityPulse.value = phase === 'GRAVITY_WELL' ? 1.0 : 0.0;
@@ -420,6 +466,25 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 targetLift = Math.abs(r) * 0.45;
             }
         }
+
+        // Apply topological radial ripple wave from card play location
+        let rippleHeight = 0;
+        if (waveTrigger.time > 0) {
+            const elapsedSec = (Date.now() - waveTrigger.time) / 1000;
+            try {
+                const startPos = SpatialGuidanceSystem.resolveCartesian(waveTrigger.originMeta, waveTrigger.originHex);
+                const nodePos = SpatialGuidanceSystem.resolveCartesian(node.macroIndex, node.subIndex);
+                const dist = SpatialGuidanceSystem.calculateDistance(startPos, nodePos);
+                
+                const delay = dist * 0.08;
+                const relativeTime = elapsedSec - delay;
+                if (relativeTime > 0 && relativeTime < 0.65) {
+                    rippleHeight = Math.sin(relativeTime * Math.PI / 0.65) * 0.55;
+                }
+            } catch (e) {}
+        }
+        targetLift += rippleHeight;
+
         tileRef.current.position.z = THREE.MathUtils.lerp(tileRef.current.position.z, targetLift, 0.15);
 
         if (isCollapsing) {
@@ -435,6 +500,23 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 const idleOffset = Math.sin(time * waveFreq + (node.position[0] + node.position[2]) * 0.45) * waveAmp;
                 tileRef.current.position.y = baseHeight + idleOffset;
             }
+        }
+
+        // Mutate material properties in-place directly on frame tick to eliminate GC allocations
+        if (materialRef.current) {
+            materialRef.current.color.copy(materialProps.color);
+            materialRef.current.roughness = materialProps.roughness;
+            materialRef.current.metalness = materialProps.metalness;
+            materialRef.current.emissive.copy(materialProps.emissive);
+            materialRef.current.map = materialProps.map;
+            materialRef.current.needsUpdate = true;
+        }
+
+        if (innerMaterialRef.current) {
+            innerMaterialRef.current.color.set(isSelected ? "#00ffff" : isHovered ? "#3b82f6" : "#0c0f1d");
+            innerMaterialRef.current.emissive.set(isSelected ? "#00ffff" : isHovered ? "#22d3ee" : "#000000");
+            innerMaterialRef.current.emissiveIntensity = isSelected ? 1.5 : isHovered ? 0.8 : 0.0;
+            innerMaterialRef.current.needsUpdate = true;
         }
     });
 
@@ -573,21 +655,37 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         >
             {/* Dlaždica + hrana + (Task 6: podsada) — animovaná ako celok */}
             <group ref={tileRef}>
-                <mesh castShadow receiveShadow frustumCulled={false}>
-                    <extrudeGeometry args={[hexShape, extrudeSettings]} />
-                    <meshStandardMaterial ref={materialRef} onBeforeCompile={handleBeforeCompile} {...materialProps} />
+                {/* Outer Extruded Base */}
+                <mesh geometry={sharedHexGeometry} castShadow receiveShadow frustumCulled={false}>
+                    <meshStandardMaterial ref={materialRef} onBeforeCompile={handleBeforeCompile} />
                 </mesh>
+
+                {/* Inner Tech-Plate Overlay (Advanced 3D Geometry) */}
+                <mesh geometry={sharedInnerHexGeometry} position={[0, 0, 0.402]} castShadow receiveShadow>
+                    <meshStandardMaterial 
+                        ref={innerMaterialRef}
+                        color="#0c0f1d"
+                        roughness={0.15}
+                        metalness={0.85} 
+                    />
+                </mesh>
+
                 <lineSegments position={[0, 0, 0.41]}>
-                    <edgesGeometry args={[new THREE.ConeGeometry(radius, 0, 6)]} />
+                    <edgesGeometry args={[sharedConeEdgeGeometry]} />
                     <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : isTargetable ? 0.8 : 0.45} />
                 </lineSegments>
 
                 {/* Spell Casting VFX projected on the Hexagon */}
                 {flash && <SpellFlashBeam3D weatherOverride={weatherOverride} />}
 
-                {/* Skalná podsada — 6-boký zužujúci sa "stalaktit" pod dlaždicou */}
-                <mesh position={[0, 0, -undersideDepth / 2 + 0.02]} rotation={[Math.PI / 2, 0, 0]}>
-                    <cylinderGeometry args={[radius * 0.92, 0.18, undersideDepth, 6, 1, false, Math.PI / 6]} />
+                {/* Skalná podsada — 6-boký zužujúci sa "stalaktit" pod dlaždicou (Scaled dynamically on shared geometry) */}
+                <mesh 
+                    geometry={sharedStalactiteGeometry}
+                    position={[0, 0, -undersideDepth / 2 + 0.02]} 
+                    rotation={[Math.PI / 2, 0, 0]}
+                    scale={[1.0, undersideDepth, 1.0]}
+                    castShadow
+                >
                     <meshStandardMaterial
                         color={PALETTE.rock.underside}
                         roughness={1}
