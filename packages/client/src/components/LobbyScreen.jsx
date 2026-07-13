@@ -65,7 +65,7 @@ function VoidWeaverAvatar() {
     );
 }
 
-export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, onOpenGraphicsDemo }) {
+export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, onOpenGraphicsDemo, onOpenBuilder, onOpenComposer }) {
     const [name, setName] = useState('');
     const [selectedHero, setSelectedHero] = useState('thread_king_ai');
 
@@ -245,6 +245,20 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                             className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-slate-800/80 text-slate-400 hover:text-slate-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
                         >
                             <span>🌌</span> WebGL Graphics Showcase
+                        </button>
+
+                        <button 
+                            onClick={onOpenBuilder}
+                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-cyan-800/80 text-cyan-400 hover:text-cyan-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            <span>🛠️</span> Sovereign Builder CMS
+                        </button>
+
+                        <button 
+                            onClick={onOpenComposer}
+                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-yellow-800/80 text-yellow-400 hover:text-yellow-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            <span>📋</span> Board Composer
                         </button>
                     </div>
                 </div>

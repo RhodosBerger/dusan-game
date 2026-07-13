@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import CanvasRenderer3D from './components/CanvasRenderer3D';
 import ArenaUIOverlay from './components/ArenaUIOverlay';
+import SovereignBuilderCMS from './components/SovereignBuilderCMS';
+import SovereignBoardComposer from './components/SovereignBoardComposer';
 import { EvolutionarySceneGenerator, ConnectionEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '../../shared/src/index';
 import LobbyScreen from './components/LobbyScreen';
 import AdrenalineVignette from './components/AdrenalineVignette';
@@ -17,6 +19,7 @@ import './App.css';
 const socket = io('http://localhost:3001', { autoConnect: false });
 
 function App() {
+  const [activeLayoutView, setActiveLayoutView] = useState('LOBBY');
   const [isSandbox, setIsSandbox] = useState(true);
   const [isCombinatoricsSandboxOpen, setIsCombinatoricsSandboxOpen] = useState(false);
   const [isTelemetryDashboardOpen, setIsTelemetryDashboardOpen] = useState(false);
@@ -561,6 +564,34 @@ function App() {
     return <WebGLGraphicsShowcase onClose={() => setIsGraphicsShowcaseOpen(false)} />;
   }
 
+  if (activeLayoutView === 'BUILDER') {
+    return (
+      <div className="relative w-full h-screen">
+        <button 
+          onClick={() => setActiveLayoutView('LOBBY')}
+          className="absolute top-4 right-4 z-50 px-4 py-2 bg-slate-900/90 text-cyan-400 border border-cyan-500/50 hover:bg-slate-800 text-xs font-bold font-mono tracking-wider rounded-xl cursor-pointer"
+        >
+          ← Späť do Lobby
+        </button>
+        <SovereignBuilderCMS />
+      </div>
+    );
+  }
+
+  if (activeLayoutView === 'COMPOSER') {
+    return (
+      <div className="relative w-full h-screen">
+        <button 
+          onClick={() => setActiveLayoutView('LOBBY')}
+          className="absolute top-4 right-4 z-50 px-4 py-2 bg-slate-900/90 text-yellow-400 border border-yellow-500/50 hover:bg-slate-800 text-xs font-bold font-mono tracking-wider rounded-xl cursor-pointer"
+        >
+          ← Späť do Lobby
+        </button>
+        <SovereignBoardComposer />
+      </div>
+    );
+  }
+
   if (!matchId) {
     return (
       <LobbyScreen 
@@ -568,6 +599,8 @@ function App() {
         onSearchMatch={handleSearchMatch}
         isSearching={isSearching}
         onOpenGraphicsDemo={() => setIsGraphicsShowcaseOpen(true)}
+        onOpenBuilder={() => setActiveLayoutView('BUILDER')}
+        onOpenComposer={() => setActiveLayoutView('COMPOSER')}
       />
     );
   }
