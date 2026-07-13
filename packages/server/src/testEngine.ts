@@ -2796,18 +2796,35 @@ async function runTests() {
   assert(lifoRes1.finalHealthB === 15, "Player B's health should remain 15 due to dodge.");
   assert(lifoRes1.energyCostB === 15, "Player B should incur 15 energy cost for dodge.");
 
-  // 2. Resolve stack with Attack not mitigated (no dodge)
+  // 2. Resolve stack with Attack not mitigated (no dodge, arm hit)
   const stack2 = [
-    { id: 'a2', player: 'playerA' as const, type: 'attack' as const, cardId: 'Medvěd Swipe', damage: 4 }
+    { id: 'a2', player: 'playerA' as const, type: 'attack' as const, cardId: 'Medvěd Swipe', damage: 4, hitZone: 'left_arm' as const }
   ];
   const lifoRes2 = SovereignLIFOArbiter.resolveStack(stack2, 15, 15);
   assert(lifoRes2.damageDealtA === 4, "Player A's attack should deal 4 damage to Player B.");
   assert(lifoRes2.finalHealthB === 11, "Player B's health should drop to 11 HP.");
   assert(lifoRes2.screenShake === true, "Attack should trigger screen shake.");
 
+  // 3. Resolve stack with Headshot bonus damage (+5 DMG)
+  const stack3 = [
+    { id: 'a3', player: 'playerA' as const, type: 'attack' as const, cardId: 'Snipe', damage: 4, hitZone: 'head' as const }
+  ];
+  const lifoRes3 = SovereignLIFOArbiter.resolveStack(stack3, 15, 15);
+  assert(lifoRes3.damageDealtA === 9, "Headshot should deal 4 + 5 = 9 damage to Player B.");
+
+  // 4. Resolve stack with double arm hit causing disarm status
+  const stack4 = [
+    { id: 'a4_1', player: 'playerA' as const, type: 'attack' as const, cardId: 'Slash', damage: 2, hitZone: 'right_arm' as const },
+    { id: 'a4_2', player: 'playerA' as const, type: 'attack' as const, cardId: 'Slash', damage: 2, hitZone: 'right_arm' as const }
+  ];
+  const lifoRes4 = SovereignLIFOArbiter.resolveStack(stack4, 15, 15);
+  assert(lifoRes4.statusEffectsAppliedB.includes('disarmed'), "Double hit to right arm should apply disarmed.");
+
   console.log(`  [PASS] Attack mitigation via Dodge reaction verified.`);
-  console.log(`  [PASS] Unmitigated raw attack damage verified.`);
+  console.log(`  [PASS] Unmitigated raw arm attack damage verified.`);
   console.log(`  [PASS] Screen shake trigger magnitude verified.`);
+  console.log(`  [PASS] Headshot critical bonus damage verified.`);
+  console.log(`  [PASS] Arm capacity overload applying 'disarmed' status verified.`);
   console.log(`  [PASS] Test 83 (SovereignLIFOArbiter) validated successfully.`);
 
   console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter testy prebehli úspešne!");

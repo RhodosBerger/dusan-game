@@ -54,6 +54,7 @@ export default function SovereignElementorSandbox() {
     const [newDamage, setNewDamage] = useState(3);
     const [lifoResult, setLifoResult] = useState(null);
     const [renderPulseActive, setRenderPulseActive] = useState(false);
+    const [newHitZone, setNewHitZone] = useState('chest');
 
     const simulatedPlayerA = useMemo(() => {
         const statuses = [];
@@ -153,7 +154,8 @@ export default function SovereignElementorSandbox() {
             player: newPlayer,
             type: newType,
             cardId: newCardId || 'Akcia',
-            damage: newType === 'attack' ? parseInt(newDamage) || 0 : 0
+            damage: newType === 'attack' ? parseInt(newDamage) || 0 : 0,
+            hitZone: newType === 'attack' ? newHitZone : undefined
         };
         setActionStack(prev => [...prev, entry]);
     };
@@ -431,9 +433,22 @@ export default function SovereignElementorSandbox() {
                         </div>
 
                         {newType === 'attack' && (
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[9px] text-slate-400 uppercase">Damage:</label>
-                                <input type="number" value={newDamage} onChange={(e) => setNewDamage(e.target.value)} className="bg-slate-950 text-red-400 text-xs p-2 rounded border border-slate-800 focus:outline-none" />
+                            <div className="flex flex-col gap-2 mt-1">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[9px] text-slate-400 uppercase">Damage:</label>
+                                    <input type="number" value={newDamage} onChange={(e) => setNewDamage(e.target.value)} className="bg-slate-950 text-red-400 text-xs p-2 rounded border border-slate-800 focus:outline-none" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[9px] text-slate-400 uppercase">Target Hit Zone:</label>
+                                    <select value={newHitZone} onChange={(e) => setNewHitZone(e.target.value)} className="bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-800">
+                                        <option value="chest">Chest/Torso (Max 1 Hit, +3 DMG)</option>
+                                        <option value="head">Head (Max 1 Hit, +5 DMG)</option>
+                                        <option value="left_arm">Left Arm (Max 2 Hits, Disarm)</option>
+                                        <option value="right_arm">Right Arm (Max 2 Hits, Disarm)</option>
+                                        <option value="left_leg">Left Leg (Max 2 Hits, Slow)</option>
+                                        <option value="right_leg">Right Leg (Max 2 Hits, Slow)</option>
+                                    </select>
+                                </div>
                             </div>
                         )}
 
@@ -460,7 +475,7 @@ export default function SovereignElementorSandbox() {
                                                 {act.player === 'playerA' ? 'Player A' : 'Player B'}
                                             </span>
                                             <span className="text-[10px] text-slate-300">
-                                                {act.cardId} ({act.type.toUpperCase()})
+                                                {act.cardId} ({act.type.toUpperCase()}) {act.hitZone && `[Zone: ${act.hitZone.toUpperCase()}]`}
                                             </span>
                                         </div>
                                         {act.type === 'attack' && (
@@ -494,6 +509,8 @@ export default function SovereignElementorSandbox() {
                                         <div>Health A: <span className="text-white font-bold">{lifoResult.finalHealthA} HP</span> (Dealt B: {lifoResult.damageDealtB})</div>
                                         <div>Health B: <span className="text-white font-bold">{lifoResult.finalHealthB} HP</span> (Dealt A: {lifoResult.damageDealtA})</div>
                                         <div>Energy cost: A: {lifoResult.energyCostA} / B: {lifoResult.energyCostB}</div>
+                                        {lifoResult.statusEffectsAppliedA?.length > 0 && <div className="text-yellow-400">Player A Status: {lifoResult.statusEffectsAppliedA.join(', ')}</div>}
+                                        {lifoResult.statusEffectsAppliedB?.length > 0 && <div className="text-yellow-400">Player B Status: {lifoResult.statusEffectsAppliedB.join(', ')}</div>}
                                     </div>
                                 </>
                             ) : (
