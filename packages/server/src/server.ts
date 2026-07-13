@@ -1925,6 +1925,25 @@ app.post('/api/scenarios/keyframe-simulation', (req, res) => {
   }
 });
 
+app.post('/api/scenarios/html5-entities', async (req, res) => {
+  const { hexCoord } = req.body;
+  try {
+    const fetchResponse = await fetch('http://localhost:8081/api/scenarios/html5-entities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hexCoord })
+    });
+    if (fetchResponse.ok) {
+      const data = await fetchResponse.json();
+      res.status(200).json(data);
+    } else {
+      res.status(fetchResponse.status).json({ error: 'Failed call to Go Core' });
+    }
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/end-turn', (req, res) => {
   try {
     defaultEngine.turnStateMachine.endTurn();

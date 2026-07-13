@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { executeKineticOverrideTransition } from '../../../shared/src/index';
 
 // Mock datasets representing game state configurations
@@ -104,6 +104,45 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
         { "time": 0.70, "event": "GEOMETRIC_TERRAIN_DEFORM" },
         { "time": 1.0, "event": "THERMODYNAMIC_PURGE_RESET" }
     ], null, 2));
+
+    const [html5Entities, setHtml5Entities] = useState([
+        { hexCoord: '0x12', htmlEntity: '&#48;&#120;&#49;&#52;', tag: '<span data-coord="0x12">&#48;&#120;&#49;&#52;</span>' },
+        { hexCoord: '0x35', htmlEntity: '&#48;&#120;&#51;&#53;', tag: '<span data-coord="0x35">&#48;&#120;&#51;&#53;</span>' },
+        { hexCoord: '0x71', htmlEntity: '&#48;&#120;&#55;&#49;', tag: '<span data-coord="0x71">&#48;&#120;&#55;&#49;</span>' }
+    ]);
+    const [newCoordInput, setNewCoordInput] = useState('');
+
+    const handleRegisterEntity = async () => {
+        const coord = newCoordInput.trim() || '0x2B';
+        try {
+            const res = await fetch('http://localhost:3001/api/scenarios/html5-entities', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hexCoord: coord })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setHtml5Entities(prev => [
+                    ...prev,
+                    { hexCoord: data.hexCoord, htmlEntity: data.htmlEntity, tag: `<span data-coord="${data.hexCoord}">${data.htmlEntity}</span>` }
+                ]);
+                logToConsole(`[HTML5 Registry] Registered coordinate ${data.hexCoord} -> ${data.htmlEntity}`);
+            } else {
+                logToConsole(`[HTML5 Registry Error] Failed to register entity.`);
+            }
+        } catch (err) {
+            logToConsole(`[HTML5 Registry Offline] Using local simulation for ${coord}.`);
+            // Local simulation fallback
+            let localEntity = '';
+            for (let i = 0; i < coord.length; i++) {
+                localEntity += `&#${coord.charCodeAt(i)};`;
+            }
+            setHtml5Entities(prev => [
+                ...prev,
+                { hexCoord: coord, htmlEntity: localEntity, tag: `<span data-coord="${coord}">${localEntity}</span>` }
+            ]);
+        }
+    };
 
     const currentDataset = DATASETS[selectedDatasetKey];
 
@@ -315,47 +354,120 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                         >
                             Babylon.js
                         </button>
+                        <button 
+                            onClick={() => setActiveTab3D('HTML5')}
+                            style={{
+                                padding: '6px 12px',
+                                background: activeTab3D === 'HTML5' ? '#00ffff' : '#1c1c28',
+                                color: activeTab3D === 'HTML5' ? '#000' : '#fff',
+                                border: 'none',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            HTML5 Entities
+                        </button>
                     </div>
                 </div>
 
-                {/* 3D Mock Viewport Container */}
+                {/* 3D / HTML5 Viewport Container */}
                 <div style={{
                     flex: 1,
                     background: '#040406',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    position: 'relative'
+                    position: 'relative',
+                    padding: 20,
+                    boxSizing: 'border-box'
                 }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <span style={{ fontSize: 48 }}>{activeTab3D === 'THREE' ? '🌌' : '⚡'}</span>
-                        <div style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12 }}>
-                            {activeTab3D === 'THREE' ? 'Three.js (R3F) Viewport' : 'Babylon.js Sandbox Viewport'}
-                        </div>
-                        <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>
-                            Rendering dataset: {currentDataset.id}
-                        </div>
-                    </div>
+                    {activeTab3D === 'HTML5' ? (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                <input 
+                                    type="text" 
+                                    placeholder="Enter coordinate (e.g. 0x3C)..." 
+                                    value={newCoordInput}
+                                    onChange={(e) => setNewCoordInput(e.target.value)}
+                                    style={{ flex: 1, padding: '8px 12px', background: '#101017', color: '#00ffff', border: '1px solid #1c1c28', borderRadius: 6, fontSize: 12, outline: 'none' }}
+                                />
+                                <button 
+                                    onClick={handleRegisterEntity}
+                                    style={{ padding: '8px 16px', background: '#00ffff', color: '#000', border: 'none', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer' }}
+                                >
+                                    + Register Entity Tag
+                                </button>
+                            </div>
 
-                    {/* Nodes map preview overlay */}
-                    <div style={{
-                        position: 'absolute',
-                        bottom: 20,
-                        left: 20,
-                        background: '#101017e6',
-                        padding: 12,
-                        borderRadius: 8,
-                        border: '1px solid #1c1c28'
-                    }}>
-                        <span style={{ display: 'block', fontSize: 10, color: '#ffd700', marginBottom: 6 }}>Nodes Context Map</span>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            {currentDataset.nodes.map(n => (
-                                <div key={n.id} style={{ padding: '4px 8px', background: '#040406', borderRadius: 4, fontSize: 9 }}>
-                                    {n.label} [{n.x}, {n.y}]
+                            <div style={{ flex: 1, overflowY: 'auto', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 16 }}>
+                                <div style={{ fontSize: 11, color: '#ffd700', marginBottom: 12, borderBottom: '1px solid #1c1c28', paddingBottom: 6 }}>
+                                    Active Paired Tag HTML5 Coordinate Canvas Layout:
                                 </div>
-                            ))}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                                    {html5Entities.map((ent, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            style={{
+                                                background: '#13131a', 
+                                                border: '1px solid #00ffff40', 
+                                                padding: '8px 12px', 
+                                                borderRadius: 6,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: 4
+                                            }}
+                                        >
+                                            <span style={{ fontSize: 10, color: '#00ffff', fontWeight: 'bold' }}>
+                                                Coord: {ent.hexCoord}
+                                            </span>
+                                            <span style={{ fontSize: 9, color: '#a855f7', fontFamily: 'monospace' }}>
+                                                Entity: {ent.htmlEntity}
+                                            </span>
+                                            <div 
+                                                style={{ fontSize: 10, color: '#fff', borderTop: '1px solid #242430', paddingTop: 4, marginTop: 4 }}
+                                                dangerouslySetInnerHTML={{ __html: ent.tag }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <>
+                            <div style={{ textAlign: 'center' }}>
+                                <span style={{ fontSize: 48 }}>{activeTab3D === 'THREE' ? '🌌' : '⚡'}</span>
+                                <div style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12 }}>
+                                    {activeTab3D === 'THREE' ? 'Three.js (R3F) Viewport' : 'Babylon.js Sandbox Viewport'}
+                                </div>
+                                <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>
+                                    Rendering dataset: {currentDataset.id}
+                                </div>
+                            </div>
+
+                            {/* Nodes map preview overlay */}
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 20,
+                                left: 20,
+                                background: '#101017e6',
+                                padding: 12,
+                                borderRadius: 8,
+                                border: '1px solid #1c1c28'
+                            }}>
+                                <span style={{ display: 'block', fontSize: 10, color: '#ffd700', marginBottom: 6 }}>Nodes Context Map</span>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {currentDataset.nodes.map(n => (
+                                        <div key={n.id} style={{ padding: '4px 8px', background: '#040406', borderRadius: 4, fontSize: 9 }}>
+                                            {n.label} [{n.x}, {n.y}]
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* ─── Center: Timeframe & Transition Orchestrator ─── */}
