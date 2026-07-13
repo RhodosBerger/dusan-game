@@ -12,7 +12,10 @@
           "buildType": "STATIC_SHIELD",
           "health": 20,
           "armor": 3,
-          "coordinates": [0, 0]
+          "coordinates": [
+            0,
+            0
+          ]
         },
         {
           "nodeId": "thread_hacker_root",
@@ -20,11 +23,14 @@
           "buildType": "SURGE_OVERDRIVE",
           "health": 15,
           "armor": 1,
-          "coordinates": [8, 6]
+          "coordinates": [
+            8,
+            6
+          ]
         }
       ],
       "hazardFactor": 0.35,
-      "frictionFactor": 0.40,
+      "frictionFactor": 0.4,
       "npcSpawnDivisor": 5
     },
     {
@@ -39,11 +45,14 @@
           "buildType": "GRAVITY_ANOMALY",
           "health": 16,
           "armor": 0,
-          "coordinates": [5, 3]
+          "coordinates": [
+            5,
+            3
+          ]
         }
       ],
       "hazardFactor": 0.85,
-      "frictionFactor": 0.70,
+      "frictionFactor": 0.7,
       "npcSpawnDivisor": 3
     },
     {
@@ -58,12 +67,59 @@
           "buildType": "DEFENSIVE_KEEP",
           "health": 25,
           "armor": 4,
-          "coordinates": [0, 0]
+          "coordinates": [
+            0,
+            0
+          ]
         }
       ],
-      "hazardFactor": 0.90,
+      "hazardFactor": 0.9,
       "frictionFactor": 0.95,
       "npcSpawnDivisor": 2
+    },
+    {
+      "id": "python_generated_swamp",
+      "name": "Python Generated Swamp Scenario",
+      "difficulty": 3,
+      "description": "Generated via Python Formatter for biome constraints: TOXIC_SWAMP.",
+      "nodeMappings": [
+        {
+          "nodeId": "thread_node_1_2",
+          "heroClass": "thread_hacker_root",
+          "buildType": "SURGE_OVERDRIVE",
+          "health": 21,
+          "armor": 3,
+          "coordinates": [
+            1,
+            2
+          ]
+        },
+        {
+          "nodeId": "thread_node_3_5",
+          "heroClass": "thread_king_ai",
+          "buildType": "STATIC_SHIELD",
+          "health": 21,
+          "armor": 3,
+          "coordinates": [
+            3,
+            5
+          ]
+        },
+        {
+          "nodeId": "thread_node_7_1",
+          "heroClass": "thread_hacker_root",
+          "buildType": "SURGE_OVERDRIVE",
+          "health": 21,
+          "armor": 3,
+          "coordinates": [
+            7,
+            1
+          ]
+        }
+      ],
+      "hazardFactor": 0.75,
+      "frictionFactor": 1.2,
+      "npcSpawnDivisor": 4
     }
   ]
 }

@@ -1891,6 +1891,18 @@ app.post('/api/scenarios/trigger', (req, res) => {
         timestamp: Date.now(),
         message: 'HAZARD ERUPTION: Volcanic spores erupted in 3 random zones!'
       } as any);
+    } else if (['cyberpunk_infiltration', 'dread_void_collapse', 'fantasy_siege', 'python_generated_swamp'].includes(scenarioType)) {
+      const interpreter = new SovereignScenarioInterpreter();
+      interpreter.applyScenario(targetEngine, scenarioType);
+      targetEngine.traceLog.push({
+        type: 'Combat',
+        attackerId: 'SYSTEM',
+        targetId: 'environment',
+        damage: 0,
+        armor: 0,
+        timestamp: Date.now(),
+        message: `Scenario triggered via REST API: ${scenarioType}`
+      } as any);
     } else {
       return res.status(400).json({ error: `Unknown scenarioType: ${scenarioType}` });
     }
