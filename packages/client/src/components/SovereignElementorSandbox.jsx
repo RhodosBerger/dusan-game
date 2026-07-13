@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { SovereignElementorRegistry, SovereignRealityMatrix } from '../../../shared/src/index';
+import { SovereignElementorRegistry, SovereignRealityMatrix, SovereignLIFOArbiter } from '../../../shared/src/index';
 
 export default function SovereignElementorSandbox() {
     // Load catalog from shared typescript registry
@@ -41,6 +41,19 @@ export default function SovereignElementorSandbox() {
     const [statusRootB, setStatusRootB] = useState(false);
     const [statusDisarmB, setStatusDisarmB] = useState(false);
     const [statusSilenceB, setStatusSilenceB] = useState(false);
+
+    // --- LIFO Action Stack Settings ---
+    const [actionStack, setActionStack] = useState([
+        { id: '1', player: 'playerA', type: 'attack', cardId: 'Hadí útok', damage: 3 },
+        { id: '2', player: 'playerB', type: 'dodge', cardId: 'Úhyb', damage: 0 },
+        { id: '3', player: 'playerB', type: 'attack', cardId: 'Medvěd Swipe', damage: 4 }
+    ]);
+    const [newPlayer, setNewPlayer] = useState('playerA');
+    const [newType, setNewType] = useState('attack');
+    const [newCardId, setNewCardId] = useState('Hadí útok');
+    const [newDamage, setNewDamage] = useState(3);
+    const [lifoResult, setLifoResult] = useState(null);
+    const [renderPulseActive, setRenderPulseActive] = useState(false);
 
     const simulatedPlayerA = useMemo(() => {
         const statuses = [];
@@ -133,6 +146,32 @@ export default function SovereignElementorSandbox() {
         }
     };
 
+    // --- LIFO Action Stack Handlers ---
+    const handleAddAction = () => {
+        const entry = {
+            id: `act_${Date.now()}`,
+            player: newPlayer,
+            type: newType,
+            cardId: newCardId || 'Akcia',
+            damage: newType === 'attack' ? parseInt(newDamage) || 0 : 0
+        };
+        setActionStack(prev => [...prev, entry]);
+    };
+
+    const handleClearStack = () => {
+        setActionStack([]);
+        setLifoResult(null);
+    };
+
+    const handleResolveLIFO = () => {
+        const result = SovereignLIFOArbiter.resolveStack(actionStack, parseInt(simHealthA) || 15, parseInt(simHealthB) || 15);
+        setLifoResult(result);
+        if (result.screenShake) {
+            setRenderPulseActive(true);
+            setTimeout(() => setRenderPulseActive(false), 1000);
+        }
+    };
+
     const exportedBootstrapCSS = useMemo(() => {
         return `/* Bootstrap Game Composition Custom Stylesheet */
 .game-grid-viewport {
@@ -150,10 +189,22 @@ export default function SovereignElementorSandbox() {
 
     return (
         <div className="flex flex-col gap-6 w-full h-full p-4 overflow-y-auto" style={{ fontFamily: 'monospace' }}>
+            {/* Glow sweep render animation style */}
+            <style>{`
+                @keyframes renderPulse {
+                    0% { box-shadow: 0 0 5px rgba(34, 211, 238, 0.3), inset 0 0 5px rgba(34, 211, 238, 0.1); border-color: rgba(34, 211, 238, 0.3); }
+                    50% { box-shadow: 0 0 25px rgba(34, 211, 238, 0.8), inset 0 0 15px rgba(34, 211, 238, 0.4); border-color: rgba(34, 211, 238, 0.9); }
+                    100% { box-shadow: 0 0 5px rgba(34, 211, 238, 0.3), inset 0 0 5px rgba(34, 211, 238, 0.1); border-color: rgba(34, 211, 238, 0.3); }
+                }
+                .render-glow-pulse {
+                    animation: renderPulse 1.0s ease-in-out;
+                }
+            `}</style>
+
             <div className="flex justify-between items-center border-b border-slate-800 pb-4">
                 <div>
-                    <h2 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">🛠️ SOVEREIGN ELEMENTOR & REALITY MATRIX</h2>
-                    <span className="text-[10px] text-slate-400">Simulation Projections, Rulebook Math, and Layout Canvas</span>
+                    <h2 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">🛠️ SOVEREIGN ELEMENTOR, REALITIES & LIFO ARBITER</h2>
+                    <span className="text-[10px] text-slate-400">Simulation Projections, Rulebook LIFO Dodges, and Layout Canvas</span>
                 </div>
 
                 <div className="flex gap-2">
@@ -178,7 +229,7 @@ export default function SovereignElementorSandbox() {
                 </div>
             </div>
 
-            {/* Matrix realities section */}
+            {/* Simulated Realities Grid */}
             <div className="flex flex-col gap-4 bg-slate-950 p-4 rounded-xl border border-slate-900">
                 <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                     <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-widest">🌐 1. Simulated realities (Parallel Timelines)</h3>
@@ -233,7 +284,6 @@ export default function SovereignElementorSandbox() {
 
                 {/* Reality Inputs Tuning */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-900/40 p-4 rounded-xl border border-slate-900 mt-2">
-                    {/* Player A Simulator Settings */}
                     <div className="flex flex-col gap-3">
                         <span className="text-[10px] font-bold text-cyan-400 border-l border-cyan-400 pl-2">PLAYER ALPHA STATUS</span>
                         <div className="grid grid-cols-2 gap-3">
@@ -272,7 +322,6 @@ export default function SovereignElementorSandbox() {
                         </div>
                     </div>
 
-                    {/* Player B Simulator Settings */}
                     <div className="flex flex-col gap-3">
                         <span className="text-[10px] font-bold text-purple-400 border-l border-purple-400 pl-2">PLAYER BETA STATUS</span>
                         <div className="grid grid-cols-2 gap-3">
@@ -313,10 +362,120 @@ export default function SovereignElementorSandbox() {
                 </div>
             </div>
 
+            {/* LIFO Reaction Stack Builder */}
+            <div className="flex flex-col gap-4 bg-slate-950 p-4 rounded-xl border border-slate-900">
+                <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-widest border-b border-slate-900 pb-2">🛡️ 2. LIFO Reaction Stack Arbiter (Dodge Mechanics)</h3>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column: Add to Stack */}
+                    <div className="flex flex-col gap-3 bg-slate-900/30 p-3 rounded-lg border border-slate-900">
+                        <span className="text-[10px] text-slate-300 font-bold uppercase">Push Action / Reaction</span>
+                        
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] text-slate-400 uppercase">Actor:</label>
+                            <select value={newPlayer} onChange={(e) => setNewPlayer(e.target.value)} className="bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-800">
+                                <option value="playerA">Player A (Alpha)</option>
+                                <option value="playerB">Player B (Beta)</option>
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] text-slate-400 uppercase">Action Type:</label>
+                            <select value={newType} onChange={(e) => {
+                                setNewType(e.target.value);
+                                if (e.target.value === 'dodge') setNewCardId('Úhyb');
+                                else if (e.target.value === 'attack') setNewCardId('Hadí útok');
+                                else setNewCardId('Blesk');
+                            }} className="bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-800">
+                                <option value="attack">Attack (Red Card)</option>
+                                <option value="dodge">Dodge (Yellow Card)</option>
+                                <option value="spell">Spell (Blue Card)</option>
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[9px] text-slate-400 uppercase">Card Name/Id:</label>
+                            <input type="text" value={newCardId} onChange={(e) => setNewCardId(e.target.value)} className="bg-slate-950 text-cyan-300 text-xs p-2 rounded border border-slate-800 focus:outline-none" />
+                        </div>
+
+                        {newType === 'attack' && (
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[9px] text-slate-400 uppercase">Damage:</label>
+                                <input type="number" value={newDamage} onChange={(e) => setNewDamage(e.target.value)} className="bg-slate-950 text-red-400 text-xs p-2 rounded border border-slate-800 focus:outline-none" />
+                            </div>
+                        )}
+
+                        <button onClick={handleAddAction} className="bg-blue-600 hover:bg-blue-700 text-black font-bold text-xs py-2 rounded transition-all mt-2">
+                            Push to Stack
+                        </button>
+                    </div>
+
+                    {/* Middle Column: Current Stack Queue */}
+                    <div className="flex flex-col gap-3 bg-slate-900/30 p-3 rounded-lg border border-slate-900">
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] text-slate-300 font-bold uppercase">Stack Queue (Top is evaluated first)</span>
+                            <button onClick={handleClearStack} className="text-rose-400 hover:text-rose-300 text-[9px] uppercase">[Clear]</button>
+                        </div>
+
+                        <div className="flex flex-col-reverse gap-2 max-h-60 overflow-y-auto pr-1">
+                            {actionStack.length === 0 ? (
+                                <span className="text-[10px] text-slate-500 italic py-4 text-center">Stack is empty. Push actions to begin.</span>
+                            ) : (
+                                actionStack.map((act, index) => (
+                                    <div key={act.id} className={`p-2.5 rounded border flex justify-between items-center text-xs ${act.player === 'playerA' ? 'border-cyan-500/20 bg-cyan-950/10' : 'border-purple-500/20 bg-purple-950/10'}`}>
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className={`font-bold ${act.player === 'playerA' ? 'text-cyan-400' : 'text-purple-400'}`}>
+                                                {act.player === 'playerA' ? 'Player A' : 'Player B'}
+                                            </span>
+                                            <span className="text-[10px] text-slate-300">
+                                                {act.cardId} ({act.type.toUpperCase()})
+                                            </span>
+                                        </div>
+                                        {act.type === 'attack' && (
+                                            <span className="text-red-400 font-bold">-{act.damage} DMG</span>
+                                        )}
+                                        {act.type === 'dodge' && (
+                                            <span className="text-yellow-400 font-bold">DODGE</span>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <button onClick={handleResolveLIFO} disabled={actionStack.length === 0} className="bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50 font-bold text-xs py-2.5 rounded transition-all mt-auto">
+                            ⚡ Resolve LIFO Stack
+                        </button>
+                    </div>
+
+                    {/* Right Column: Arbiter Output Logs */}
+                    <div className="flex flex-col gap-2 bg-slate-900/30 p-3 rounded-lg border border-slate-900">
+                        <span className="text-[10px] text-slate-300 font-bold uppercase">ML Arbiter Response Logs</span>
+                        <div className="bg-slate-950 p-2.5 rounded border border-slate-850 h-52 overflow-y-auto text-[9px] text-slate-300 flex flex-col gap-1 font-mono">
+                            {lifoResult ? (
+                                <>
+                                    {lifoResult.resolutionLog.map((logLine, idx) => (
+                                        <div key={idx} className={logLine.includes('[DAMAGE]') ? 'text-red-400' : logLine.includes('[MITIGATED]') ? 'text-emerald-400 font-bold' : logLine.includes('[DODGE]') ? 'text-yellow-400' : 'text-slate-300'}>
+                                            {logLine}
+                                        </div>
+                                    ))}
+                                    <div className="border-t border-slate-800 mt-2 pt-2 text-[10px] flex flex-col gap-0.5 text-cyan-300">
+                                        <div>Health A: <span className="text-white font-bold">{lifoResult.finalHealthA} HP</span> (Dealt B: {lifoResult.damageDealtB})</div>
+                                        <div>Health B: <span className="text-white font-bold">{lifoResult.finalHealthB} HP</span> (Dealt A: {lifoResult.damageDealtA})</div>
+                                        <div>Energy cost: A: {lifoResult.energyCostA} / B: {lifoResult.energyCostB}</div>
+                                    </div>
+                                </>
+                            ) : (
+                                <span className="text-slate-500 italic">Awaiting stack evaluation...</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Panel: Widget Selection & Attributes Tuning */}
                 <div className="flex flex-col gap-4 bg-slate-950/70 p-4 rounded-xl border border-slate-900">
-                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-cyan-400 pl-2">2. Widget Selection</h3>
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-cyan-400 pl-2">3. Widget Selection</h3>
                     
                     <div className="flex flex-col gap-1">
                         <label className="text-[9px] text-slate-400 uppercase">Target Widget Block:</label>
@@ -399,8 +558,8 @@ export default function SovereignElementorSandbox() {
                 </div>
 
                 {/* Center Panel: Interactive Sandbox Canvas */}
-                <div className="lg:col-span-2 flex flex-col gap-4 bg-slate-950/70 p-4 rounded-xl border border-slate-900">
-                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-purple-400 pl-2">3. Sandbox Modality Canvas</h3>
+                <div className={`lg:col-span-2 flex flex-col gap-4 bg-slate-950/70 p-4 rounded-xl border border-slate-900 transition-all ${renderPulseActive ? 'render-glow-pulse' : ''}`}>
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-purple-400 pl-2">4. Sandbox Modality Canvas</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {instances.map((inst) => {
@@ -485,7 +644,7 @@ export default function SovereignElementorSandbox() {
                     </div>
 
                     <div className="border-t border-slate-900 pt-4 flex flex-col gap-2">
-                        <label className="text-[10px] text-yellow-400 font-bold uppercase">4. Exported CSS Snippet Layout</label>
+                        <label className="text-[10px] text-yellow-400 font-bold uppercase">5. Exported CSS Snippet Layout</label>
                         <pre className="bg-slate-950 text-cyan-300 text-[9px] p-3 rounded-lg border border-slate-850 overflow-x-auto whitespace-pre h-24">
                             {exportedBootstrapCSS}
                         </pre>

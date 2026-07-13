@@ -14,7 +14,7 @@ import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix } from '@dusan-game/shared';
+import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -2021,6 +2021,20 @@ app.post('/api/scenarios/realities', (req, res) => {
       realities,
       dbTemplates
     });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/scenarios/lifo-resolve', (req, res) => {
+  const { stack, healthA, healthB } = req.body;
+  try {
+    const result = SovereignLIFOArbiter.resolveStack(
+      stack || [],
+      healthA !== undefined ? healthA : 15,
+      healthB !== undefined ? healthB : 15
+    );
+    res.status(200).json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

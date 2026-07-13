@@ -40,3 +40,4 @@ export * from './core/SovereignEffectSequencer';
 export * from './core/SovereignElementorRegistry';
 export * from './core/SovereignGenerativeOrchestrator';
 export * from './core/SovereignRealityMatrix';
+export * from './core/SovereignLIFOArbiter';
