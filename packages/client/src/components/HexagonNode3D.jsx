@@ -670,6 +670,15 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                     </div>
                 </Html>
             )}
+
+            {/* Floating Hexadecimal Coordinate tag */}
+            <Html distanceFactor={16} position={[0, 0, 1.65]} center>
+                <div 
+                    className="pointer-events-none select-none text-[6px] text-[#00ffff] bg-slate-950/90 px-1.5 py-0.5 rounded border border-[#00ffff]/40 font-mono shadow-[0_0_8px_rgba(0,255,255,0.2)] tracking-wider"
+                >
+                    {`0x${node.macroIndex.toString(16).toUpperCase()}${node.subIndex.toString(16).toUpperCase()}`}
+                </div>
+            </Html>
         </group>
 
     );
