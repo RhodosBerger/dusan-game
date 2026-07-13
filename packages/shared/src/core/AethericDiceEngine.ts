@@ -167,10 +167,10 @@ export class AethericDiceEngine {
 
         if (success) {
             finalDamage = Math.round(baseDamage * 1.5);
-            log = `Contested Roll Success! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition met). ${ddaNudged ? '[Mazak DDA Loaded Dice aktívne (65% šanca pre Hráča)]' : ''} Poškodenie zvýšené na ${finalDamage} (1.5x).`;
+            log = `Contested Roll Success! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition met). ${ddaNudged ? '[Dusans customized Mazak DDA Loaded Dice aktívne (65% šanca pre Hráča)]' : ''} Poškodenie zvýšené na ${finalDamage} (1.5x).`;
         } else {
             finalDamage = Math.max(1, Math.round(baseDamage * 0.5));
-            log = `Contested Roll Failed! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition NOT met). ${ddaNudged ? '[Mazak DDA Evasive Shield aktívny (chráni Hráča)]' : ''} Poškodenie znížené na ${finalDamage} (0.5x).`;
+            log = `Contested Roll Failed! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition NOT met). ${ddaNudged ? '[Dusans customized Mazak DDA Evasive Shield aktívny (chráni Hráča)]' : ''} Poškodenie znížené na ${finalDamage} (0.5x).`;
         }
 
         return { finalDamage, success, log };

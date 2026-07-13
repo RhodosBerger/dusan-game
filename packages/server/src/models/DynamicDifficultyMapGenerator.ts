@@ -11,16 +11,16 @@ export interface FractalGeneratorStats {
 }
 
 /**
- * Procedurálny generátor arény založený na obtiažnosti a Mazakovom modeli priestorových váh.
+ * Procedurálny generátor arény založený na obtiažnosti a Dusanovom upravenom Mazakovom modeli priestorových váh (Dusans customized Mazak model).
  * Používa fraktálnu distribúciu pre NPC spoločne s dynamickými bodmi migrácie a možnosťami úkrytov.
  */
 export class DynamicDifficultyMapGenerator {
   /**
-   * Vypočíta optimálnu váhu podľa Mazakovho modelu pre 3x3 mriežku a viac.
+   * Vypočíta optimálnu váhu podľa Dusanovho upraveného Mazakovho modelu pre 3x3 mriežku a viac.
    * Centrum (4) má najvyššiu hustotu (1.0), rohy majú strednú (0.8), hrany nízku (0.5).
    * Pre väčšie arény škáluje váhu na základe Manhattan vzdialenosti od stredu.
    */
-  public static getMazakWeight(chunkId: number, totalChunks: number = 9): number {
+  public static getDusansCustomizedMazakWeight(chunkId: number, totalChunks: number = 9): number {
     if (totalChunks === 9) {
       const weights: Record<number, number> = {
         0: 0.8, 1: 0.5, 2: 0.8,
@@ -44,7 +44,7 @@ export class DynamicDifficultyMapGenerator {
   }
 
   /**
-   * Upraví vygenerovanú mapu na základe zvolenej obtiažnosti (1 - 5) a váhového Mazakovho modelu
+   * Upraví vygenerovanú mapu na základe zvolenej obtiažnosti (1 - 5) a Dusanovho upraveného Mazakovho modelu (Dusans customized Mazak model)
    */
   public static generateTacticalBoard(map: GameMap, difficulty: number): FractalGeneratorStats {
     let stealthBlocksCount = 0;
@@ -60,15 +60,15 @@ export class DynamicDifficultyMapGenerator {
 
     const totalChunks = map.chunks.length;
 
-    // 1. Nastavenie vlastností blokov, prekážok a úkrytov na základe obtiažnosti a Mazak váhy
+    // 1. Nastavenie vlastností blokov, prekážok a úkrytov na základe obtiažnosti a Dusanovho upraveného Mazakovho modelu
     map.chunks.forEach(chunk => {
-      const mazakWeight = this.getMazakWeight(chunk.id, totalChunks);
+      const dusansCustomizedMazakWeight = this.getDusansCustomizedMazakWeight(chunk.id, totalChunks);
 
       chunk.blocks.forEach(block => {
         totalWalkable++;
         
-        // Walkable šanca sa prispôsobuje Mazakovej váhe sektora
-        const baseWalkableChance = (0.95 - (difficulty * 0.04)) * (0.8 + (mazakWeight * 0.2));
+        // Walkable šanca sa prispôsobuje lokálnej váhe sektora
+        const baseWalkableChance = (0.95 - (difficulty * 0.04)) * (0.8 + (dusansCustomizedMazakWeight * 0.2));
         const isStartBase = (chunk.id === 0 && block.id === 0) || (chunk.id === 8 && block.id === 6) || (chunk.id === 5 && block.id === 3);
         
         if (chunk.id !== 0 && !isStartBase && Math.random() > baseWalkableChance) {
@@ -96,12 +96,12 @@ export class DynamicDifficultyMapGenerator {
     // 2. Bodová migrácia (Migration Nodes / Opportunities) prispôsobená váham
     const numOpportunities = 2 + difficulty;
     for (let k = 0; k < numOpportunities; k++) {
-      // Váhové losovanie chunkov: preferujeme chunky s vyššou Mazakovou váhou
+      // Váhové losovanie chunkov: preferujeme chunky s vyššou váhou
       let chosenChunkId = 4; // default
       let maxRoll = -1;
       
       for (let c = 0; c < totalChunks; c++) {
-        const weight = this.getMazakWeight(c, totalChunks);
+        const weight = this.getDusansCustomizedMazakWeight(c, totalChunks);
         const roll = Math.random() * weight;
         if (roll > maxRoll) {
           maxRoll = roll;
@@ -120,17 +120,17 @@ export class DynamicDifficultyMapGenerator {
       }
     }
 
-    // 3. Fraktálna distribúcia NPC spawnov škálovaná Mazak modelom
+    // 3. Fraktálna distribúcia NPC spawnov škálovaná Dusanovým upraveným Mazakovým modelom
     map.chunks.forEach(chunk => {
       if (chunk.id === 0) return; // Bezpečný start
       
-      const mazakWeight = this.getMazakWeight(chunk.id, totalChunks);
+      const dusansCustomizedMazakWeight = this.getDusansCustomizedMazakWeight(chunk.id, totalChunks);
 
       chunk.blocks.forEach(block => {
         if (!block.walkable || block.threadId !== null || block.hasOpportunity !== null) return;
 
-        // Pravdepodobnosť spawnu NPC je priamo úmerná obtiažnosti a Mazakovej váhe sektora
-        const spawnChance = (0.2 + (difficulty * 0.1)) * mazakWeight;
+        // Pravdepodobnosť spawnu NPC je priamo úmerná obtiažnosti a lokálnej váhe sektora
+        const spawnChance = (0.2 + (difficulty * 0.1)) * dusansCustomizedMazakWeight;
         
         if (Math.random() < spawnChance) {
           densityPerZone[chunk.id]++;
