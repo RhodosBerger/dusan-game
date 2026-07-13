@@ -108,7 +108,9 @@ export class AethericDiceEngine {
         attackerRoll: number,
         defenderRoll: number,
         baseDamage: number,
-        condition: 'MORE' | 'LESS' = 'MORE'
+        condition: 'MORE' | 'LESS' = 'MORE',
+        attackerType: 'PLAYER' | 'NPC' | 'HELPER' = 'PLAYER',
+        defenderType: 'PLAYER' | 'NPC' | 'HELPER' = 'PLAYER'
     ): { finalDamage: number; success: boolean; log: string } {
         if (this.bypassDice) {
             return {
@@ -118,11 +120,46 @@ export class AethericDiceEngine {
             };
         }
 
+        let adjustedAttackerRoll = attackerRoll;
+        let adjustedDefenderRoll = defenderRoll;
+        let ddaNudged = false;
+
+        const isPlayerAttackingNpc = attackerType === 'PLAYER' && defenderType === 'NPC';
+        const isNpcAttackingPlayer = attackerType === 'NPC' && defenderType === 'PLAYER';
+
+        if (isPlayerAttackingNpc) {
+            const wouldWin = condition === 'MORE' ? attackerRoll > defenderRoll : attackerRoll < defenderRoll;
+            if (!wouldWin) {
+                // 65% šanca nakloniť kocky pre hráča
+                if (Math.random() < 0.65) {
+                    if (condition === 'MORE') {
+                        adjustedAttackerRoll = defenderRoll + 1;
+                    } else {
+                        adjustedAttackerRoll = Math.max(1, defenderRoll - 1);
+                    }
+                    ddaNudged = true;
+                }
+            }
+        } else if (isNpcAttackingPlayer) {
+            const wouldWin = condition === 'MORE' ? attackerRoll > defenderRoll : attackerRoll < defenderRoll;
+            if (wouldWin) {
+                // 65% šanca zmierniť útok na hráča (evasion saving throw)
+                if (Math.random() < 0.65) {
+                    if (condition === 'MORE') {
+                        adjustedAttackerRoll = Math.max(1, defenderRoll - 1);
+                    } else {
+                        adjustedAttackerRoll = defenderRoll + 1;
+                    }
+                    ddaNudged = true;
+                }
+            }
+        }
+
         let success = false;
         if (condition === 'MORE') {
-            success = attackerRoll > defenderRoll;
+            success = adjustedAttackerRoll > adjustedDefenderRoll;
         } else {
-            success = attackerRoll < defenderRoll;
+            success = adjustedAttackerRoll < adjustedDefenderRoll;
         }
 
         let finalDamage = baseDamage;
@@ -130,10 +167,10 @@ export class AethericDiceEngine {
 
         if (success) {
             finalDamage = Math.round(baseDamage * 1.5);
-            log = `Contested Roll Success! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition met). Damage amplified to ${finalDamage} (1.5x).`;
+            log = `Contested Roll Success! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition met). ${ddaNudged ? '[Mazak DDA Loaded Dice aktívne (65% šanca pre Hráča)]' : ''} Poškodenie zvýšené na ${finalDamage} (1.5x).`;
         } else {
             finalDamage = Math.max(1, Math.round(baseDamage * 0.5));
-            log = `Contested Roll Failed! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition NOT met). Damage mitigated to ${finalDamage} (0.5x).`;
+            log = `Contested Roll Failed! Attacker rolled ${attackerRoll} vs Defender's ${defenderRoll} (${condition} condition NOT met). ${ddaNudged ? '[Mazak DDA Evasive Shield aktívny (chráni Hráča)]' : ''} Poškodenie znížené na ${finalDamage} (0.5x).`;
         }
 
         return { finalDamage, success, log };

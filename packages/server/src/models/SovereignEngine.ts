@@ -141,7 +141,14 @@ export class SovereignEngine {
         const defenderRoll = AethericDiceEngine.rollDie(defenderSides);
 
         const condition = isSnakeOrStealth ? 'LESS' : 'MORE';
-        const contestedResult = AethericDiceEngine.calculateContestedDamage(attackerRoll, defenderRoll, netDamage, condition);
+        const contestedResult = AethericDiceEngine.calculateContestedDamage(
+          attackerRoll,
+          defenderRoll,
+          netDamage,
+          condition,
+          source.type,
+          target.type
+        );
 
         return {
           finalDamage: contestedResult.finalDamage,
