@@ -6,6 +6,7 @@ import SovereignBuilderCMS from './components/SovereignBuilderCMS';
 import SovereignBoardComposer from './components/SovereignBoardComposer';
 import AdminDiagnosticsPanel from './components/AdminDiagnosticsPanel';
 import SovereignB2BPortal from './components/SovereignB2BPortal';
+import MetacognitiveArchitectureHub from './components/MetacognitiveArchitectureHub';
 import { EvolutionarySceneGenerator, ConnectionEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '../../shared/src/index';
 import LobbyScreen from './components/LobbyScreen';
 import AdrenalineVignette from './components/AdrenalineVignette';
@@ -28,6 +29,7 @@ function App() {
   const [isAdminDiagnosticsOpen, setIsAdminDiagnosticsOpen] = useState(false);
   const [isRPGClassBoardOpen, setIsRPGClassBoardOpen] = useState(false);
   const [isGraphicsShowcaseOpen, setIsGraphicsShowcaseOpen] = useState(false);
+  const [isMetaHubOpen, setIsMetaHubOpen] = useState(false);
   const [entropy, setEntropy] = useState(0.4);
   const [realityPhase, setRealityPhase] = useState('STANDARD');
   const [selectedCard, setSelectedCard] = useState(null);
@@ -773,6 +775,13 @@ function App() {
       >
         🛠️ Admin Diagnostics
       </button>
+      {/* Floating button to open Metacognitive Architecture Hub */}
+      <button 
+        onClick={() => setIsMetaHubOpen(true)}
+        className="fixed top-4 left-[975px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all uppercase tracking-wider"
+      >
+        🧠 Metacognitive Hub
+      </button>
       {/* Interaktívny Sandbox Modul */}
       {isCombinatoricsSandboxOpen && (
         <CombinatoricsSandbox onClose={() => setIsCombinatoricsSandboxOpen(false)} />
@@ -792,6 +801,13 @@ function App() {
           onUpdateEntropy={(val) => setEntropy(val)}
           gameState={gameState}
           onClose={() => setIsAdminDiagnosticsOpen(false)} 
+        />
+      )}
+      {/* Metakognitívny Architektonický Hub */}
+      {isMetaHubOpen && (
+        <MetacognitiveArchitectureHub 
+          onClose={() => setIsMetaHubOpen(false)} 
+          gameState={gameState}
         />
       )}
     </div>
