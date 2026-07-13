@@ -37,3 +37,4 @@ export * from './core/SovereignStateEngine';
 export * from './core/SovereignScenarioInterpreter';
 export * from './core/SovereignKeyframeInterpreter';
 export * from './core/SovereignEffectSequencer';
+export * from './core/SovereignElementorRegistry';
