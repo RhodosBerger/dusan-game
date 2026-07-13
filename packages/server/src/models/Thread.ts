@@ -39,6 +39,7 @@ export class Thread {
   isStealthed: boolean;
 
   position: { meta: number | null; hex: number | null };
+  wounds: Record<string, number>;
   currentBuffer: Instruction[];
   drawPile: Instruction[];
   discardPile: Instruction[];
@@ -91,6 +92,7 @@ export class Thread {
     this.quests = [];
     this.items = [];
     this.artifacts = [];
+    this.wounds = { head: 0, chest: 0, left_arm: 0, right_arm: 0, left_leg: 0, right_leg: 0 };
   }
 
   loadProfile(profile: {
@@ -212,7 +214,8 @@ export class Thread {
       currentBuffer: this.currentBuffer,
       drawPileCount: this.drawPile.length,
       discardPileCount: this.discardPile.length,
-      items: this.items
+      items: this.items,
+      wounds: this.wounds
     };
   }
 }

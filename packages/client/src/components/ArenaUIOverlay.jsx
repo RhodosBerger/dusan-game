@@ -65,6 +65,42 @@ const getCardMetadata = (cardId) => {
     };
 };
 
+const renderBodyWoundMap = (player) => {
+    if (!player) return null;
+    const w = player.wounds || { head: 0, chest: 0, left_arm: 0, right_arm: 0, left_leg: 0, right_leg: 0 };
+    return (
+        <div className="mt-2.5 p-2 bg-slate-950/50 rounded-lg border border-slate-800/80 text-[9px] font-mono flex flex-col gap-1.5 shadow-inner">
+            <span className="text-slate-500 uppercase font-bold text-[8px] tracking-wider">🎯 Zóny Zranenia (Hit Zones):</span>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                <div className="flex justify-between">
+                    <span className="text-slate-400">Hlava (Head):</span>
+                    <span className={w.head >= 1 ? "text-red-400 font-bold animate-pulse" : "text-slate-350"}>{w.head}/1</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-slate-400">Hruď (Chest):</span>
+                    <span className={w.chest >= 1 ? "text-red-400 font-bold" : "text-slate-350"}>{w.chest}/1</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-slate-400">Ľ. ruka (L-Arm):</span>
+                    <span className={w.left_arm >= 2 ? "text-red-400 font-bold" : w.left_arm > 0 ? "text-yellow-400 font-bold" : "text-slate-350"}>{w.left_arm}/2</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-slate-400">P. ruka (R-Arm):</span>
+                    <span className={w.right_arm >= 2 ? "text-red-400 font-bold" : w.right_arm > 0 ? "text-yellow-400 font-bold" : "text-slate-350"}>{w.right_arm}/2</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-slate-400">Ľ. noha (L-Leg):</span>
+                    <span className={w.left_leg >= 2 ? "text-red-400 font-bold" : w.left_leg > 0 ? "text-yellow-400 font-bold" : "text-slate-350"}>{w.left_leg}/2</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-slate-400">P. noha (R-Leg):</span>
+                    <span className={w.right_leg >= 2 ? "text-red-400 font-bold" : w.right_leg > 0 ? "text-yellow-400 font-bold" : "text-slate-350"}>{w.right_leg}/2</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function ArenaUIOverlay({ 
     realityPhase = 'STANDARD',
     setRealityPhase,
@@ -325,6 +361,7 @@ export default function ArenaUIOverlay({
                                                 </button>
                                             )}
                                         </div>
+                                        {renderBodyWoundMap(crystalPlayer)}
                                     </>
                                 )}
                             </div>
@@ -384,6 +421,7 @@ export default function ArenaUIOverlay({
                                                 </button>
                                             )}
                                         </div>
+                                        {renderBodyWoundMap(toxicPlayer)}
                                     </>
                                 )}
                             </div>
