@@ -1,3 +1,5 @@
+import { AethericDiceEngine } from './AethericDiceEngine';
+
 export interface HexNode {
     macroIndex: number;
     subIndex: number;
@@ -105,17 +107,19 @@ export class GoCoreMediator {
      * Query Physics Energy Cost with TS Local Fallback
      */
     public async solvePhysicsCost(baseCost: number, metaId: number, hexId: number, fallbackMultiplier = 1.0): Promise<GoPhysicsCostResponse> {
-        try {
-            const res = await fetch(`${this.apiBaseUrl}/api/physics/energy-cost`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ baseCost, metaId, hexId })
-            });
-            if (res.ok) {
-                return await res.json();
+        if (!AethericDiceEngine.bypassDice) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/physics/energy-cost`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ baseCost, metaId, hexId })
+                });
+                if (res.ok) {
+                    return await res.json();
+                }
+            } catch (err) {
+                // Silence network error and trigger local fallback
             }
-        } catch (err) {
-            // Silence network error and trigger local fallback
         }
 
         // Deterministic TS Fallback
@@ -130,17 +134,19 @@ export class GoCoreMediator {
      * Query Combat Resolution with TS Local Fallback
      */
     public async resolveCombatDamage(req: GoCombatRequest): Promise<GoCombatResponse> {
-        try {
-            const res = await fetch(`${this.apiBaseUrl}/api/combat/resolve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(req)
-            });
-            if (res.ok) {
-                return await res.json();
+        if (!AethericDiceEngine.bypassDice) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/combat/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(req)
+                });
+                if (res.ok) {
+                    return await res.json();
+                }
+            } catch (err) {
+                // Silence network error and trigger local fallback
             }
-        } catch (err) {
-            // Silence network error and trigger local fallback
         }
 
         // Deterministic TS Fallback

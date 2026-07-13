@@ -66,13 +66,15 @@ export class SovereignEngine {
       if (requestType === 'GET_ENERGY_COST') {
         const { baseCost, chunkId, blockId } = payload;
         
-        try {
-          const resp = syncPost('http://localhost:8081/api/physics/energy-cost', { baseCost, chunkId, blockId });
-          if (resp && typeof resp.cost === 'number') {
-            return { cost: resp.cost, costMultiplier: resp.costMultiplier };
+        if (!AethericDiceEngine.bypassDice) {
+          try {
+            const resp = syncPost('http://localhost:8081/api/physics/energy-cost', { baseCost, chunkId, blockId });
+            if (resp && typeof resp.cost === 'number') {
+              return { cost: resp.cost, costMultiplier: resp.costMultiplier };
+            }
+          } catch (e) {
+            // Fallback to local resolver if service is offline
           }
-        } catch (e) {
-          // Fallback to local resolver if service is offline
         }
 
         let costMultiplier = 1.0;
@@ -108,24 +110,26 @@ export class SovereignEngine {
         const reactionsCount = node.reactions.length;
         const isSnakeOrStealth = node.instruction.id.includes('snake') || node.instruction.id.includes('stealth');
 
-        try {
-          const resp = syncPost('http://localhost:8081/api/combat/resolve', {
-            damage: dmg,
-            attackerHeroId: source.id,
-            defenderHeroId: target.id,
-            defenderArmor: baseArmor,
-            reactionsCount: reactionsCount,
-            isSnakeOrStealth: isSnakeOrStealth
-          });
-          if (resp && typeof resp.finalDamage === 'number') {
-            return {
-              finalDamage: resp.finalDamage,
-              baseArmor,
-              log: resp.log
-            };
+        if (!AethericDiceEngine.bypassDice) {
+          try {
+            const resp = syncPost('http://localhost:8081/api/combat/resolve', {
+              damage: dmg,
+              attackerHeroId: source.id,
+              defenderHeroId: target.id,
+              defenderArmor: baseArmor,
+              reactionsCount: reactionsCount,
+              isSnakeOrStealth: isSnakeOrStealth
+            });
+            if (resp && typeof resp.finalDamage === 'number') {
+              return {
+                finalDamage: resp.finalDamage,
+                baseArmor,
+                log: resp.log
+              };
+            }
+          } catch (e) {
+            // Fallback to local resolver if service is offline
           }
-        } catch (e) {
-          // Fallback to local resolver if service is offline
         }
         
         // Výpočet faktoru poškodenia cez kombinatorickú redukciu
