@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Html } from '@react-three/drei';
+import { MapControls, PerspectiveCamera, Html } from '@react-three/drei';
 import { EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, Pathfinder, SpatialGuidanceSystem } from '../../../shared/src/index';
@@ -108,17 +108,52 @@ function UltimateOrbVFX({ active }) {
 function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate, activeBiome }) {
     const { camera, controls } = useThree();
     const desiredTarget = useRef(new THREE.Vector3(0, 0, 0));
+    const isLockedToUnit = useRef(true);
+    const keysPressed = useRef({});
 
     // Vyhľadanie aktívneho hrdinu
     const activePlayer = useMemo(() => {
         return threads.find(t => t.type === 'PLAYER' && t.health > 0) || null;
     }, [threads]);
 
+    // Reset lock on turn/active player change
+    const lastActivePlayerId = useRef(null);
+    const activeId = activePlayer?.id || null;
+    if (activeId !== lastActivePlayerId.current) {
+        isLockedToUnit.current = true;
+        lastActivePlayerId.current = activeId;
+    }
+
     useEffect(() => {
+        const handleKeyDown = (e) => {
+            const key = e.key.toLowerCase();
+            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+                isLockedToUnit.current = false; // Break camera lock on keyboard panning
+            }
+            if (key === ' ') {
+                e.preventDefault();
+                isLockedToUnit.current = true; // Spacebar snaps camera back to active unit
+            }
+            keysPressed.current[key] = true;
+        };
+        const handleKeyUp = (e) => {
+            keysPressed.current[e.key.toLowerCase()] = false;
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isLockedToUnit.current) return;
+
         if (gameMode === 'SANDBOX') {
             desiredTarget.current.set(0, 0, 0);
         } else {
-            // Sledovanie aktívneho hráča alebo NPC na ťahu
             const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
             if (targetThread && targetThread.position) {
                 const node = gridData.find(
@@ -134,19 +169,56 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     }, [gameMode, threads, gridData, activePlayer]);
 
     useFrame((state, delta) => {
+        // Keyboard panning (WASD / Arrows) mapped to screen directions in isometric perspective
+        const panSpeed = 36.0 * delta;
+        let moveX = 0;
+        let moveZ = 0;
+
+        if (keysPressed.current['w'] || keysPressed.current['arrowup']) {
+            moveX -= 1;
+            moveZ -= 1;
+        }
+        if (keysPressed.current['s'] || keysPressed.current['arrowdown']) {
+            moveX += 1;
+            moveZ += 1;
+        }
+        if (keysPressed.current['a'] || keysPressed.current['arrowleft']) {
+            moveX -= 1;
+            moveZ += 1;
+        }
+        if (keysPressed.current['d'] || keysPressed.current['arrowright']) {
+            moveX += 1;
+            moveZ -= 1;
+        }
+
+        if (moveX !== 0 || moveZ !== 0) {
+            const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+            const dx = (moveX / len) * panSpeed;
+            const dz = (moveZ / len) * panSpeed;
+            
+            desiredTarget.current.x += dx;
+            desiredTarget.current.z += dz;
+            isLockedToUnit.current = false;
+        }
+
         // 1. Plynulý LERP stredu záujmu
         if (controls) {
-            controls.target.lerp(desiredTarget.current, delta * 3.5);
-            controls.update();
+            // If dragging the map, copy controls target to desiredTarget to avoid fighting
+            if (!isLockedToUnit.current && state.pointer.down) {
+                desiredTarget.current.copy(controls.target);
+            } else {
+                controls.target.lerp(desiredTarget.current, delta * 3.5);
+                controls.update();
+            }
         }
 
         // 2. Úprava FOV (zorného uhla) pre detailný zoom a taktický prehľad
-        let targetFov = isUltimate ? 34 : (gameMode === 'SANDBOX' ? 45 : 38);
+        let targetFov = isUltimate ? 18 : (gameMode === 'SANDBOX' ? 28 : 22);
         if (gameMode !== 'SANDBOX' && !isUltimate) {
             if (activeBiome === 'TOXIC_SWAMP') {
-                targetFov = 34; // Zoomed-in
+                targetFov = 18;
             } else if (activeBiome === 'GLACIER') {
-                targetFov = 48; // Wide-angle
+                targetFov = 30;
             }
         }
 
@@ -155,15 +227,15 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
             camera.updateProjectionMatrix();
         }
 
-        // 3. Dynamické trasenie kamery (Camera Shake) s vysokou responzivitou
+        // 3. Dynamické trasenie kamery (Camera Shake)
         if (shakeIntensity > 0) {
             camera.position.x += (Math.random() - 0.5) * shakeIntensity * 0.15;
             camera.position.y += (Math.random() - 0.5) * shakeIntensity * 0.15;
             camera.position.z += (Math.random() - 0.5) * shakeIntensity * 0.15;
         }
 
-        // 4. Pomalý automatický oblet v Sandbox móde pre udržanie dynamiky scény
-        if (gameMode === 'SANDBOX' && !isUltimate) {
+        // 4. Pomalý automatický oblet v Sandbox móde
+        if (gameMode === 'SANDBOX' && !isUltimate && isLockedToUnit.current) {
             const time = state.clock.getElapsedTime();
             desiredTarget.current.set(Math.sin(time * 0.25) * 1.5, 0, Math.cos(time * 0.25) * 1.5);
         }
@@ -329,8 +401,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
         return 'LUSH_FOREST';
     }, [map, threads]);
 
-    const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
-    const cameraFov = isMobile ? 55 : 45;
+    const cameraPosition = [28, 24, 28];
+    const cameraFov = isMobile ? 32 : 24;
 
     // Calculate current average hazard index based on the active threads' locations
     const currentHazardIndex = useMemo(() => {
@@ -397,11 +469,15 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
                 <PerspectiveCamera makeDefault position={cameraPosition} fov={cameraFov} near={0.1} far={1000} />
-                <OrbitControls 
+                <MapControls 
                     enableDamping 
-                    maxPolarAngle={Math.PI / 2.5} // Zamedzí pohľadu z podlahy
-                    minDistance={2} 
-                    maxDistance={150} 
+                    enableRotate={false} // Zamedzí otáčaniu pre čistú taktickú izometriu
+                    maxPolarAngle={1.05} // Fixný pitch uhol
+                    minPolarAngle={1.05}
+                    maxAzimuthAngle={Math.PI / 4} // Fixný yaw uhol (45 stupňov)
+                    minAzimuthAngle={Math.PI / 4}
+                    minDistance={10} 
+                    maxDistance={120} 
                 />
 
                 {/* Dynamické riadenie kamery na základe herného režimu */}
