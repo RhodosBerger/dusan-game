@@ -14,7 +14,7 @@ import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter } from '@dusan-game/shared';
+import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -1910,6 +1910,16 @@ app.post('/api/scenarios/trigger', (req, res) => {
     io.emit('state_resolved', targetEngine.getState());
     saveEngineState(targetEngine, matchId || 'default');
     res.status(200).json({ success: true, scenarioType });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/scenarios/keyframe-simulation', (req, res) => {
+  const { scenarioId, powerBudget } = req.body;
+  try {
+    const timeline = SovereignKeyframeInterpreter.evaluateSimulationTimeline(scenarioId, powerBudget || 50);
+    res.status(200).json(timeline);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

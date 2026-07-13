@@ -35,3 +35,4 @@ export * from './core/GoCoreMediator';
 export * from './core/UniversalWasmBridge';
 export * from './core/SovereignStateEngine';
 export * from './core/SovereignScenarioInterpreter';
+export * from './core/SovereignKeyframeInterpreter';

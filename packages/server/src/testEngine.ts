@@ -5,7 +5,7 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { TelemetryBigQueryService } from './services/TelemetryBigQueryService';
 import { GameState, resolveEngineState } from './models/EnginePipeline';
@@ -2605,7 +2605,26 @@ async function runTests() {
   console.log(`  [PASS] REST API trigger data schema verified.`);
   console.log(`  [PASS] Test 76 (Scenario REST Trigger API) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger testy prebehli úspešne!");
+  console.log("\nTest 77: SovereignKeyframeInterpreter & Thermal Throttling");
+  // 1. High Power Budget evaluation (Expected: 60Hz frequency)
+  const timelineHigh = SovereignKeyframeInterpreter.evaluateSimulationTimeline('cyberpunk_infiltration', 100);
+  assert(timelineHigh.resolvedFrequencyHz === 60.0, "High power budget must output at 60Hz.");
+  assert(timelineHigh.timelineFrames.every(f => !f.isThrottled), "Keyframes must not be marked as throttled under high power.");
+
+  // 2. Low Power Budget evaluation (Expected: 20Hz frequency, throttled)
+  const timelineLow = SovereignKeyframeInterpreter.evaluateSimulationTimeline('cyberpunk_infiltration', 20);
+  assert(timelineLow.resolvedFrequencyHz === 20.0, "Low power budget must throttle frequency to 20Hz.");
+  assert(timelineLow.timelineFrames.every(f => f.isThrottled), "All keyframes must be marked as throttled under low power.");
+
+  // 3. Power utilization checking
+  assert(timelineLow.powerUtilizationPercent > 0, "Power utilization percentage must be computed positive.");
+
+  console.log(`  [PASS] High-fidelity 60Hz rendering frequency verified.`);
+  console.log(`  [PASS] Dynamic 20Hz thermal throttling verified.`);
+  console.log(`  [PASS] Power utilization percentage resolved.`);
+  console.log(`  [PASS] Test 77 (SovereignKeyframeInterpreter) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter testy prebehli úspešne!");
 }
 
 runTests().catch(err => {
