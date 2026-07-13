@@ -1,0 +1,50 @@
+{
+  "vectors": [
+    {
+      "id": "v_hexagon_grid",
+      "type": "svg",
+      "path": "/assets/vectors/hexagon_grid.svg",
+      "viewBox": "0 0 120 120",
+      "strokeColor": "#00ffff"
+    },
+    {
+      "id": "v_trajectory_arrow",
+      "type": "svg",
+      "path": "/assets/vectors/trajectory_arrow.svg",
+      "viewBox": "0 0 50 100",
+      "strokeColor": "#a855f7"
+    }
+  ],
+  "rasters": [
+    {
+      "id": "r_scorched_dirt",
+      "type": "png",
+      "path": "/assets/textures/scorched_dirt.png",
+      "resolution": [512, 512],
+      "tiling": true
+    },
+    {
+      "id": "r_aurora_dust",
+      "type": "png",
+      "path": "/assets/textures/aurora_dust.png",
+      "resolution": [1024, 512],
+      "tiling": false
+    }
+  ],
+  "filters": [
+    {
+      "id": "f_cyber_glow",
+      "type": "bloom",
+      "intensity": 2.5,
+      "radius": 12,
+      "blendMode": "ADDITIVE"
+    },
+    {
+      "id": "f_charcoal_overlay",
+      "type": "tint",
+      "colorMultiplier": [0.15, 0.15, 0.18],
+      "opacity": 0.85,
+      "blendMode": "MULTIPLY"
+    }
+  ]
+}
