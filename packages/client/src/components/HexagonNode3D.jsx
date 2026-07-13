@@ -182,10 +182,14 @@ function SpellFlashBeam3D({ weatherOverride }) {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, threads = [], isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null }) {
     const tileRef = useRef();
     const materialRef = useRef();
     const radius = 2.0;
+
+    const activeOccupyingThread = useMemo(() => {
+        return threads.find(t => t.position && t.position.meta === node.macroIndex && t.position.hex === node.subIndex);
+    }, [threads, node.macroIndex, node.subIndex]);
 
     // Generovanie 3D tvaru hexagónu (ExtrudeGeometry pre 3D podstavec)
     const hexShape = useMemo(() => {
@@ -401,6 +405,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         } else if (isSurgeActive || phase === 'SURGE') {
             // Smoothly elevate with dynamic oscillation wave based on time
             targetLift = 0.85 + Math.sin(time * 12.0) * 0.20;
+        } else if (activeOccupyingThread) {
+            // Geometric deformation of terrain when occupied by NPC or damaged entity
+            if (activeOccupyingThread.type === 'NPC') {
+                targetLift = -0.35;
+            } else if (activeOccupyingThread.health < (activeOccupyingThread.maxHealth || 15)) {
+                const lossRatio = 1.0 - (activeOccupyingThread.health / (activeOccupyingThread.maxHealth || 15));
+                targetLift = -0.60 * lossRatio;
+            }
         } else if (phase === 'GLITCH') {
             const seed = Math.sin(node.macroIndex * 7.1 + node.subIndex * 13.3) * 1000;
             const r = Math.sin(time * 5.0 + seed);

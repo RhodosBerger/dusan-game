@@ -495,6 +495,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 selectedCard={selectedCard}
                                 realityPhase={realityPhase}
                                 matrixSource={matrixSource}
+                                threads={threads}
                             />
                         );
                     })}
