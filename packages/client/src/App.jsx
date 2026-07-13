@@ -4,6 +4,7 @@ import CanvasRenderer3D from './components/CanvasRenderer3D';
 import ArenaUIOverlay from './components/ArenaUIOverlay';
 import SovereignBuilderCMS from './components/SovereignBuilderCMS';
 import SovereignBoardComposer from './components/SovereignBoardComposer';
+import AdminDiagnosticsPanel from './components/AdminDiagnosticsPanel';
 import { EvolutionarySceneGenerator, ConnectionEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '../../shared/src/index';
 import LobbyScreen from './components/LobbyScreen';
 import AdrenalineVignette from './components/AdrenalineVignette';
@@ -23,6 +24,7 @@ function App() {
   const [isSandbox, setIsSandbox] = useState(true);
   const [isCombinatoricsSandboxOpen, setIsCombinatoricsSandboxOpen] = useState(false);
   const [isTelemetryDashboardOpen, setIsTelemetryDashboardOpen] = useState(false);
+  const [isAdminDiagnosticsOpen, setIsAdminDiagnosticsOpen] = useState(false);
   const [isRPGClassBoardOpen, setIsRPGClassBoardOpen] = useState(false);
   const [isGraphicsShowcaseOpen, setIsGraphicsShowcaseOpen] = useState(false);
   const [entropy, setEntropy] = useState(0.4);
@@ -719,6 +721,13 @@ function App() {
       >
         👑 RPG Class Board
       </button>
+      {/* Floating button to open Admin Diagnostics */}
+      <button 
+        onClick={() => setIsAdminDiagnosticsOpen(true)}
+        className="fixed top-4 left-[785px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-emerald-500/40 text-emerald-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] cursor-pointer transition-all uppercase tracking-wider"
+      >
+        🛠️ Admin Diagnostics
+      </button>
       {/* Interaktívny Sandbox Modul */}
       {isCombinatoricsSandboxOpen && (
         <CombinatoricsSandbox onClose={() => setIsCombinatoricsSandboxOpen(false)} />
@@ -730,6 +739,14 @@ function App() {
       {/* Interaktívny RPG Class Board */}
       {isRPGClassBoardOpen && (
         <RPGClassBoard onClose={() => setIsRPGClassBoardOpen(false)} />
+      )}
+      {/* Interaktívny Admin Diagnostics Panel */}
+      {isAdminDiagnosticsOpen && (
+        <AdminDiagnosticsPanel 
+          initialEntropy={entropy}
+          onUpdateEntropy={(val) => setEntropy(val)}
+          onClose={() => setIsAdminDiagnosticsOpen(false)} 
+        />
       )}
     </div>
   );
