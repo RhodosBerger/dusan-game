@@ -32,3 +32,4 @@ export * from './data/warhammerFactions';
 export * from './data/itemsCatalog';
 export * from './core/SpatialGuidanceSystem';
 export * from './core/GoCoreMediator';
+export * from './core/UniversalWasmBridge';
