@@ -2,7 +2,6 @@
 export * from './core/types';
 export * from './core/ConnectionEngine';
 export * from './core/EvolutionarySceneGenerator';
-export * from './core/GameplayTelemetryRandomizer';
 export * from './core/compiler';
 export * from './core/CombinatoricProbabilityEngine';
 export * from './core/DungeonDirector';

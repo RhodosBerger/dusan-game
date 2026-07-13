@@ -1,16 +1,42 @@
 import React, { useState } from 'react';
 import { VercelCMSHelper } from '../utils/VercelCMSHelper';
 
-export default function AdminDiagnosticsPanel({ onClose, initialEntropy = 0.4, onUpdateEntropy }) {
+export default function AdminDiagnosticsPanel({ onClose, initialEntropy = 0.4, onUpdateEntropy, gameState }) {
     const [entropy, setEntropy] = useState(initialEntropy);
     const [combatDmgFactor, setCombatDmgFactor] = useState(1.0);
     const [hazardThreshold, setHazardThreshold] = useState(0.7);
     const [consoleOutput, setConsoleOutput] = useState([]);
 
+    // Derived active phase information
+    const currentPhase = gameState?.turnStateMachine?.currentPhase || 'PREPARATION';
+    const activePlayerId = gameState?.turnStateMachine?.activePlayerId || '';
+
+    const [selectedPhase, setSelectedPhase] = useState(currentPhase);
+    const [selectedPlayer, setSelectedPlayer] = useState(activePlayerId || 'thread_king_ai');
+
     const logToConsole = (msg, data = null) => {
         const timestamp = new Date().toLocaleTimeString();
         const logMsg = `[${timestamp}] ${msg} ${data ? JSON.stringify(data) : ''}`;
         setConsoleOutput(prev => [logMsg, ...prev]);
+    };
+
+    const handleForcePhaseOverride = async () => {
+        logToConsole(`Overriding phase machine: Phase -> ${selectedPhase}, Player -> ${selectedPlayer}`);
+        try {
+            const res = await fetch('http://localhost:3001/api/admin/phase/override', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phase: selectedPhase, activePlayerId: selectedPlayer })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                logToConsole("State machine override successful:", data);
+            } else {
+                logToConsole("State machine override failed.");
+            }
+        } catch (err) {
+            logToConsole("Network error during phase override.");
+        }
     };
 
     // Trigger Serverless Go Core pathfinder diagnostics
@@ -125,6 +151,53 @@ export default function AdminDiagnosticsPanel({ onClose, initialEntropy = 0.4, o
                         style={{ width: '100%', accentColor: '#ffd700', cursor: 'pointer' }}
                     />
                 </div>
+            </div>
+
+            {/* Phase State Machine Debugger */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, marginTop: '16px', borderTop: '1px solid #242435', paddingTop: '16px' }}>
+                <h4 style={{ margin: '0 0 4px 0', fontSize: '11px', color: '#ffd700' }}>🔄 STATE MACHINE PHASE INSPECTOR</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#888', marginBottom: '4px' }}>
+                    <span>Current Phase: <strong style={{ color: '#00ffff' }}>{currentPhase}</strong></span>
+                    <span>Active: <strong style={{ color: '#a855f7' }}>{activePlayerId || 'None'}</strong></span>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '9px', color: '#888' }}>TARGET PHASE</label>
+                        <select 
+                            value={selectedPhase} 
+                            onChange={(e) => setSelectedPhase(e.target.value)}
+                            style={{ background: '#1c1c28', color: '#fff', border: '1px solid #3c3c4e', borderRadius: '6px', padding: '6px', fontSize: '10px', outline: 'none' }}
+                        >
+                            <option value="MULLIGAN">MULLIGAN</option>
+                            <option value="PREPARATION">PREPARATION</option>
+                            <option value="ACTION">ACTION</option>
+                            <option value="INTERRUPT_WINDOW">INTERRUPT</option>
+                            <option value="RESOLVE_NETWORK">RESOLVE_NETWORK</option>
+                            <option value="END_TURN">END_TURN</option>
+                        </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '9px', color: '#888' }}>ACTIVE PLAYER</label>
+                        <select 
+                            value={selectedPlayer} 
+                            onChange={(e) => setSelectedPlayer(e.target.value)}
+                            style={{ background: '#1c1c28', color: '#fff', border: '1px solid #3c3c4e', borderRadius: '6px', padding: '6px', fontSize: '10px', outline: 'none' }}
+                        >
+                            <option value="thread_king_ai">Crystal King</option>
+                            <option value="thread_hacker_root">Toxic Hacker</option>
+                            <option value="thread_void_weaver">Void Weaver</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={handleForcePhaseOverride}
+                    style={{ padding: '8px', background: '#ffd7001a', color: '#ffd700', border: '1px solid #ffd70050', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', marginTop: '4px', width: '100%' }}
+                >
+                    ⚠️ Force State Phase Override
+                </button>
             </div>
 
             <hr style={{ border: 'none', borderBottom: '1px solid #242435', margin: '20px 0', flexShrink: 0 }} />

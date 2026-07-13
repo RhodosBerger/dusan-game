@@ -790,6 +790,7 @@ function App() {
         <AdminDiagnosticsPanel 
           initialEntropy={entropy}
           onUpdateEntropy={(val) => setEntropy(val)}
+          gameState={gameState}
           onClose={() => setIsAdminDiagnosticsOpen(false)} 
         />
       )}

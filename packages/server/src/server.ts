@@ -1557,6 +1557,23 @@ app.post('/api/admin/logic/evaluate', (req, res) => {
   res.json(evaluation);
 });
 
+app.post('/api/admin/phase/override', (req, res) => {
+  try {
+    const { phase, activePlayerId } = req.body;
+    if (phase) {
+      defaultEngine.turnStateMachine.currentPhase = phase;
+    }
+    if (activePlayerId) {
+      defaultEngine.turnStateMachine.activePlayerId = activePlayerId;
+      defaultEngine.turnStateMachine.baseActivePlayerId = activePlayerId;
+    }
+    io.emit('state_resolved', defaultEngine.getState());
+    res.json({ success: true, phase: defaultEngine.turnStateMachine.currentPhase, activePlayerId: defaultEngine.turnStateMachine.activePlayerId });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/compositions', (req, res) => {
   try {
     const inst = req.body;
