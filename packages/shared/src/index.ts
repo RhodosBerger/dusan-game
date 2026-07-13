@@ -30,3 +30,4 @@ export * from './data/base/toxicBase';
 export * from './data/base/voidBase';
 export * from './data/warhammerFactions';
 export * from './data/itemsCatalog';
+export * from './core/SpatialGuidanceSystem';

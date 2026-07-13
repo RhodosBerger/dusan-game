@@ -1,7 +1,8 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { BiomeEngine, MLTerrainSynthesizer } from '../../../shared/src/index';
+import { BiomeEngine, MLTerrainSynthesizer, AlgebraicActionTensor, SpatialGuidanceSystem } from '../../../shared/src/index';
 import { PALETTE, BIOME_SPECS, WORLD } from '../design/worldDesign';
 import {
     SnowParticles, SwampVapors, DesertHeatParticles,
@@ -16,7 +17,8 @@ const textures = {
     TOXIC_SWAMP: textureLoader.load('/textures/toxic_swamp_tile.png'),
     GLACIER: textureLoader.load('/textures/glacier_tile.png'),
     DESERT: textureLoader.load('/textures/desert_tile.png'),
-    BARRENS: textureLoader.load('/textures/barrens_tile.png')
+    BARRENS: textureLoader.load('/textures/barrens_tile.png'),
+    SCORCHED: textureLoader.load('/textures/scorched_tile.png')
 };
 
 // Nastavenie opakovaní textúry tak, aby presne sedeli na plochu hexagónu
@@ -42,7 +44,7 @@ function LootChest3D() {
     });
 
     return (
-        <group ref={meshRef} position={[0, 0, 0.55]}>
+        <group ref={meshRef} position={[0, 0, 0.45]}>
             {/* Chest Base (Dark carbon metal) */}
             <mesh castShadow>
                 <boxGeometry args={[0.45, 0.35, 0.22]} />
@@ -76,7 +78,7 @@ function Trap3D({ type }) {
     const color = type === 'ROOT_TRAP' ? '#fb923c' : '#ef4444'; // Orange for root trap, Red for EMP mine
 
     return (
-        <group ref={meshRef} position={[0, 0, 0.6]}>
+        <group ref={meshRef} position={[0, 0, 0.46]}>
             {/* Skull Top */}
             <mesh position={[0, 0, 0.15]} castShadow>
                 <sphereGeometry args={[0.18, 16, 16]} />
@@ -112,7 +114,7 @@ function TownBuilding3D() {
     });
 
     return (
-        <group ref={meshRef} position={[0, 0, 0.4]}>
+        <group ref={meshRef} position={[0, 0, 0.45]}>
             {/* Center tower */}
             <mesh position={[0, 0, 0.4]} castShadow>
                 <cylinderGeometry args={[0.3, 0.35, 0.8, 6]} />
@@ -180,7 +182,7 @@ function SpellFlashBeam3D({ weatherOverride }) {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null }) {
     const tileRef = useRef();
     const radius = 2.0;
 
@@ -196,7 +198,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         }
         shape.closePath();
         return shape;
-    }, [radius]);
+    }, []);
 
     // Získanie detailov o bióme pre danú pozíciu z BiomeEngine
     const biomeInfo = useMemo(() => {
@@ -208,6 +210,80 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         return MLTerrainSynthesizer.synthesizeBlock(node.macroIndex, node.subIndex);
     }, [node.macroIndex, node.subIndex]);
 
+    const predictedOutcome = useMemo(() => {
+        if (!selectedCard) return null;
+        const mockSource = { level: 1, luck: 0.5, id: 'thread_king_ai' };
+        return AlgebraicActionTensor.evaluate(mockSource, selectedCard.id, {
+            biome: biomeInfo.biome,
+            friction: node.friction || mlInfo.friction || 0.5,
+            hazardIndex: node.hazardIndex || mlInfo.hazardIndex || 0.1
+        });
+    }, [selectedCard, biomeInfo.biome, node.friction, node.hazardIndex, mlInfo]);
+
+    const realityConfig = useMemo(() => {
+        const phase = node.realityPhase || realityPhase || 'STANDARD';
+        if (phase === 'SURGE') {
+            return {
+                roughness: 0.25,
+                metalness: 0.6,
+                color: new THREE.Color('#00ffcc'),
+                emissive: new THREE.Color('#00ffcc').multiplyScalar(2.0)
+            };
+        }
+        if (phase === 'VOID') {
+            return {
+                roughness: 0.15,
+                metalness: 0.8,
+                color: new THREE.Color('#1a0826'),
+                emissive: new THREE.Color('#9900ff').multiplyScalar(1.5)
+            };
+        }
+        if (phase === 'GLITCH') {
+            const seed = Math.sin(node.macroIndex * 7.1 + node.subIndex * 13.3) * 1000;
+            const r = Math.abs(Math.sin(seed));
+            return {
+                roughness: 0.9,
+                metalness: 0.1,
+                color: r > 0.75 ? new THREE.Color('#ff003c') : r > 0.45 ? new THREE.Color('#00f0aa') : new THREE.Color('#00aaff'),
+                emissive: new THREE.Color('#ff003c').multiplyScalar(r * 2.0)
+            };
+        }
+        return null;
+    }, [node.realityPhase, realityPhase, node.macroIndex, node.subIndex]);
+
+    const matrixInfo = useMemo(() => {
+        if (!matrixSource) return null;
+        try {
+            const startPos = SpatialGuidanceSystem.resolveCartesian(matrixSource.meta, matrixSource.hex);
+            const nodePos = SpatialGuidanceSystem.resolveCartesian(node.macroIndex, node.subIndex);
+            const distance = SpatialGuidanceSystem.calculateDistance(startPos, nodePos);
+            
+            const friction = node.friction || mlInfo.friction || 0.5;
+            const elevationFactor = isSurgeActive ? 1.4 : 1.0;
+            
+            let baseCost = distance * 10 * friction * elevationFactor;
+            
+            const phase = node.realityPhase || realityPhase || 'STANDARD';
+            if (phase === 'VOID') {
+                baseCost *= 1.35;
+            } else if (phase === 'GLITCH') {
+                baseCost *= (1.0 + Math.sin(node.macroIndex + node.subIndex) * 0.25);
+            }
+            
+            const dx = nodePos.x - startPos.x;
+            const dz = nodePos.z - startPos.z;
+            
+            return {
+                distance,
+                cost: baseCost,
+                dx,
+                dz
+            };
+        } catch (e) {
+            return null;
+        }
+    }, [matrixSource, node.macroIndex, node.subIndex, node.friction, mlInfo.friction, isSurgeActive, node.realityPhase, realityPhase]);
+
     const activeTelemetry = useMemo(() => {
         if (!terrainTelemetry || !terrainTelemetry.textures) return null;
         return terrainTelemetry.textures.find(t => t.chunkId === node.macroIndex && t.blockId === node.subIndex) || null;
@@ -218,6 +294,11 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
     const edgeColor = useMemo(() => {
         if (isSelected || isHovered) return PALETTE.accent.magic;
+        if (matrixInfo) {
+            if (matrixInfo.cost < 20) return '#00ffcc'; // Teal for cheap
+            if (matrixInfo.cost < 45) return '#fb923c'; // Orange for medium
+            return '#ec4899'; // Pink/Magenta for expensive
+        }
         if (isTargetable) {
             if (targetableType === 'move') return '#22c55e'; // Glowing green for movement reach
             if (targetableType === 'attack') return '#ef4444'; // Glowing red for attack reach
@@ -225,7 +306,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             return '#00ffcc'; // Glowing active target fallback
         }
         return PALETTE.rock.undersideDeep;
-    }, [isSelected, isHovered, isTargetable, targetableType]);
+    }, [isSelected, isHovered, isTargetable, targetableType, matrixInfo]);
 
     const [flash, setFlash] = React.useState(false);
 
@@ -253,7 +334,22 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         if (!tileRef.current) return;
         const time = state.clock.elapsedTime;
 
-        const targetLift = (isHovered || isSelected) && !isCollapsing ? 0.25 : (isSurgeActive ? 0.8 : 0);
+        let targetLift = 0;
+        const phase = node.realityPhase || realityPhase || 'STANDARD';
+        if (isCollapsing) {
+            targetLift = 0;
+        } else if (isHovered || isSelected) {
+            targetLift = 0.25;
+        } else if (isSurgeActive || phase === 'SURGE') {
+            // Smoothly elevate with dynamic oscillation wave based on time
+            targetLift = 0.85 + Math.sin(time * 12.0) * 0.20;
+        } else if (phase === 'GLITCH') {
+            const seed = Math.sin(node.macroIndex * 7.1 + node.subIndex * 13.3) * 1000;
+            const r = Math.sin(time * 5.0 + seed);
+            if (r > 0.85) {
+                targetLift = Math.abs(r) * 0.45;
+            }
+        }
         tileRef.current.position.z = THREE.MathUtils.lerp(tileRef.current.position.z, targetLift, 0.15);
 
         if (isCollapsing) {
@@ -333,6 +429,26 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             emissive: emissiveColor.clone().multiplyScalar(emissiveIntensity),
         };
 
+        if (isScorched) {
+            defaultProps.map = textures.SCORCHED;
+            defaultProps.roughness = 0.9;
+            defaultProps.metalness = 0.1;
+            defaultProps.emissive = new THREE.Color('#ef4444').multiplyScalar(1.5);
+        }
+
+        if (isScorched) return defaultProps;
+
+        const phase = node.realityPhase || realityPhase || 'STANDARD';
+        if (phase !== 'STANDARD' && realityConfig) {
+            return {
+                ...defaultProps,
+                roughness: realityConfig.roughness,
+                metalness: realityConfig.metalness,
+                color: realityConfig.color,
+                emissive: realityConfig.emissive
+            };
+        }
+
         if (!activeTelemetry) return defaultProps;
 
         const pattern = activeTelemetry.texturePattern;
@@ -409,6 +525,11 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                         flatShading
                     />
                 </mesh>
+
+                {/* Relocated spawned objects to move together with tile height deformation */}
+                {hasChest && !isCollapsing && <LootChest3D />}
+                {node.isTown && !isCollapsing && <TownBuilding3D />}
+                {hasTrap && !isCollapsing && <Trap3D type={hasTrap} />}
             </group>
 
             {/* Časticové efekty biómov */}
@@ -418,9 +539,6 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             {biomeInfo.biome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
             {biomeInfo.biome === 'LUSH_FOREST' && !isCollapsing && entropy > 0.5 && <ForestFireflies />}
             {isCollapsing && <VoidCollapseParticles />}
-            {hasChest && !isCollapsing && <LootChest3D />}
-            {node.isTown && !isCollapsing && <TownBuilding3D />}
-            {hasTrap && !isCollapsing && <Trap3D type={hasTrap} />}
 
             {/* ANCHOR: A_OVERHEAD - Statusový hologram visiaci nad vybraným políčkom */}
             {isSelected && (
@@ -428,6 +546,59 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                     <torusGeometry args={[0.25, 0.04, 8, 32]} />
                     <meshBasicMaterial color={PALETTE.accent.magic} wireframe />
                 </mesh>
+            )}
+
+            {isTargetable && isHovered && distanceToPlayer !== null && maxRange !== null && (
+                <Html distanceFactor={12} position={[0, 0, 1.8]} center>
+                    <div className="glass-panel-heavy p-2 text-xs text-[#e0e7ff] border border-[#00ffcc] rounded shadow-2xl pointer-events-none select-none backdrop-blur-md" style={{ minWidth: '170px', fontFamily: "'Rajdhani', sans-serif" }}>
+                        <div className="font-bold text-[#00ffcc] uppercase tracking-wider mb-1 text-[11px]" style={{ fontFamily: "'Oxanium', sans-serif" }}>
+                            Target Predictor
+                        </div>
+                        <div className="flex justify-between mb-0.5">
+                            <span>Sector Distance:</span>
+                            <span className="font-mono text-cyan-400 font-bold">{distanceToPlayer} / {maxRange}</span>
+                        </div>
+                        <div className="flex justify-between mb-0.5 border-b border-[#1f2937] pb-1">
+                            <span>Steps to Limit:</span>
+                            <span className="font-mono text-yellow-400 font-bold">{maxRange - distanceToPlayer} steps</span>
+                        </div>
+                        {predictedOutcome && (
+                            <div className="mt-1 flex flex-col gap-0.5">
+                                <div className="flex justify-between">
+                                    <span className="opacity-75">Base Power:</span>
+                                    <span className="font-mono text-cyan-300 font-bold">{selectedCard.damage || 0}V</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="opacity-75">Est. Damage:</span>
+                                    <span className="font-mono text-red-400 font-bold">{predictedOutcome.damageApplied} HP</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="opacity-75">Success Rate:</span>
+                                    <span className="font-mono text-green-400 font-bold">{predictedOutcome.successProbability.toFixed(0)}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="opacity-75">Energy Load:</span>
+                                    <span className="font-mono text-yellow-500 font-bold">{Math.round(predictedOutcome.energyDelta)}W</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="opacity-75">Displacement:</span>
+                                    <span className="font-mono text-purple-400 font-bold">{predictedOutcome.displacementDistance}m</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </Html>
+            )}
+
+            {matrixInfo && matrixInfo.distance > 0.1 && matrixInfo.distance < 18 && (
+                <Html distanceFactor={14} position={[0, 0, 1.2]} center>
+                    <div className="pointer-events-none select-none text-[7px] text-white bg-slate-950/90 px-1 py-0.5 rounded border border-cyan-500/30 font-mono flex flex-col items-center shadow-lg backdrop-blur-sm">
+                        <span className="text-[6px] text-cyan-400 font-bold">ΔX:{matrixInfo.dx > 0 ? `+${matrixInfo.dx.toFixed(1)}` : matrixInfo.dx.toFixed(1)}</span>
+                        <span className={matrixInfo.cost < 20 ? 'text-emerald-400 font-bold' : matrixInfo.cost < 45 ? 'text-amber-400 font-bold' : 'text-rose-500 font-bold'}>
+                            {Math.round(matrixInfo.cost)}W
+                        </span>
+                    </div>
+                </Html>
             )}
         </group>
 

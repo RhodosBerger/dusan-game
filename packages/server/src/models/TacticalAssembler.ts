@@ -1,12 +1,12 @@
 import { Thread } from './Thread';
 
-export interface CraftingRecipe {
+export interface AssemblerRecipe {
   recipeId: string;
   resultHelperType: 'trap' | 'bomb' | 'watcher' | 'tower';
   requiredMaterials: Record<string, number>;
 }
 
-export const CRAFTING_RECIPES: CraftingRecipe[] = [
+export const ASSEMBLER_RECIPES: AssemblerRecipe[] = [
   {
     recipeId: 'craft_tower',
     resultHelperType: 'tower',
@@ -29,13 +29,13 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
   }
 ];
 
-export class CraftingSimulator {
+export class TacticalAssembler {
   /**
    * Pokúsi sa vyrobiť jednotku pre dané vlákno (Thread) na základe ID receptu.
    * Ak má dostatok surovín, odpočíta ich a vráti typ jednotky, inak vyhodí chybu.
    */
-  public static craft(thread: Thread, recipeId: string): 'trap' | 'bomb' | 'watcher' | 'tower' {
-    const recipe = CRAFTING_RECIPES.find(r => r.recipeId === recipeId);
+  public static assemble(thread: Thread, recipeId: string): 'trap' | 'bomb' | 'watcher' | 'tower' {
+    const recipe = ASSEMBLER_RECIPES.find(r => r.recipeId === recipeId);
     if (!recipe) {
       throw new Error(`Recept "${recipeId}" neexistuje.`);
     }

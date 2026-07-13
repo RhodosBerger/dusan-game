@@ -23,6 +23,7 @@ function App() {
   const [isRPGClassBoardOpen, setIsRPGClassBoardOpen] = useState(false);
   const [isGraphicsShowcaseOpen, setIsGraphicsShowcaseOpen] = useState(false);
   const [entropy, setEntropy] = useState(0.4);
+  const [realityPhase, setRealityPhase] = useState('STANDARD');
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [hoveredNode, setHoveredNode] = useState(null);
@@ -123,9 +124,14 @@ function App() {
       }
     };
 
+    const handleRealityPhaseChanged = (payload) => {
+      setRealityPhase(payload.realityPhase);
+    };
+
     socket.on('match_started', handleMatchStarted);
     socket.on('voltage_surge', handleVoltageSurge);
     socket.on('short_circuit', handleShortCircuit);
+    socket.on('reality_phase_changed', handleRealityPhaseChanged);
 
     // ── Audio + VFX wire-up ─────────────────────────────────────────────────
     const handleCardEffect = (e) => {
@@ -158,6 +164,7 @@ function App() {
       socket.off('match_started', handleMatchStarted);
       socket.off('voltage_surge', handleVoltageSurge);
       socket.off('short_circuit', handleShortCircuit);
+      socket.off('reality_phase_changed', handleRealityPhaseChanged);
       window.removeEventListener('card_played_effect', handleCardEffect);
     };
   }, [connectionEngine, isSandbox]);
@@ -588,10 +595,13 @@ function App() {
         scorchedTiles={scorchedTiles}
         hoveredNode={hoveredNode}
         setHoveredNode={setHoveredNode}
+        realityPhase={realityPhase}
       />
       
       {/* Cyber-Glassmorphism Tailwind UI */}
       <ArenaUIOverlay 
+        realityPhase={realityPhase}
+        setRealityPhase={setRealityPhase}
         gameState={gameState} 
         entropy={entropy}
         setEntropy={setEntropy}

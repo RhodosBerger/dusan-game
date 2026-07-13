@@ -1,6 +1,6 @@
-// packages/server/src/backoffice.ts
 import express from 'express';
 import { SovereignEngine } from './models/SovereignEngine';
+import { AlgebraicActionTensor } from '@dusan-game/shared';
 
 export function startBackoffice(engine: SovereignEngine, port: number = 3005) {
   const app = express();
@@ -22,6 +22,60 @@ export function startBackoffice(engine: SovereignEngine, port: number = 3005) {
         performanceProfile: profile,
         systemEnergy: engine.systemEnergy,
         actionNetworkQueueLength: engine.actionNetwork.length
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // API: Get live distance analysis and algebraic connection alternatives
+  app.get('/api/backoffice/algebraic-map', (req, res) => {
+    try {
+      const activeThreads = engine.threads.filter(t => t.health > 0 && t.position && t.position.meta !== null);
+      
+      const distanceMatrix = activeThreads.map(t => {
+        const otherThreads = activeThreads.filter(ot => ot.id !== t.id);
+        const connections = otherThreads.map(ot => {
+          const metaA = t.position.meta!;
+          const metaB = ot.position.meta!;
+          
+          const coordsA = { x: metaA % 3, y: Math.floor(metaA / 3) };
+          const coordsB = { x: metaB % 3, y: Math.floor(metaB / 3) };
+          const dist = Math.abs(coordsA.x - coordsB.x) + Math.abs(coordsA.y - coordsB.y);
+
+          const availableCards = t.currentBuffer || [];
+          const alternatives = availableCards.map((card: any) => {
+            const outcome = AlgebraicActionTensor.evaluate(t, card.id, ot.position);
+            return {
+              cardId: card.id,
+              cardName: card.name || card.id,
+              estimatedDamage: outcome.damageApplied,
+              successChance: outcome.successProbability,
+              displacement: outcome.displacementDistance
+            };
+          });
+
+          return {
+            targetId: ot.id,
+            targetName: ot.name,
+            metaDistance: dist,
+            alternativeActions: alternatives
+          };
+        });
+
+        return {
+          threadId: t.id,
+          threadName: t.name,
+          role: t.type,
+          position: t.position,
+          connections
+        };
+      });
+
+      res.status(200).json({
+        timestamp: Date.now(),
+        activeThreadsCount: activeThreads.length,
+        distanceMatrix
       });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -220,7 +274,95 @@ export function startBackoffice(engine: SovereignEngine, port: number = 3005) {
               </div>
             </div>
           </div>
+
+          <!-- Card 4: Combat Position & Algebraic Alternatives Parser -->
+          <div class="card" style="grid-column: span 3;">
+            <h2>Combat Position & Algebraic Alternatives Parser</h2>
+            <div id="algebraic-parser-container" style="margin-top: 15px; max-height: 400px; overflow-y: auto;">
+              <p style="color: var(--text-muted); font-size: 0.95rem;">Parsing live network configurations...</p>
+            </div>
+          </div>
         </main>
+
+        <script>
+          async function fetchAlgebraicMap() {
+            try {
+              const res = await fetch('/api/backoffice/algebraic-map');
+              if (res.ok) {
+                const data = await res.json();
+                const container = document.getElementById('algebraic-parser-container');
+                if (data.distanceMatrix.length === 0) {
+                  container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.95rem;">No active threads found in match.</p>';
+                  return;
+                }
+                
+                let html = '<div style="display: flex; flex-direction: column; gap: 20px;">';
+                data.distanceMatrix.forEach(thread => {
+                  html += \`
+                    <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); padding: 16px; border-radius: 12px; text-align: left;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px; margin-bottom: 12px;">
+                        <span style="font-weight: 800; font-size: 1.1rem; color: #3b82f6;">\${thread.threadName} (\${thread.role})</span>
+                        <span style="font-family: monospace; background: rgba(0, 255, 204, 0.1); color: #00ffcc; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem;">
+                          Chunk \${thread.position.meta}, Hex \${thread.position.hex}
+                        </span>
+                      </div>
+                  \`;
+                  
+                  if (thread.connections.length === 0) {
+                    html += '<p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">No other targets detected.</p>';
+                  } else {
+                    html += '<div style="display: flex; flex-direction: column; gap: 10px;">';
+                    thread.connections.forEach(conn => {
+                      html += \`
+                        <div style="font-size: 0.9rem; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.01);">
+                          <div style="display: flex; justify-content: space-between; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">
+                            <span>Target: \${conn.targetName}</span>
+                            <span style="color: var(--warning);">Distance: \${conn.metaDistance} Chunks</span>
+                          </div>
+                      \`;
+                      
+                      if (conn.alternativeActions.length === 0) {
+                        html += '<div style="font-size: 0.8rem; color: var(--text-muted); padding-left: 10px;">No algebraic card options in hand buffer.</div>';
+                      } else {
+                        html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding-left: 10px; margin-top: 6px;">';
+                        conn.alternativeActions.forEach(act => {
+                          html += \`
+                            <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 6px; font-size: 0.8rem;">
+                              <div style="font-weight: 800; color: #8b5cf6; margin-bottom: 4px;">\${act.cardName}</div>
+                              <div style="display: flex; justify-content: space-between; color: var(--text-muted); margin-bottom: 2px;">
+                                <span>Est. Damage:</span>
+                                <span style="color: #ef4444; font-weight: bold;">\${act.estimatedDamage} HP</span>
+                              </div>
+                              <div style="display: flex; justify-content: space-between; color: var(--text-muted); margin-bottom: 2px;">
+                                <span>Success:</span>
+                                <span style="color: #10b981; font-weight: bold;">\${act.successChance}%</span>
+                              </div>
+                              <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+                                <span>Push/Pull:</span>
+                                <span style="font-weight: bold;">\${act.displacement}</span>
+                              </div>
+                            </div>
+                          \`;
+                        });
+                        html += '</div>';
+                      }
+                      html += '</div>';
+                    });
+                    html += '</div>';
+                  }
+                  html += '</div>';
+                });
+                html += '</div>';
+                container.innerHTML = html;
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }
+          
+          fetchAlgebraicMap();
+          setInterval(fetchAlgebraicMap, 3000);
+        </script>
       </body>
       </html>
     `;

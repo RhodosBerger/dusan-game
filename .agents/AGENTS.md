@@ -23,3 +23,24 @@
 *   **Dynamic OS Governor Coexistence**: Avoid sudden execution peaks that trigger OS governor frequency spikes. Pathfinding requests and heavy physics loops must be throttled or distributed over consecutive frames (batching) when concurrent action queue density > 10. Frame pacing must be dynamically clamped to target balanced thermal profiles (65°C - 75°C) to coexist efficiently with CPU/GPU schedulers.
 *   **Procedural Render Layering**: Procedural mesh generation must be split into Critical (colliders/walkability), Structural (base terrain), and Cosmetic (props/effects) layers, staggered over a 3-frame initialization cycle.
 *   **Time-Sliced Pathfinder**: Pathfinding computations for concurrent NPC AI must be queued and limited to a 2ms time-slice budget per frame, deferring additional searches to subsequent frames to avoid CPU throttling.
+
+## 6. Monorepo Architectural Cohesion & Layer Integrity
+*   **Layer Boundary Isolation**:
+    *   **Go Core boundaries**: All Go algorithms (`packages/go-core`) must remain decoupled from TypeScript runtime systems. Expose them solely via HTTP API endpoints (`/api/...`). Keep the TS fallbacks (`packages/shared` or `packages/server`) fully aligned and updated to ensure seamless operation when the Go server is offline.
+    *   **Shared Logic separation**: Do NOT write platform-specific imports (e.g., Node `fs`, `path`, or browser DOM references) inside `packages/shared`. Shared code must compile cleanly for both web browser and Node environments.
+    *   **State Separation**: Keep database-persistent client profile/upgrading economy actions strictly separate from active in-match gameplay state loops.
+
+## 7. Dead Code Pruning & Clean Up Protocol
+*   **Dead File Identification**: Before implementing new features or resolving issues, identify and prune legacy/unused debug scripts, disconnected telemetry files, or redundant simulator duplicates (e.g., old combinatorics, duplicate model schemas) to prevent codebase bloat.
+*   **Disconnection Verification**: A file is only considered dead if:
+    1. It has no import references in active modules of `packages/client`, `packages/server`, or `packages/shared`.
+    2. It is not referenced in package scripts (`package.json`) or workflow pipelines (`Jenkinsfile`, `ci.yml`).
+*   **Safe Pruning Steps**:
+    1. Verify file references using global grep searches.
+    2. Delete the disconnected file.
+    3. Run monorepo compiler builds:
+       ```bash
+       npx yarn workspace client build
+       npx yarn workspace @dusan-game/server build
+       ```
+    4. Run the full test suite (`packages/server/src/testEngine.ts`) to ensure 100% green compilation.

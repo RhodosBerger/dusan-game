@@ -18,6 +18,14 @@
     {
       "name": "Dynamic Spell Flash Beams",
       "description": "Expanding 3D hexagonal ring shockwaves rendered on the targeted tiles when cards are played, tinted according to active weather."
+    },
+    {
+      "name": "experimental_v2 Cartesian Guidance HUD",
+      "description": "Practical senior-level integration framework calculating 3D Cartesian coordinates (X, Y, Z), Euclidean distances, and generating deterministic trajectory scripts synced to SQLite."
+    },
+    {
+      "name": "experimental_v2 Visual Cost Estimator",
+      "description": "Interactive segment path line and floating overlays rendered directly inside the WebGL canvas, estimating action cost and available trajectory vectors."
     }
   ],
   "compiled_and_verified": true

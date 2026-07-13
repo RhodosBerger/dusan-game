@@ -5,7 +5,7 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { GameState, resolveEngineState } from './models/EnginePipeline';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
@@ -2226,7 +2226,105 @@ async function runTests() {
   console.log(`  [PASS] COMBAT_ENGINE microservice/fallback verified: damage -> ${combatRes.finalDamage}, log -> "${combatRes.log.substring(0, 40)}..."`);
   console.log(`  [PASS] Test 64 (Decoupled Go Core Microservices & Fallback) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework a Decoupled-Go-Core-Microservices testy prebehli úspešne!");
+  // ----------------------------------------------------
+  // TEST 65: Backoffice Algebraic Map Telemetry & Distance Parser
+  // ----------------------------------------------------
+  console.log("\nTest 65: Backoffice Algebraic Map Telemetry & Distance Parser");
+
+  const testEngine65 = new SovereignEngine();
+  const backofficeServer65 = startBackoffice(testEngine65, 3013);
+
+  try {
+    const resAlgebraic = await fetch('http://localhost:3013/api/backoffice/algebraic-map');
+    assert(resAlgebraic.status === 200, "Algebraic telemetry API should return status 200.");
+    const data = await resAlgebraic.json();
+    assert(data.distanceMatrix !== undefined, "distanceMatrix must be defined.");
+    assert(Array.isArray(data.distanceMatrix), "distanceMatrix must be an array.");
+    console.log(`  [PASS] Algebraic map telemetry verified successfully.`);
+    console.log(`  [PASS] Test 65 (Backoffice Algebraic Map Telemetry) validated successfully.`);
+  } finally {
+    backofficeServer65.close();
+  }
+
+  // ----------------------------------------------------
+  // TEST 66: Database Reality Priority Templates & Canvas Projections
+  // ----------------------------------------------------
+  console.log("\nTest 66: Database Reality Priority Templates & Canvas Projections");
+
+  const syncManager = new DatabaseSyncManager('./database.db');
+  
+  const mockTemplate = {
+    id: 'reality_surge_test_01',
+    name: 'Surge Overload Reality',
+    priority: 10,
+    speciesAllowed: JSON.stringify(['crystal', 'toxic']),
+    proceduralRules: JSON.stringify({ bloomIntensity: 2.5, heightOffset: 0.8 }),
+    combinatoricsMultiplier: 1.5
+  };
+  
+  syncManager.saveRealityTemplate(mockTemplate);
+  
+  const savedTemplates = syncManager.getRealityTemplates();
+  const found = savedTemplates.find(t => t.id === 'reality_surge_test_01');
+  assert(found !== undefined, "Template should be successfully saved and retrieved.");
+  assert(found!.name === 'Surge Overload Reality', "Template name must match.");
+  assert(found!.combinatoricsMultiplier === 1.5, "Combinatorics multiplier must match.");
+  
+  syncManager.deleteRealityTemplate('reality_surge_test_01');
+  const afterDelete = syncManager.getRealityTemplates();
+  assert(afterDelete.find(t => t.id === 'reality_surge_test_01') === undefined, "Template should be successfully deleted.");
+  
+  console.log(`  [PASS] Database Reality templates CRUD verified successfully.`);
+  console.log(`  [PASS] Test 66 (Database Reality Priority Templates) validated successfully.`);
+
+  // ----------------------------------------------------
+  // TEST 67: Cartesian Guidance & Spatial Trajectory Generation
+  // ----------------------------------------------------
+  console.log("\nTest 67: Cartesian Guidance & Spatial Trajectory Generation");
+
+  const pSource = SpatialGuidanceSystem.resolveCartesian(0, 0);
+  assert(pSource.x === 0, "Source center X must be 0.");
+  assert(pSource.z === 0, "Source center Z must be 0.");
+
+  const pTarget = SpatialGuidanceSystem.resolveCartesian(1, 1);
+  const calculatedDistance = SpatialGuidanceSystem.calculateDistance(pSource, pTarget);
+  assert(calculatedDistance > 0, "Calculated Cartesian distance must be positive.");
+
+  const script = SpatialGuidanceSystem.generateTrajectoryScript('thread_king_ai', 'chest_anomaly', pSource, pTarget);
+  assert(script.includes("INITIATE_TRAJECTORY_VECTOR"), "Generated script must contain vector initialization statement.");
+  assert(script.includes("DISPLACE_THREAD_COMPLEX_PATH"), "Generated script must contain movement statement.");
+
+  console.log(`  [PASS] Cartesian coordinate conversion verified successfully.`);
+  console.log(`  [PASS] 3D Euclidean trajectory distance verified: ${calculatedDistance.toFixed(3)} units.`);
+  console.log(`  [PASS] Spatial scripting generation verified successfully.`);
+  console.log(`  [PASS] Test 67 (Cartesian Guidance HUD Trajectories) validated successfully.`);
+
+  // ----------------------------------------------------
+  // TEST 68: 8-Directional Cartesian Trajectory Projection
+  // ----------------------------------------------------
+  console.log("\nTest 68: 8-Directional Cartesian Trajectory Projection");
+
+  const start = { x: 10, y: 0, z: 10 };
+  
+  const targetNorth = SpatialGuidanceSystem.resolveEightDirectionTarget(start, 'N', 2);
+  assert(targetNorth.x === 10, "North offset on X must be 0.");
+  assert(targetNorth.z > 10, "North offset on Z must increase.");
+
+  const targetEast = SpatialGuidanceSystem.resolveEightDirectionTarget(start, 'E', 3);
+  assert(targetEast.x > 10, "East offset on X must increase.");
+  assert(targetEast.z === 10, "East offset on Z must be 0.");
+
+  const dirNE = SpatialGuidanceSystem.mapDirection('severovýchod');
+  assert(dirNE === 'NE', "Slovak mapping for severovýchod must be NE.");
+  
+  const dirSW = SpatialGuidanceSystem.mapDirection('juhozápad');
+  assert(dirSW === 'SW', "Slovak mapping for juhozápad must be SW.");
+
+  console.log(`  [PASS] 8-directional target offsets resolved successfully.`);
+  console.log(`  [PASS] Slovak and intercardinal string direction parsers verified.`);
+  console.log(`  [PASS] Test 68 (8-Directional Vector Guidance) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories a Eight-Directional-Vector-Guidance testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

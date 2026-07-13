@@ -110,122 +110,139 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
     }
 
     return (
-        <div className="w-screen h-screen flex justify-center items-center bg-black text-white font-mono relative overflow-y-auto p-4">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.12),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.12),transparent_50%)]"></div>
-            <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[radial-gradient(rgba(255,255,255,0.15)_1px,transparent_1px)] [background-size:24px_24px]"></div>
+        <div className="w-screen h-screen flex justify-center items-center bg-black text-white relative overflow-y-auto p-4 font-sans">
+            {/* Cyber Grid background */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.18),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.18),transparent_50%)]"></div>
+            <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_95%,rgba(45,211,241,0.3)_95%),linear-gradient(90deg,rgba(18,16,16,0)_95%,rgba(45,211,241,0.3)_95%)] [background-size:32px_32px]"></div>
  
-            <div className="bg-[#0e0e16]/80 border border-slate-800/80 p-5 md:p-8 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] max-w-2xl w-full max-h-[90vh] overflow-y-auto z-10 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 relative">
-                <div className="md:col-span-2 text-center pb-2 border-b border-slate-800/60">
-                    <h1 className="text-xl md:text-2xl font-bold tracking-widest bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent uppercase font-mono">
-                        THE LAST TRIBE
-                    </h1>
-                    <p className="text-[9px] md:text-[10px] text-slate-500 tracking-wider uppercase mt-1">Sovereign Arena Lobby System v1.2</p>
-                </div>
+            {/* AAA Glass Panel Container with Cyber Decor */}
+            <div className="glass-panel-heavy scanline-effect p-6 md:p-8 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.9)] max-w-2xl w-full max-h-[92vh] overflow-y-auto z-10 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 relative border border-cyan-500/30">
+                {/* Tech crosshairs */}
+                <div className="absolute top-2 left-2 text-cyan-500/40 font-mono text-[8px] select-none pointer-events-none">SYS_READY // LOBBY</div>
+                <div className="absolute bottom-2 right-2 text-purple-500/40 font-mono text-[8px] select-none pointer-events-none">SECURE_GATEWAY_V2</div>
 
+                <div className="md:col-span-2 text-center pb-3 border-b border-slate-800/80">
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-widest bg-gradient-to-r from-cyan-400 via-purple-400 to-fuchsia-400 bg-clip-text text-transparent uppercase font-heading glow-text-cyan">
+                        POSLEDNÝ KMEN
+                    </h1>
+                    <div className="flex justify-center items-center gap-2 mt-1.5">
+                        <span className="h-[1px] w-8 bg-cyan-500/30"></span>
+                        <span className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">SOVEREIGN NETWORK INTERFACE</span>
+                        <span className="h-[1px] w-8 bg-cyan-500/30"></span>
+                    </div>
+                </div>
+ 
                 <div className="flex flex-col gap-4">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-l-2 border-cyan-500 pl-2">1. Výber Hrdinu</h3>
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-cyan-400 pl-2 font-heading">1. Výber Hrdinu</h3>
                     
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-3 gap-2.5">
+                        {/* Crystal King */}
                         <div 
                             onClick={() => setSelectedHero('thread_king_ai')}
-                            className={`p-2 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center ${selectedHero === 'thread_king_ai' ? 'bg-cyan-950/40 border-cyan-500/80 shadow-[0_0_15px_rgba(0,255,255,0.2)]' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center relative ${selectedHero === 'thread_king_ai' ? 'bg-cyan-950/30 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.25)] scale-[1.03]' : 'bg-slate-950/50 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/20'}`}
                         >
-                            <div className="w-12 h-12 bg-black/60 rounded-lg flex items-center justify-center mb-2 border border-slate-800/80">
+                            <div className="w-12 h-12 bg-slate-950/70 rounded-lg flex items-center justify-center mb-2 border border-slate-800/60">
                                 <CrystalKingAvatar />
                             </div>
-                            <div className="text-[9px] font-bold text-cyan-400 mb-1">CRYSTAL KING</div>
-                            <div className="text-[7px] text-slate-400 leading-tight">Vysoké HP a pevný pancier.</div>
+                            <div className="text-[10px] font-bold text-cyan-400 mb-0.5 font-heading">CRYSTAL</div>
+                            <div className="text-[8px] text-slate-400 leading-tight">Vysoké HP & Pevný pancier</div>
                         </div>
-
+ 
+                        {/* Toxic Hacker */}
                         <div 
                             onClick={() => setSelectedHero('thread_hacker_root')}
-                            className={`p-2 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center ${selectedHero === 'thread_hacker_root' ? 'bg-purple-950/40 border-purple-500/80 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center relative ${selectedHero === 'thread_hacker_root' ? 'bg-purple-950/30 border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.25)] scale-[1.03]' : 'bg-slate-950/50 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/20'}`}
                         >
-                            <div className="w-12 h-12 bg-black/60 rounded-lg flex items-center justify-center mb-2 border border-slate-800/80">
+                            <div className="w-12 h-12 bg-slate-950/70 rounded-lg flex items-center justify-center mb-2 border border-slate-800/60">
                                 <ToxicHackerAvatar />
                             </div>
-                            <div className="text-[9px] font-bold text-purple-400 mb-1">TOXIC HACKER</div>
-                            <div className="text-[7px] text-slate-400 leading-tight">Rýchly pohyb a loot bonusy.</div>
+                            <div className="text-[10px] font-bold text-purple-400 mb-0.5 font-heading">TOXIC</div>
+                            <div className="text-[8px] text-slate-400 leading-tight">Rýchly pohyb & Korózia</div>
                         </div>
-
+ 
+                        {/* Void Weaver */}
                         <div 
                             onClick={() => setSelectedHero('thread_void_weaver')}
-                            className={`p-2 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center ${selectedHero === 'thread_void_weaver' ? 'bg-fuchsia-950/40 border-fuchsia-500/80 shadow-[0_0_15px_rgba(217,70,239,0.2)]' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center relative ${selectedHero === 'thread_void_weaver' ? 'bg-fuchsia-950/30 border-fuchsia-400 shadow-[0_0_15px_rgba(217,70,239,0.25)] scale-[1.03]' : 'bg-slate-950/50 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/20'}`}
                         >
-                            <div className="w-12 h-12 bg-black/60 rounded-lg flex items-center justify-center mb-2 border border-slate-800/80">
+                            <div className="w-12 h-12 bg-slate-950/70 rounded-lg flex items-center justify-center mb-2 border border-slate-800/60">
                                 <VoidWeaverAvatar />
                             </div>
-                            <div className="text-[9px] font-bold text-fuchsia-400 mb-1">VOID WEAVER</div>
-                            <div className="text-[7px] text-slate-400 leading-tight">Kúzla a kontrola Entropie.</div>
+                            <div className="text-[10px] font-bold text-fuchsia-400 mb-0.5 font-heading">VOID</div>
+                            <div className="text-[8px] text-slate-400 leading-tight">Entropy kúzla & Zadarmo cast</div>
                         </div>
                     </div>
-
-                    <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl text-[10px] text-slate-400 flex gap-4 items-center">
-                        <div className="w-14 h-14 bg-black/75 rounded-xl border border-slate-800 flex items-center justify-center flex-shrink-0">
+ 
+                    {/* Class Details Panel */}
+                    <div className="bg-slate-950/60 border border-slate-800/60 p-4 rounded-xl text-xs text-slate-400 flex gap-4 items-center">
+                        <div className="w-14 h-14 bg-slate-900/80 rounded-xl border border-slate-850 flex items-center justify-center flex-shrink-0 shadow-inner">
                             {selectedHero === 'thread_king_ai' && <CrystalKingAvatar />}
                             {selectedHero === 'thread_hacker_root' && <ToxicHackerAvatar />}
                             {selectedHero === 'thread_void_weaver' && <VoidWeaverAvatar />}
                         </div>
-                        <div className="flex flex-col gap-1 flex-1">
-                            <div className="font-bold text-slate-300 uppercase tracking-wider">Vlastnosti triedy:</div>
+                        <div className="flex flex-col gap-1 flex-1 font-mono">
+                            <div className="font-bold text-slate-200 uppercase tracking-wider text-[10px] font-heading">Class Matrix Specs:</div>
                             {selectedHero === 'thread_king_ai' ? (
-                                <ul className="list-disc pl-4 flex flex-col gap-0.5">
-                                    <li>Max HP: <span className="text-cyan-400 font-bold">20 HP</span></li>
-                                    <li>Brnenie: <span className="text-cyan-400 font-bold">1 Armor</span></li>
-                                    <li>Drop: Zvýšená šanca na Crystal shards.</li>
+                                <ul className="list-none pl-0 flex flex-col gap-0.5 text-[10px]">
+                                    <li>- Max HP: <span className="text-cyan-400 font-bold">20 HP</span></li>
+                                    <li>- Armor: <span className="text-cyan-400 font-bold">1 Armor</span></li>
+                                    <li>- Mastery: Zvýšený výskyt Crystal Shards.</li>
                                 </ul>
                             ) : selectedHero === 'thread_hacker_root' ? (
-                                <ul className="list-disc pl-4 flex flex-col gap-0.5">
-                                    <li>Max HP: <span className="text-purple-400 font-bold">15 HP</span></li>
-                                    <li>Rýchlosť: <span className="text-purple-400 font-bold">+1 hex</span> na klzkých plochách</li>
-                                    <li>Swamp: Imunita voči toxic-damage.</li>
+                                <ul className="list-none pl-0 flex flex-col gap-0.5 text-[10px]">
+                                    <li>- Max HP: <span className="text-purple-400 font-bold">15 HP</span></li>
+                                    <li>- Rýchlosť: <span className="text-purple-400 font-bold">+1 hex</span> na spórových plochách</li>
+                                    <li>- Mastery: Imunita voči toxic-hazard škodám.</li>
                                 </ul>
                             ) : (
-                                <ul className="list-disc pl-4 flex flex-col gap-0.5">
-                                    <li>Max HP: <span className="text-fuchsia-400 font-bold">14 HP</span></li>
-                                    <li>Kúzla: <span className="text-fuchsia-400 font-bold">Lacnejšie karty</span> pri entropii &gt; 0.7</li>
-                                    <li>Stabilita: Void karty nezvyšujú napätie.</li>
+                                <ul className="list-none pl-0 flex flex-col gap-0.5 text-[10px]">
+                                    <li>- Max HP: <span className="text-fuchsia-400 font-bold">14 HP</span></li>
+                                    <li>- Spells: Bezplatné kúzlenie pri entropii &gt; 0.70</li>
+                                    <li>- Mastery: Void kúzla nespôsobujú prepätie mriežky.</li>
                                 </ul>
                             )}
                         </div>
                     </div>
                 </div>
-
-                {/* Stĺpec 2: Profil Hráča a Estetika */}
-                <div className="flex flex-col gap-4">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-l-2 border-purple-500 pl-2">2. Nastavenia a Estetika</h3>
-
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] text-slate-400 uppercase">Meno Hráča:</label>
-                        <input 
-                            type="text" 
-                            placeholder="Zadajte alias..." 
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            maxLength={15}
-                            className="bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-cyan-500 text-cyan-300 font-bold"
-                        />
+ 
+                {/* Column 2: Player Profile & Operations */}
+                <div className="flex flex-col gap-4 justify-between">
+                    <div className="flex flex-col gap-4">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-purple-400 pl-2 font-heading">2. Konfigurácia</h3>
+ 
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] text-slate-400 uppercase font-heading">Alias Vlákna (Meno):</label>
+                            <input 
+                                type="text" 
+                                placeholder="Zadajte sieťový alias..." 
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                maxLength={15}
+                                className="bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 text-cyan-300 font-bold transition-all placeholder-slate-600 font-mono"
+                            />
+                        </div>
                     </div>
-
-                    {/* Akčné tlačidlá */}
-                    <div className="flex flex-col gap-2 mt-auto">
+ 
+                    {/* Action buttons */}
+                    <div className="flex flex-col gap-2.5 mt-6">
                         <button 
                             onClick={(e) => handleSubmit(e, false)}
-                            className="w-full bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold py-2.5 px-4 rounded-xl border border-cyan-400/40 text-xs uppercase tracking-wider cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all flex items-center justify-center gap-2"
+                            className="w-full cyber-btn bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold py-3 px-4 text-xs uppercase tracking-wider cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.4)] flex items-center justify-center gap-2 border-0"
+                            style={{ color: '#020617' }}
                         >
-                            <span>⚔️</span> Vstúpiť do PvP Siete
+                            <span>⚔️</span> Vstúpiť do PvP Arény
                         </button>
                         
                         <button 
                             onClick={(e) => handleSubmit(e, true)}
-                            className="w-full bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-purple-300 py-2 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
+                            className="w-full cyber-btn bg-slate-950/60 hover:bg-slate-900 border border-purple-500/50 text-purple-300 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
                         >
                             <span>🤖</span> Trénovať proti AI
                         </button>
-
+ 
                         <button 
                             onClick={onOpenGraphicsDemo}
-                            className="w-full bg-slate-900/60 hover:bg-slate-800 border border-slate-700/40 text-slate-300 py-2 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
+                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-slate-800/80 text-slate-400 hover:text-slate-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
                         >
                             <span>🌌</span> WebGL Graphics Showcase
                         </button>

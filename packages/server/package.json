@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/server.ts",
-    "dev": "nodemon --exec ts-node src/server.ts"
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "debug": "nodemon --exec \"node --inspect=0.0.0.0:9229 -r ts-node/register src/server.ts\""
   },
   "dependencies": {
     "@dusan-game/shared": "^1.0.0",

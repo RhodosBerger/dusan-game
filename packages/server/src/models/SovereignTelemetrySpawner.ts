@@ -27,7 +27,7 @@ export class SovereignTelemetrySpawner {
     const block = chunk?.blocks.find(b => b.id === hex);
     if (!block) return false;
 
-    const isWalkable = block.walkable === true;
+    const isWalkable = block.walkable === true && block.threadId === null;
     const isFreeOfEntities = !engine.threads.some(t => t.position && t.position.meta === meta && t.position.hex === hex);
     const isFreeOfTraps = !block.hasTrap;
     const isFreeOfChests = !block.hasOpportunity && !block.hasChest;

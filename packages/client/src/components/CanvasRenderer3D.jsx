@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Html } from '@react-three/drei';
 import { EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '../../../shared/src/index';
+import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, Pathfinder, SpatialGuidanceSystem } from '../../../shared/src/index';
 import { generate3DGrid } from '../utils/HexMath3D';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
@@ -240,7 +240,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode, realityPhase = 'STANDARD' }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const gridData = useMemo(() => generate3DGrid(), []);
@@ -254,7 +254,15 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const hoveredNode = externalHoveredNode !== undefined ? externalHoveredNode : localHoveredNode;
     const setHoveredNode = externalSetHoveredNode !== undefined ? externalSetHoveredNode : localSetHoveredNode;
 
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [hudConfig, setHudConfig] = useState(null);
+
+    useEffect(() => {
+        const handleUpdate = (e) => {
+            setHudConfig(e.detail);
+        };
+        window.addEventListener('spatial_guidance_update', handleUpdate);
+        return () => window.removeEventListener('spatial_guidance_update', handleUpdate);
+    }, []);
 
     useEffect(() => {
         const handleResize = () => {
@@ -289,6 +297,21 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
         gridData.forEach(node => groups[node.macroIndex].push(node));
         return groups;
     }, [gridData]);
+
+    const matrixSource = useMemo(() => {
+        if (hudConfig) {
+            const srcThread = threads.find(t => t.id === hudConfig.sourceId) || threads[0];
+            if (srcThread && srcThread.position && srcThread.position.meta !== undefined && srcThread.position.meta !== null) {
+                return { meta: srcThread.position.meta, hex: srcThread.position.hex };
+            }
+        } else if (selectedCard) {
+            const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+            if (activeHero && activeHero.position && activeHero.position.meta !== undefined && activeHero.position.meta !== null) {
+                return { meta: activeHero.position.meta, hex: activeHero.position.hex };
+            }
+        }
+        return null;
+    }, [hudConfig, selectedCard, threads]);
 
     const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
 
@@ -434,6 +457,20 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             }
                         };
 
+                        const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+                        const distanceToPlayer = activeHero && activeHero.position && activeHero.position.meta !== null && activeHero.position.meta !== undefined
+                            ? getMetaDistance(activeHero.position.meta, node.macroIndex)
+                            : null;
+                        
+                        const maxRange = (() => {
+                            if (!activeHero) return 1;
+                            if (!selectedCard) return activeHero.movementBase || 1;
+                            const base = allBases.find(b => b.id === selectedCard.id);
+                            if (!base) return 1;
+                            const isAttackNode = base.cardCategorization === 'attack' || base.damage > 0;
+                            return isAttackNode ? (activeHero.attackReach || 1) : (activeHero.spellReach || 2);
+                        })();
+
                         return (
                             <HexagonNode3D
                                 key={node.id}
@@ -453,9 +490,189 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 weatherOverride={weatherOverride}
                                 isSurgeActive={surgeTile && surgeTile.meta === node.macroIndex && surgeTile.hex === node.subIndex}
                                 isScorched={scorchedTiles.includes(`m${node.macroIndex}_s${node.subIndex}`)}
+                                distanceToPlayer={distanceToPlayer}
+                                maxRange={maxRange}
+                                selectedCard={selectedCard}
+                                realityPhase={realityPhase}
+                                matrixSource={matrixSource}
                             />
                         );
                     })}
+
+                    {/* Concentric Aiming Sectors (Rings) relative to the active player's position */}
+                    {(() => {
+                        if (!selectedCard) return null;
+                        const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+                        if (!activeHero || activeHero.position?.meta === undefined || activeHero.position?.meta === null) return null;
+                        
+                        const heroNode = gridData.find(n => n.macroIndex === activeHero.position.meta && n.subIndex === activeHero.position.hex);
+                        if (!heroNode) return null;
+
+                        const base = allBases.find(b => b.id === selectedCard.id);
+                        if (!base) return null;
+                        const isAttackNode = base.cardCategorization === 'attack' || base.damage > 0;
+                        const reach = isAttackNode ? (activeHero.attackReach || 1) : (activeHero.spellReach || 2);
+
+                        const rings = [];
+                        for (let r = 1; r <= reach; r++) {
+                            const radius = r * 6.8;
+                            rings.push(
+                                <mesh key={`reach_ring_${r}`} position={[heroNode.position[0], 0.05, heroNode.position[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+                                    <ringGeometry args={[radius - 0.1, radius + 0.1, 64]} />
+                                    <meshBasicMaterial color={r === reach ? '#ef4444' : '#00ffcc'} transparent opacity={0.15} />
+                                </mesh>
+                            );
+                        }
+                        return rings;
+                    })()}
+
+                    {/* experimental_v2: Absolute path trajectory line and cost estimation overlays */}
+                    {(() => {
+                        let sourceMeta = 0;
+                        let sourceHex = 0;
+                        let targetMeta = 0;
+                        let targetHex = 0;
+                        let voltageVal = 2;
+
+                        if (selectedCard && hoveredNode) {
+                            const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+                            if (!activeHero || activeHero.position?.meta === undefined) return null;
+                            sourceMeta = activeHero.position.meta;
+                            sourceHex = activeHero.position.hex;
+                            targetMeta = hoveredNode.macroIndex;
+                            targetHex = hoveredNode.subIndex;
+                            const base = allBases.find(b => b.id === selectedCard.id);
+                            if (base) {
+                                voltageVal = selectedCard.voltage || 2;
+                            }
+                        } else if (hudConfig) {
+                            const srcThread = threads.find(t => t.id === hudConfig.sourceId) || threads[0];
+                            if (!srcThread || srcThread.position?.meta === undefined) return null;
+                            sourceMeta = srcThread.position.meta;
+                            sourceHex = srcThread.position.hex;
+
+                            if (hudConfig.targetType === 'threads') {
+                                const tgt = threads.find(t => t.id === hudConfig.targetId);
+                                if (!tgt) return null;
+                                targetMeta = tgt.meta || 0;
+                                targetHex = tgt.hex || 0;
+                            } else if (hudConfig.targetType === 'custom') {
+                                targetMeta = hudConfig.customMeta;
+                                targetHex = hudConfig.customHex;
+                            } else if (hudConfig.targetType === '8direction') {
+                                const srcPos = SpatialGuidanceSystem.resolveCartesian(sourceMeta, sourceHex);
+                                const projectedTarget = SpatialGuidanceSystem.resolveEightDirectionTarget(srcPos, hudConfig.eightDDir, hudConfig.eightDDist);
+                                let closestNode = gridData[0];
+                                let minDistance = Infinity;
+                                for (const node of gridData) {
+                                    const dx = node.position[0] - projectedTarget.x;
+                                    const dz = node.position[2] - projectedTarget.z;
+                                    const d = dx*dx + dz*dz;
+                                    if (d < minDistance) {
+                                        minDistance = d;
+                                        closestNode = node;
+                                    }
+                                }
+                                targetMeta = closestNode.macroIndex;
+                                targetHex = closestNode.subIndex;
+                            } else {
+                                return null;
+                            }
+                        } else {
+                            return null;
+                        }
+
+                        const heroNode = gridData.find(n => n.macroIndex === sourceMeta && n.subIndex === sourceHex);
+                        const hoverGridNode = gridData.find(n => n.macroIndex === targetMeta && n.subIndex === targetHex);
+                        if (!heroNode || !hoverGridNode) return null;
+
+                        // Calculate actual path points using Pathfinder
+                        let pathSteps = [];
+                        try {
+                            const blocks = map && map.length > 0 ? map.flatMap(c => 
+                                (c.blocks || []).map(b => ({
+                                    chunkId: c.id,
+                                    blockId: b.id,
+                                    walkable: b.walkable !== false,
+                                    energyCostMultiplier: b.energyCostMultiplier || 1.0,
+                                    hazardIndex: b.hazardIndex || 0.0
+                                }))
+                            ) : [];
+                            pathSteps = Pathfinder.findPath(
+                                sourceMeta,
+                                sourceHex,
+                                targetMeta,
+                                targetHex,
+                                blocks
+                            ) || [];
+                        } catch (e) {
+                            pathSteps = [
+                                { chunkId: sourceMeta, blockId: sourceHex },
+                                { chunkId: targetMeta, blockId: targetHex }
+                            ];
+                        }
+
+                        if (pathSteps.length === 0) {
+                            pathSteps = [
+                                { chunkId: sourceMeta, blockId: sourceHex },
+                                { chunkId: targetMeta, blockId: targetHex }
+                            ];
+                        }
+
+                        const points = pathSteps.map(step => {
+                            const nodeCoord = gridData.find(n => n.macroIndex === step.chunkId && n.subIndex === step.blockId);
+                            return nodeCoord ? new THREE.Vector3(nodeCoord.position[0], 0.5, nodeCoord.position[2]) : null;
+                        }).filter(Boolean);
+
+                        if (points.length < 2) return null;
+
+                        const startPos = SpatialGuidanceSystem.resolveCartesian(sourceMeta, sourceHex);
+                        const endPos = SpatialGuidanceSystem.resolveCartesian(targetMeta, targetHex);
+                        const eucDistance = SpatialGuidanceSystem.calculateDistance(startPos, endPos);
+                        const trajectoryCost = eucDistance * 10 * voltageVal;
+
+                        const startVec = points[0];
+                        const endVec = points[points.length - 1];
+                        const dirVec = new THREE.Vector3().subVectors(endVec, startVec);
+                        const distanceLen = dirVec.length();
+                        const directionNorm = dirVec.clone().normalize();
+                        const up = new THREE.Vector3(0, 1, 0);
+                        const quaternion = new THREE.Quaternion().setFromUnitVectors(up, directionNorm);
+                        const midPoint = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
+
+                        return (
+                            <group>
+                                {points.map((p, idx) => (
+                                    <mesh key={idx} position={[p.x, p.y + 0.1, p.z]}>
+                                        <sphereGeometry args={[0.08, 16, 16]} />
+                                        <meshBasicMaterial color="#ef4444" />
+                                    </mesh>
+                                ))}
+                                {distanceLen > 0.2 && (
+                                    <group>
+                                        <mesh position={[midPoint.x, midPoint.y + 0.15, midPoint.z]} quaternion={quaternion}>
+                                            <cylinderGeometry args={[0.02, 0.02, distanceLen, 8]} />
+                                            <meshBasicMaterial color="#ef4444" transparent opacity={0.7} />
+                                        </mesh>
+                                        <mesh position={[endVec.x, endVec.y + 0.15, endVec.z]} quaternion={quaternion}>
+                                            <coneGeometry args={[0.12, 0.35, 8]} />
+                                            <meshBasicMaterial color="#ef4444" />
+                                        </mesh>
+                                    </group>
+                                )}
+                                <Html distanceFactor={14} position={[points[points.length - 1].x, points[points.length - 1].y + 1.2, points[points.length - 1].z]} center>
+                                    <div className="glass-panel-heavy p-2 text-[8px] text-white border border-red-500 rounded bg-slate-950/90 w-44 backdrop-blur font-mono">
+                                        <div className="font-bold text-red-400 uppercase tracking-wider mb-1 text-[9px]">EXPERIMENTAL_V2 GUIDANCE</div>
+                                        <div>Src Cartesian: [{startPos.x.toFixed(1)}, {startPos.y.toFixed(1)}, {startPos.z.toFixed(1)}]</div>
+                                        <div>Tgt Cartesian: [{endPos.x.toFixed(1)}, {endPos.y.toFixed(1)}, {endPos.z.toFixed(1)}]</div>
+                                        <div className="text-yellow-400">Euclidean Dist: {eucDistance.toFixed(2)}m</div>
+                                        <div className="text-cyan-400 font-bold border-t border-slate-800 mt-1 pt-1">Est. Trajectory Cost: {trajectoryCost.toFixed(1)}W</div>
+                                        <div className="text-[7px] text-slate-500 italic mt-0.5">Calculated by SpatialGuidanceSystem</div>
+                                    </div>
+                                </Html>
+                            </group>
+                        );
+                    })()}
 
                     {/* Rekvizity biómov — Optimalizované vykresľovanie cez Instanced Rendering a zdieľané materiály */}
                     <InstancedWorldProps 
@@ -567,7 +784,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                 {/* Kognitívna Termodynamika - Dynamický Post-processing podľa Entropy */}
                 <EffectComposer disableNormalPass>
-                    <AestheticCompositor entropy={entropy} isLowPower={isLowPower} />
+                    <AestheticCompositor entropy={entropy} isLowPower={isLowPower} realityPhase={realityPhase} />
                 </EffectComposer>
             </Canvas>
         </div>

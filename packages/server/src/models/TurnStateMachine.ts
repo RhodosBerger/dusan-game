@@ -274,7 +274,7 @@ export class TurnStateMachine {
       const emptyBlocks: { chunkId: number; block: any }[] = [];
       this.engine.map.chunks.forEach(chunk => {
         chunk.blocks.forEach(block => {
-          if (block.walkable && !block.hasChest) {
+          if (block.walkable === true && block.threadId === null && !block.hasChest) {
             const occupied = this.engine.threads.some(t =>
               t.position && t.position.meta === chunk.id && t.position.hex === block.id
             );

@@ -12,9 +12,9 @@ import { initializeSeedData } from './seedData';
 import { DailyQuestEngine } from './models/DailyQuestEngine';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
-import { CraftingSimulator } from './models/CraftingSimulator';
+import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator } from '@dusan-game/shared';
+import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -726,7 +726,7 @@ io.on('connection', (socket) => {
     if (!sourceThread) return;
 
     try {
-      const helperType = CraftingSimulator.craft(sourceThread, payload.recipeId);
+      const helperType = TacticalAssembler.assemble(sourceThread, payload.recipeId);
       const helperId = `helper_${Date.now()}_${helperType}`;
       const helperThread = new Thread(helperId, 'HELPER', payload.sourceId);
       
@@ -1408,6 +1408,115 @@ app.get('/api/scenarios/hero-graphics', (req, res) => {
     }
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     res.json(data);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/scenarios/realities', (req, res) => {
+  try {
+    const list = dbSync.getRealityTemplates();
+    res.json(list);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/scenarios/realities', (req, res) => {
+  try {
+    const { id, name, priority, speciesAllowed, proceduralRules, combinatoricsMultiplier } = req.body;
+    dbSync.saveRealityTemplate({
+      id: id || `reality_${Date.now()}`,
+      name,
+      priority: Number(priority),
+      speciesAllowed: typeof speciesAllowed === 'string' ? speciesAllowed : JSON.stringify(speciesAllowed),
+      proceduralRules: typeof proceduralRules === 'string' ? proceduralRules : JSON.stringify(proceduralRules),
+      combinatoricsMultiplier: Number(combinatoricsMultiplier)
+    });
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/scenarios/realities/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    dbSync.deleteRealityTemplate(id);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/scenarios/realities/active', (req, res) => {
+  try {
+    const { phase } = req.body;
+    (defaultEngine as any).realityPhase = phase || 'STANDARD';
+    io.emit('reality_phase_changed', { realityPhase: (defaultEngine as any).realityPhase });
+    res.json({ success: true, activeRealityPhase: (defaultEngine as any).realityPhase });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/scenarios/spatial-guidance/calculations', (req, res) => {
+  try {
+    const targetEngine = defaultEngine;
+    const threadPositions = targetEngine.threads.map(t => {
+      const pos = t.position && t.position.meta !== null ? SpatialGuidanceSystem.resolveCartesian(t.position.meta, t.position.hex!) : { x: 0, y: 0, z: 0 };
+      return {
+        id: t.id,
+        name: t.name,
+        type: t.type,
+        meta: t.position?.meta,
+        hex: t.position?.hex,
+        x: pos.x,
+        y: pos.y,
+        z: pos.z
+      };
+    });
+
+    const objects: any[] = [];
+    targetEngine.map.chunks.forEach(c => {
+      c.blocks.forEach(b => {
+        if (b.hasChest || b.hasTrap || b.isTown) {
+          const pos = SpatialGuidanceSystem.resolveCartesian(c.id, b.id);
+          objects.push({
+            type: b.hasChest ? 'CHEST' : b.hasTrap ? 'TRAP' : 'TOWN',
+            meta: c.id,
+            hex: b.id,
+            x: pos.x,
+            y: pos.y,
+            z: pos.z
+          });
+        }
+      });
+    });
+
+    res.json({
+      threads: threadPositions,
+      objects
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/scenarios/spatial-guidance/inject', (req, res) => {
+  try {
+    const { script, meta, hex, description } = req.body;
+    dbSync.saveComposition({
+      id: `script_inj_${Date.now()}`,
+      prompt: script,
+      actionType: 'SPATIAL_GUIDANCE_TRAJECTORY',
+      metaId: Number(meta || 0),
+      hexId: Number(hex || 0),
+      powerRating: 1.0,
+      description: description || 'Cartesian Guidance system trajectory inject',
+      created_at: Date.now()
+    });
+    res.json({ success: true, message: 'Trajectory script successfully injected into database.' });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

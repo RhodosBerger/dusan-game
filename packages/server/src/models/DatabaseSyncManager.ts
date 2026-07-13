@@ -126,6 +126,18 @@ export class DatabaseSyncManager {
         unlocked_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 9. Tabulka reality šablón pre procedural realities a priority merge
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS reality_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        priority INTEGER NOT NULL,
+        species_allowed TEXT NOT NULL,
+        procedural_rules TEXT NOT NULL,
+        combinatorics_multiplier REAL NOT NULL
+      )
+    `);
   }
 
   public saveComposition(inst: any): void {
@@ -363,5 +375,23 @@ export class DatabaseSyncManager {
     const stmt = this.db.prepare('DELETE FROM player_artifacts WHERE player_username = ? AND artifact_key = ?');
     const result = stmt.run(username, artifactKey);
     return result.changes > 0;
+  }
+
+  public saveRealityTemplate(template: { id: string; name: string; priority: number; speciesAllowed: string; proceduralRules: string; combinatoricsMultiplier: number }): void {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO reality_templates (id, name, priority, species_allowed, procedural_rules, combinatorics_multiplier)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(template.id, template.name, template.priority, template.speciesAllowed, template.proceduralRules, template.combinatoricsMultiplier);
+  }
+
+  public getRealityTemplates(): { id: string; name: string; priority: number; speciesAllowed: string; proceduralRules: string; combinatoricsMultiplier: number }[] {
+    const stmt = this.db.prepare('SELECT id, name, priority, species_allowed as speciesAllowed, procedural_rules as proceduralRules, combinatorics_multiplier as combinatoricsMultiplier FROM reality_templates ORDER BY priority ASC');
+    return stmt.all() as any[];
+  }
+
+  public deleteRealityTemplate(id: string): void {
+    const stmt = this.db.prepare('DELETE FROM reality_templates WHERE id = ?');
+    stmt.run(id);
   }
 }

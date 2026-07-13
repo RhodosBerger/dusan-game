@@ -66,6 +66,8 @@ const getCardMetadata = (cardId) => {
 };
 
 export default function ArenaUIOverlay({ 
+    realityPhase = 'STANDARD',
+    setRealityPhase,
     gameState, 
     entropy = 0.4, 
     setEntropy, 
@@ -211,8 +213,9 @@ export default function ArenaUIOverlay({
     const toxicPlayer = gameState?.threads?.find(t => t.id === 'thread_hacker_root');
 
     const renderTelemetry = (isMobile = false) => {
+        if (!crystalPlayer) return null;
         return (
-            <div className="bg-[color:var(--panel-bg)] border border-[color:var(--panel-border)] text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="glass-panel-heavy text-white p-4 rounded-xl shadow-2xl min-w-[280px] w-full text-left border border-cyan-500/20">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, telemetry: !prev.telemetry }))}
                     className={`text-[10px] text-[color:var(--accent-magic)] tracking-widest font-mono uppercase mb-1 flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -351,22 +354,30 @@ export default function ArenaUIOverlay({
                                     </>
                                 )}
                             </div>
-                            <div className="flex justify-between mt-1 pt-1 border-t border-slate-800">
-                                <span>SYSTEM ENERGY:</span>
-                                <span className={(gameState?.systemEnergy || 0) > 80 ? "text-red-400 animate-pulse font-bold" : "text-[color:var(--accent-loot)]"}>
-                                    {(gameState?.systemEnergy || 0).toFixed(1)} / 100.0
-                                </span>
+
+                            <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-slate-800/80">
+                                <div className="flex justify-between text-[10px]">
+                                    <span>SYSTEM GRID ENERGY:</span>
+                                    <span className={(gameState?.systemEnergy || 0) > 80 ? "text-red-400 font-bold glow-text-purple" : "text-cyan-400 font-bold"}>
+                                        {(gameState?.systemEnergy || 0).toFixed(1)} V
+                                    </span>
+                                </div>
+                                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800 p-[1px]">
+                                    <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 h-full rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(6,182,212,0.5)]" style={{ width: `${Math.min(100, gameState?.systemEnergy || 0)}%` }}></div>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="mt-3 flex justify-between items-center text-xs font-mono">
-                            <span>ENTROPY STRESS:</span>
-                            <span className={entropy > 0.7 ? "text-red-400 animate-pulse font-bold" : "text-green-400"}>
-                                {(entropy * 100).toFixed(1)}%
-                            </span>
-                        </div>
-                        <div className="w-full bg-slate-800 h-1.5 mt-1 rounded-full overflow-hidden">
-                            <div className="bg-gradient-to-r from-[color:var(--accent-magic)] to-[color:var(--accent-danger)] h-full transition-all duration-300" style={{ width: `${entropy * 100}%` }}></div>
+ 
+                        <div className="mt-3 flex flex-col gap-1">
+                            <div className="flex justify-between items-center text-[10px] font-mono">
+                                <span>ENTROPY COEFFICIENT:</span>
+                                <span className={entropy > 0.7 ? "text-fuchsia-400 animate-pulse font-bold glow-text-fuchsia" : "text-emerald-400 font-bold"}>
+                                    {(entropy * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800 p-[1px]">
+                                <div className="bg-gradient-to-r from-emerald-500 via-yellow-500 to-fuchsia-500 h-full rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(217,70,239,0.5)]" style={{ width: `${entropy * 100}%` }}></div>
+                            </div>
                         </div>
                         {goTelemetry && (
                             <div className="mt-2.5 pt-2 border-t border-slate-800/80 font-mono text-[9px] flex flex-col gap-1 text-slate-400">
@@ -419,7 +430,7 @@ export default function ArenaUIOverlay({
 
     const renderSandbox = (isMobile = false) => {
         return (
-            <div className="bg-[color:var(--panel-bg)] border border-slate-700/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="glass-panel-heavy text-white p-4 rounded-xl shadow-2xl min-w-[280px] w-full text-left border border-cyan-500/20">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, sandbox: !prev.sandbox }))}
                     className={`text-[10px] text-slate-400 tracking-wider font-mono uppercase flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -531,7 +542,7 @@ export default function ArenaUIOverlay({
     const renderQuests = (isMobile = false) => {
         if (!activePlayer || !activePlayer.quests || activePlayer.quests.length === 0) return null;
         return (
-            <div className="bg-[color:var(--panel-bg)] border border-[#a855f7]/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="glass-panel-heavy text-white p-4 rounded-xl shadow-2xl min-w-[280px] w-full text-left border border-cyan-500/20">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, quests: !prev.quests }))}
                     className={`text-[10px] text-[#a855f7] tracking-widest font-mono uppercase flex justify-between items-center font-bold ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -622,7 +633,7 @@ export default function ArenaUIOverlay({
 
     const renderLogs = (isMobile = false) => {
         return (
-            <div className="bg-[#0e0e16]/75 border border-purple-500/30 text-slate-300 p-4 rounded-xl shadow-2xl backdrop-blur-md lg:w-96 w-full max-w-md max-h-64 font-mono text-xs text-left">
+            <div className="glass-panel-heavy text-slate-350 p-4 rounded-xl shadow-2xl lg:w-96 w-full max-w-md max-h-64 font-mono text-xs text-left border border-cyan-500/20">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, logs: !prev.logs }))}
                     className={`text-[#a855f7] font-bold uppercase mb-1.5 text-[10px] tracking-wider flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -657,7 +668,7 @@ export default function ArenaUIOverlay({
 
     const renderCompositor = (isMobile = false) => {
         return (
-            <div className="bg-[color:var(--panel-bg)] border border-purple-500/30 text-white p-4 rounded-xl shadow-2xl backdrop-blur-md min-w-[280px] w-full text-left">
+            <div className="glass-panel-heavy text-white p-4 rounded-xl shadow-2xl min-w-[280px] w-full text-left border border-cyan-500/20">
                 <div 
                     onClick={() => !isMobile && setCollapsed(prev => ({ ...prev, compositor: !prev.compositor }))}
                     className={`text-[10px] text-purple-400 tracking-widest font-mono uppercase mb-1 flex justify-between items-center ${!isMobile ? 'cursor-pointer select-none' : ''}`}
@@ -667,7 +678,7 @@ export default function ArenaUIOverlay({
                 
                 {(!collapsed.compositor || isMobile) && (
                     <div className="mt-2.5">
-                        <GameplayCompositorTemplate activeThreadId={activePlayer?.id} />
+                        <GameplayCompositorTemplate activeThreadId={activePlayer?.id} realityPhase={realityPhase} setRealityPhase={setRealityPhase} />
                     </div>
                 )}
             </div>
@@ -757,10 +768,10 @@ export default function ArenaUIOverlay({
             </div>
 
             {/* Desktop Top Toolbar for Panels */}
-            <div className="hidden lg:flex justify-end gap-2 pointer-events-auto z-30 absolute top-4 right-4 bg-slate-950/80 border border-slate-800/80 p-2 rounded-2xl backdrop-blur-md shadow-2xl">
+            <div className="hidden lg:flex justify-end gap-2 pointer-events-auto z-30 absolute top-4 right-4 glass-panel-heavy p-2 rounded-xl border border-cyan-500/20">
                 <button 
                     onClick={() => setCollapsed(prev => ({ ...prev, telemetry: !prev.telemetry }))}
-                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`cyber-btn px-3 py-1.5 border font-heading text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         !collapsed.telemetry 
                             ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-[0.98]' 
                             : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -771,7 +782,7 @@ export default function ArenaUIOverlay({
                 </button>
                 <button 
                     onClick={() => setCollapsed(prev => ({ ...prev, sandbox: !prev.sandbox }))}
-                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`cyber-btn px-3 py-1.5 border font-heading text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         !collapsed.sandbox 
                             ? 'bg-amber-500/25 border-amber-400 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.3)] scale-[0.98]' 
                             : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -782,7 +793,7 @@ export default function ArenaUIOverlay({
                 </button>
                 <button 
                     onClick={() => setCollapsed(prev => ({ ...prev, quests: !prev.quests }))}
-                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`cyber-btn px-3 py-1.5 border font-heading text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         !collapsed.quests 
                             ? 'bg-green-500/25 border-green-400 text-green-200 shadow-[0_0_15px_rgba(34,197,94,0.3)] scale-[0.98]' 
                             : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -793,7 +804,7 @@ export default function ArenaUIOverlay({
                 </button>
                 <button 
                     onClick={() => setCollapsed(prev => ({ ...prev, compositor: !prev.compositor }))}
-                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`cyber-btn px-3 py-1.5 border font-heading text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         !collapsed.compositor 
                             ? 'bg-purple-500/25 border-purple-400 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.3)] scale-[0.98]' 
                             : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -804,7 +815,7 @@ export default function ArenaUIOverlay({
                 </button>
                 <button 
                     onClick={() => setCollapsed(prev => ({ ...prev, logs: !prev.logs }))}
-                    className={`px-3 py-1.5 rounded-xl border font-mono text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`cyber-btn px-3 py-1.5 border font-heading text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         !collapsed.logs 
                             ? 'bg-rose-500/25 border-rose-400 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.3)] scale-[0.98]' 
                             : 'bg-slate-900 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -865,7 +876,7 @@ export default function ArenaUIOverlay({
                 {selectedCard && (
                     <div className="flex flex-col md:flex-row gap-3 items-stretch justify-center max-w-full mb-1">
                          {/* Action Header Panel */}
-                         <div className="bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-white px-4 py-2 rounded-xl shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col justify-center min-w-[260px]">
+                         <div className="glass-panel-heavy text-white px-4 py-2 rounded-xl shadow-xl text-xs font-mono text-center flex flex-col justify-center min-w-[260px] border border-cyan-400/30">
                              <div>
                                  Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
                              </div>
@@ -967,7 +978,7 @@ export default function ArenaUIOverlay({
                         <span className="text-slate-400 font-bold">{activePlayer.freeMovementUsed ? "🚫 Ťah využitý" : "🚶 Voľný pohyb"}</span>
                     </div>
                 )}
-                <div className="bg-[color:var(--panel-bg)] border border-slate-700/50 p-3 md:p-4 rounded-2xl flex gap-2.5 md:gap-3 backdrop-blur-xl shadow-2xl max-w-full overflow-x-auto custom-scrollbar">
+                <div className="glass-panel-heavy p-3 md:p-4 rounded-2xl flex gap-2.5 md:gap-3 shadow-2xl max-w-full overflow-x-auto custom-scrollbar border border-cyan-500/20">
                     {cards.length === 0 ? (
                         <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>
                     ) : (
@@ -1057,7 +1068,7 @@ export default function ArenaUIOverlay({
                     {isPlayerInTown && (
                         <button 
                             onClick={() => setIsShopOpen(true)}
-                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] hover:brightness-125 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all text-[color:var(--accent-magic)] rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
+                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn bg-cyan-950/50 border border-cyan-400 hover:bg-cyan-900/60 text-cyan-400 hover:text-cyan-200 flex items-center justify-center font-heading text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.2)]"
                         >
                             🏬 Town Shop
                         </button>
@@ -1065,10 +1076,10 @@ export default function ArenaUIOverlay({
                     
                     <button 
                         onClick={onToggleStealth}
-                        className={`h-36 md:h-44 w-12 md:w-16 flex-shrink-0 border transition-all rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer ${
+                        className={`h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn border text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer font-heading ${
                             isStealthed 
-                                ? 'bg-[color:var(--panel-border)] border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] shadow-[0_0_15px_rgba(0,229,255,0.45)] font-extrabold' 
-                                : 'bg-slate-950/40 border-slate-700/60 text-slate-400 hover:bg-slate-900/60 hover:text-slate-350'
+                                ? 'bg-cyan-400/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(0,229,255,0.3)] font-extrabold' 
+                                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-900/60 hover:text-slate-200'
                         }`}
                     >
                         {isStealthed ? 'Stealth ON' : 'Stealth OFF'}
@@ -1076,7 +1087,7 @@ export default function ArenaUIOverlay({
                     
                     <button 
                         onClick={onEndTurn}
-                        className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-red-950/40 border border-red-500/40 hover:bg-red-900/60 transition-colors text-red-400 rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
+                        className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn bg-red-950/50 border border-red-500/80 hover:bg-red-900/60 text-red-400 hover:text-red-200 flex items-center justify-center font-heading text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.2)]"
                     >
                         End Turn [E]
                     </button>

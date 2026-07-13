@@ -1,6 +1,11 @@
 import { Bloom, Vignette, ChromaticAberration, SSAO } from '@react-three/postprocessing';
 
-export default function AestheticCompositor({ entropy = 0.4, aberrationActive = false, isLowPower = false }) {
+export default function AestheticCompositor({ entropy = 0.4, aberrationActive = false, isLowPower = false, realityPhase = 'STANDARD' }) {
+    const finalAberration = aberrationActive || realityPhase === 'VOID' || realityPhase === 'GLITCH';
+    const bloomIntensity = realityPhase === 'SURGE' ? 2.5 : realityPhase === 'VOID' ? 0.6 : (isLowPower ? 0.25 : 0.35 + entropy * 0.25);
+    const vignetteDarkness = realityPhase === 'VOID' ? 0.95 : 0.75;
+    const vignetteOffset = realityPhase === 'VOID' ? 0.25 : 0.35;
+
     return (
         <>
             {/* Ambient contact shadows: high-quality vs low-overhead mode */}
@@ -14,18 +19,18 @@ export default function AestheticCompositor({ entropy = 0.4, aberrationActive = 
             
             {/* Vysoký luminanceThreshold: žiaria len skutočne emisné materiály */}
             <Bloom
-                intensity={isLowPower ? 0.25 : 0.35 + entropy * 0.25}
-                luminanceThreshold={0.65}
+                intensity={bloomIntensity}
+                luminanceThreshold={realityPhase === 'SURGE' ? 0.3 : 0.65}
                 luminanceSmoothing={0.25}
                 mipmapBlur={!isLowPower} // Disable costly mipmap blur on integrated graphics
             />
             
-            {aberrationActive && (
+            {finalAberration && (
                 <ChromaticAberration 
-                    offset={[0.015, 0.015]} 
+                    offset={realityPhase === 'GLITCH' ? [0.035, 0.035] : [0.015, 0.015]} 
                 />
             )}
-            <Vignette eskil={false} offset={0.35} darkness={0.75} />
+            <Vignette eskil={false} offset={vignetteOffset} darkness={vignetteDarkness} />
         </>
     );
 }

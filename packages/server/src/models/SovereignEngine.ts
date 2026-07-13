@@ -481,7 +481,7 @@ export class SovereignEngine {
           for (const block of chunk.blocks) {
             const occupied = this.threads.some(t => t.position && t.position.meta === chunk.id && t.position.hex === block.id);
             const isTown = chunk.id === 0 && block.id === 0;
-            if (block.walkable && !occupied && !isTown) {
+            if (block.walkable === true && block.threadId === null && !occupied && !isTown) {
               vacantBlocks.push({ chunkId: chunk.id, blockId: block.id });
             }
           }
