@@ -31,6 +31,7 @@ import BiomeTransitionVFX from './BiomeTransitionVFX';
 import VolumetricFog3D from './VolumetricFog3D';
 import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
 import StarfieldBackground from './world/StarfieldBackground';
+import BackgroundEnvironment3D from './world/BackgroundEnvironment3D';
 import { getActiveProfile, WORLD_PROFILES } from '../design/worldProfiles';
 import FloatingShards3D from './world/FloatingShards3D';
 import PortalVortex3D from './world/PortalVortex3D';
@@ -386,6 +387,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 <color attach="background" args={[PALETTE.space.background]} />
                 <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
                 <StarfieldBackground />
+                <BackgroundEnvironment3D activeBiome={activeBiome} entropy={entropy} />
                 <FloatingShards3D />
 
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
