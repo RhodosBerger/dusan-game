@@ -371,6 +371,38 @@ export default function SovereignElementorSandbox() {
                     <div className="flex flex-col gap-3 bg-slate-900/30 p-3 rounded-lg border border-slate-900">
                         <span className="text-[10px] text-slate-300 font-bold uppercase">Push Action / Reaction</span>
                         
+                        <div className="flex flex-col gap-1 border-b border-slate-805 pb-3">
+                            <label className="text-[9px] text-yellow-400 uppercase font-bold">Load Preset Pattern:</label>
+                            <select 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'pattern_dodge') {
+                                        setActionStack([
+                                            { id: 'p1_1', player: 'playerA', type: 'attack', cardId: 'Hadí útok', damage: 3 },
+                                            { id: 'p1_2', player: 'playerB', type: 'dodge', cardId: 'Úhyb', damage: 0 }
+                                        ]);
+                                    } else if (val === 'pattern_counter') {
+                                        setActionStack([
+                                            { id: 'p2_1', player: 'playerA', type: 'attack', cardId: 'Hadí útok', damage: 3 },
+                                            { id: 'p2_2', player: 'playerB', type: 'dodge', cardId: 'Úhyb', damage: 0 },
+                                            { id: 'p2_3', player: 'playerB', type: 'attack', cardId: 'Medvěd Swipe', damage: 4 },
+                                            { id: 'p2_4', player: 'playerA', type: 'dodge', cardId: 'Úhyb', damage: 0 }
+                                        ]);
+                                    } else if (val === 'pattern_clash') {
+                                        setActionStack([
+                                            { id: 'p3_1', player: 'playerA', type: 'attack', cardId: 'Voltage Surge', damage: 5 },
+                                            { id: 'p3_2', player: 'playerB', type: 'attack', cardId: 'Blesk', damage: 4 }
+                                        ]);
+                                    }
+                                }} 
+                                className="bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-800 focus:outline-none"
+                            >
+                                <option value="">-- Choose Stack Scenario --</option>
+                                <option value="pattern_dodge">1. Attack & Dodge (100% Mitigation)</option>
+                                <option value="pattern_counter">2. Counter-Attack Cascade</option>
+                                <option value="pattern_clash">3. Clash (No Dodge - Raw Damage)</option>
+                            </select>
+                        </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-[9px] text-slate-400 uppercase">Actor:</label>
                             <select value={newPlayer} onChange={(e) => setNewPlayer(e.target.value)} className="bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-800">
