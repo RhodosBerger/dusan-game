@@ -1,4 +1,100 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+function CyberGridBackground() {
+    const canvasRef = useRef(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+
+        const resize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 0.45;
+                this.vy = (Math.random() - 0.5) * 0.45;
+                this.radius = Math.random() * 1.5 + 0.5;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+                ctx.fill();
+            }
+        }
+
+        const count = Math.min(50, Math.floor((canvas.width * canvas.height) / 22000));
+        const particles = Array.from({ length: count }, () => new Particle());
+
+        const drawGrid = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.1)';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const actualDist = Math.sqrt(dx * dx + dy * dy);
+                    if (actualDist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.02)';
+            ctx.lineWidth = 1;
+            const gridSize = 45;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            animationFrameId = requestAnimationFrame(drawGrid);
+        };
+
+        drawGrid();
+
+        return () => {
+            window.removeEventListener('resize', resize);
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, []);
+
+    return <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" style={{ opacity: 0.65 }} />;
+}
 
 function CrystalKingAvatar() {
     return (
@@ -112,6 +208,7 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
 
     return (
         <div className="w-screen h-screen flex justify-center items-center bg-black text-white relative overflow-y-auto p-4 font-sans">
+            <CyberGridBackground />
             {/* Cyber Grid background */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.18),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.18),transparent_50%)]"></div>
             <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_95%,rgba(45,211,241,0.3)_95%),linear-gradient(90deg,rgba(18,16,16,0)_95%,rgba(45,211,241,0.3)_95%)] [background-size:32px_32px]"></div>
@@ -234,6 +331,41 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                                 <option value="VOLTAGE_GLACIER">Mashup: Voltage Overload & Frost Friction</option>
                                 <option value="VOID_TOXIC">Mashup: Void Rift & Toxic Corrosion</option>
                             </select>
+                        </div>
+
+                        {/* Dusan's Customized Mazak Model Grid Preview */}
+                        <div className="flex flex-col gap-1.5 mt-2.5">
+                            <label className="text-[10px] text-slate-400 uppercase font-heading">
+                                Dusan's Customized Mazak Arena Model:
+                            </label>
+                            <div className="grid grid-cols-3 gap-1 w-32 bg-slate-950 p-1.5 rounded-lg border border-slate-800/80">
+                                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+                                    const weights = { 0: 0.8, 1: 0.5, 2: 0.8, 3: 0.5, 4: 1.0, 5: 0.5, 6: 0.8, 7: 0.5, 8: 0.8 };
+                                    const w = weights[i];
+                                    return (
+                                        <div 
+                                            key={i} 
+                                            className="h-6 rounded flex items-center justify-center text-[7px] font-bold font-mono transition-all duration-300 hover:scale-105"
+                                            style={{
+                                                background: w === 1.0 
+                                                    ? 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
+                                                    : w === 0.8 
+                                                    ? 'rgba(6, 182, 212, 0.25)' 
+                                                    : 'rgba(30, 41, 59, 0.6)',
+                                                border: w === 1.0 
+                                                    ? '1px solid #d946ef' 
+                                                    : w === 0.8 
+                                                    ? '1px solid rgba(6, 182, 212, 0.4)' 
+                                                    : '1px solid rgba(255, 255, 255, 0.05)',
+                                                color: w === 1.0 ? '#ffffff' : '#94a3b8'
+                                            }}
+                                            title={`Sector ${i} Weight: ${w}`}
+                                        >
+                                            {w.toFixed(1)}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
  
