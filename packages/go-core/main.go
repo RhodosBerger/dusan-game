@@ -539,6 +539,57 @@ func indexOf(s, sub string) int {
 	return -1
 }
 
+// ── Thread-Safe Coordinates Registry ───────────────────────────────────────
+type CoordinateRegistry struct {
+	mu        sync.RWMutex
+	Allocated map[string]string // maps plain coords like "0x1A" to HTML5 entities like "&#48;&#120;&#49;&#65;"
+}
+
+var coordRegistry = &CoordinateRegistry{
+	Allocated: make(map[string]string),
+}
+
+func convertToHTML5Entities(s string) string {
+	var result string
+	for _, char := range s {
+		result += fmt.Sprintf("&#%d;", char)
+	}
+	return result
+}
+
+func handleHTMLEntities(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type RequestPayload struct {
+		HexCoord string `json:"hexCoord"`
+	}
+	var req RequestPayload
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	coordRegistry.mu.Lock()
+	defer coordRegistry.mu.Unlock()
+
+	entities := convertToHTML5Entities(req.HexCoord)
+	coordRegistry.Allocated[req.HexCoord] = entities
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":         true,
+		"hexCoord":        req.HexCoord,
+		"htmlEntity":      entities,
+		"registeredCount": len(coordRegistry.Allocated),
+	})
+}
+
 func main() {
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/api/physics/energy-cost", handlePhysicsCost)
@@ -556,6 +607,7 @@ func main() {
 	})
 	http.HandleFunc("/api/telemetry/vision", handleVisionTelemetry)
 	http.HandleFunc("/api/telemetry/analytics", handleGetAnalytics)
+	http.HandleFunc("/api/scenarios/html5-entities", handleHTMLEntities)
 	http.HandleFunc("/health", handleHealth)
 
 	port := 8081
