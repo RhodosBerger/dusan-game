@@ -17,7 +17,24 @@ import CorporateSimulationPanel from './components/CorporateSimulationPanel';
 export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<any>(null);
-  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [selectedCards, setSelectedCards] = useState<any[]>([]);
+  const selectedCard = selectedCards[0] || null;
+  const setSelectedCard = (card: any) => {
+    if (!card) {
+      setSelectedCards([]);
+      return;
+    }
+    setSelectedCards(prev => {
+      const exists = prev.find(c => c.id === card.id);
+      if (exists) {
+        return prev.filter(c => c.id !== card.id);
+      }
+      if (prev.length < 2) {
+        return [...prev, card];
+      }
+      return [prev[1], card];
+    });
+  };
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [hoveredNode, setHoveredNode] = useState<any>(null);
   const [myThreadId] = useState<string>('thread_king_ai');
@@ -154,8 +171,33 @@ export default function App() {
           targetHex: selectedNode.subIndex
         });
       }
-      setSelectedCard(null);
+      setSelectedCards([]);
       setSelectedNode(null);
+    }
+  };
+
+  const handleFuseCards = () => {
+    if (selectedCards.length === 2) {
+      fetch('/api/cards/fuse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardId1: selectedCards[0].id,
+          cardId2: selectedCards[1].id,
+          playerId: myThreadId,
+          matchId
+        })
+      })
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (data && data.success) {
+            setGameState(data.gameState);
+            setSelectedCards([]);
+            setSelectedNode(null);
+            console.log('[FUSION] Cards fused successfully!');
+          }
+        })
+        .catch(err => console.error('[FUSION] Failed to fuse cards:', err));
     }
   };
 
@@ -396,12 +438,14 @@ export default function App() {
         setEntropy={setEntropy}
         cards={cards}
         selectedCard={selectedCard}
+        selectedCards={selectedCards}
         setSelectedCard={setSelectedCard}
         selectedNode={selectedNode}
         setSelectedNode={setSelectedNode}
         hoveredNode={hoveredNode}
         onMoveHero={handleMoveHero}
         onExecuteAction={handleExecuteAction}
+        onFuseCards={handleFuseCards}
         onEndTurn={handleEndTurn}
         onResetSimulation={handleResetSimulation}
         onEvolveScene={handleEvolveScene}

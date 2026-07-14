@@ -797,6 +797,7 @@ export default function BabylonCanvasRenderer({
     spellBeam.material = beamMat;
 
     let activeTrajLine: any = null;
+    let activeFusionPreview: any = null;
 
     // Dynamic node mapping logic
     const hexNodes: any[] = [];
@@ -827,6 +828,52 @@ export default function BabylonCanvasRenderer({
         tooth.material = gearMat;
       }
       return gearGroup;
+    };
+
+    const createProceduralFusionMesh = (parentTypes: string[], x: number, y: number, z: number, colorHex: string, height: number) => {
+      const group = MeshBuilder.CreateBox('fusionGroup', { size: 0.01 }, scene);
+      group.position = new Vector3(x, y + 0.6, z);
+
+      const color = Color3.FromHexString(colorHex);
+      const mat = new StandardMaterial('fusionMat', scene);
+      mat.diffuseColor = color;
+      mat.emissiveColor = color.scale(0.4);
+      mat.roughness = 0.2;
+
+      parentTypes.forEach((type, idx) => {
+        const offsetMultiplier = idx === 0 ? -1 : 1;
+        if (type === 'ATTACK') {
+          const blade = MeshBuilder.CreateBox('blade', { width: 0.12, height: 0.8, depth: 0.3 }, scene);
+          blade.parent = group;
+          blade.position.x = 0.25 * offsetMultiplier;
+          blade.material = mat;
+          shadowGenerator.addShadowCaster(blade);
+        } else if (type === 'MAGIC') {
+          const crystal = MeshBuilder.CreateCylinder('crystal', { diameter: 0.28, height: 0.7, tessellation: 6 }, scene);
+          crystal.parent = group;
+          crystal.position.x = 0.25 * offsetMultiplier;
+          crystal.material = mat;
+          shadowGenerator.addShadowCaster(crystal);
+        } else if (type === 'MOVE') {
+          const ring = MeshBuilder.CreateTorus('ring', { diameter: 0.55, thickness: 0.06, tessellation: 8 }, scene);
+          ring.parent = group;
+          ring.position.x = 0.25 * offsetMultiplier;
+          ring.rotation.x = Math.PI / 4;
+          ring.material = mat;
+          shadowGenerator.addShadowCaster(ring);
+        } else if (type === 'TRAP') {
+          const gear = MeshBuilder.CreateCylinder('gear', { diameter: 0.5, height: 0.1, tessellation: 8 }, scene);
+          gear.parent = group;
+          gear.position.x = 0.25 * offsetMultiplier;
+          gear.rotation.x = Math.PI / 2;
+          gear.material = mat;
+          shadowGenerator.addShadowCaster(gear);
+        }
+      });
+
+      group.scaling.set(0.8 + height * 0.2, 0.8 + height * 0.2, 0.8 + height * 0.2);
+
+      return group;
     };
 
     const criticalLayer = () => {
@@ -1405,6 +1452,37 @@ export default function BabylonCanvasRenderer({
         spellBeam.setEnabled(true);
       } else {
         spellBeam.setEnabled(false);
+      }
+
+      // Fused card preview rendering
+      if (selectedCardRef.current && (selectedCardRef.current as any).parentTypes && hoveredNodeRef.current) {
+        const targetNode = hexNodes.find(n => n.chunkId === hoveredNodeRef.current.macroIndex && n.blockId === hoveredNodeRef.current.subIndex);
+        if (targetNode) {
+          const parentTypes = (selectedCardRef.current as any).parentTypes;
+          const visual = (selectedCardRef.current as any).visualProfile || { height: 1.0, colorHex: '#a855f7' };
+          
+          if (!activeFusionPreview) {
+            activeFusionPreview = createProceduralFusionMesh(
+              parentTypes,
+              targetNode.mesh.position.x,
+              targetNode.mesh.position.y + 0.3,
+              targetNode.mesh.position.z,
+              visual.colorHex,
+              visual.height
+            );
+          } else {
+            activeFusionPreview.position.x = targetNode.mesh.position.x;
+            activeFusionPreview.position.z = targetNode.mesh.position.z;
+            activeFusionPreview.position.y = targetNode.mesh.position.y + 0.3;
+          }
+          activeFusionPreview.rotation.y += 0.02;
+          activeFusionPreview.setEnabled(true);
+        }
+      } else {
+        if (activeFusionPreview) {
+          activeFusionPreview.dispose();
+          activeFusionPreview = null;
+        }
       }
 
       // 8-Directional Vector Guidance Line Overlay (Goal 5)

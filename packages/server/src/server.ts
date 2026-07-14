@@ -1204,6 +1204,78 @@ app.post('/api/predict/log', (req, res) => {
   }
 });
 
+app.post('/api/cards/fuse', (req, res) => {
+  try {
+    const { cardId1, cardId2, playerId, matchId } = req.body;
+    
+    // Find engine context: check activeMatches first, then fallback to defaultEngine
+    let targetEngine = defaultEngine;
+    if (matchId && activeMatches.has(matchId)) {
+      const matchObj = activeMatches.get(matchId);
+      if (matchObj && matchObj.engine) {
+        targetEngine = matchObj.engine;
+      }
+    }
+
+    const player = targetEngine.threads.find((t: any) => t.id === playerId);
+    if (!player) {
+      res.status(404).json({ error: 'Player thread not found.' });
+      return;
+    }
+
+    const c1Index = player.currentBuffer.findIndex((c: any) => c.id === cardId1);
+    const c2Index = player.currentBuffer.findIndex((c: any) => c.id === cardId2);
+
+    if (c1Index === -1 || c2Index === -1 || cardId1 === cardId2) {
+      res.status(400).json({ error: 'One or both cards not found in hand.' });
+      return;
+    }
+
+    const c1 = player.currentBuffer[c1Index];
+    const c2 = player.currentBuffer[c2Index];
+
+    const c1Cost = c1.cost !== undefined ? c1.cost : (c1.energyCost !== undefined ? c1.energyCost : 1);
+    const c2Cost = c2.cost !== undefined ? c2.cost : (c2.energyCost !== undefined ? c2.energyCost : 1);
+    const avgCost = Math.ceil((c1Cost + c2Cost) / 2);
+    const fusedType = c1.type === c2.type ? c1.type : 'HYBRID';
+    
+    const visualProfile = SovereignPredictiveGenerator.predictNextState(0, 0, c1.id + c2.id);
+
+    const fusedCard = {
+      id: `fused_${c1.id}_${c2.id}_${Date.now()}`,
+      name: `${c1.name.split(' ')[0]} ${c2.name.split(' ').slice(-1)[0]}`,
+      type: fusedType === 'HYBRID' ? 'ACTION' : fusedType,
+      cost: avgCost,
+      energyCost: avgCost,
+      damage: Math.max(c1.damage || 1, c2.damage || 1),
+      armor: Math.max(c1.armor || 0, c2.armor || 0),
+      hpChange: Math.max(c1.hpChange || 1, c2.hpChange || 1),
+      isUltimate: false,
+      effects: {
+        thermalThrottling: false,
+        chronoLock: false,
+        syntaxMute: false,
+        threadIsolation: false
+      },
+      desc: `FUSED: ${c1.desc || ''} + ${c2.desc || ''}`,
+      visualProfile,
+      parentTypes: [c1.type, c2.type]
+    };
+
+    player.currentBuffer = player.currentBuffer.filter((_: any, idx: number) => idx !== c1Index && idx !== c2Index);
+    player.currentBuffer.push(fusedCard);
+
+    if (matchId && activeMatches.has(matchId)) {
+      saveEngineState(targetEngine, matchId);
+      io.to(matchId).emit('state_resolved', targetEngine.getState());
+    }
+
+    res.json({ success: true, fusedCard, gameState: targetEngine.getState() });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/telemetry/planning', (req, res) => {
   try {
     const { playedCards = [], availableEnergy = 50, currentPhase = 'ACTION' } = req.body;

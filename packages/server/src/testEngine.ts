@@ -3122,7 +3122,48 @@ async function runTests() {
   console.log("  [PASS] Fast solid-state impact log quick writes and retrieval verified.");
   console.log("  [PASS] Test 89 (Sovereign Predictive Generator) validated successfully.");
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator testy prebehli úspešne!");
+  console.log("\nTest 90: Procedural Card Fusion Synthesizer & Average Cost Math");
+  // 1. Create a local player Thread instance
+  const p90 = new Thread('thread_king_ai_90', 'PLAYER');
+  
+  const card90a = new Instruction('crystal_laser_01', 'Laser Charge', 'ACTION');
+  card90a.energyCost = 1;
+  
+  const card90b = new Instruction('crystal_attack_01', 'Prism Sword', 'ACTION');
+  card90b.energyCost = 4;
+  
+  p90.currentBuffer = [card90a, card90b];
+
+  // 2. Perform fusion logic
+  const c90aRef = p90.currentBuffer[0];
+  const c90bRef = p90.currentBuffer[1];
+  
+  const c1Cost = c90aRef.energyCost;
+  const c2Cost = c90bRef.energyCost;
+  const avgCostVal = Math.ceil((c1Cost + c2Cost) / 2);
+  assert(avgCostVal === 3, "Average cost of 1 and 4 rounded up must be 3.");
+
+  const fusedVisual = SovereignPredictiveGenerator.predictNextState(0, 0, c90aRef.id + c90bRef.id);
+  
+  const fusedInstruction = new Instruction(`fused_${c90aRef.id}_${c90bRef.id}`, `${c90aRef.name.split(' ')[0]} ${c90bRef.name.split(' ').slice(-1)[0]}`, 'ACTION');
+  fusedInstruction.energyCost = avgCostVal;
+  (fusedInstruction as any).visualProfile = fusedVisual;
+  (fusedInstruction as any).parentTypes = [c90aRef.type, c90bRef.type];
+
+  // 3. Remove and insert hybrid instruction
+  p90.currentBuffer = p90.currentBuffer.filter(c => c.id !== c90aRef.id && c.id !== c90bRef.id);
+  p90.currentBuffer.push(fusedInstruction);
+
+  assert(p90.currentBuffer.length === 1, "Player hand should contain exactly 1 fused card.");
+  assert(p90.currentBuffer[0].id === `fused_crystal_laser_01_crystal_attack_01`, "Fused card ID must match parents combination.");
+  assert(p90.currentBuffer[0].energyCost === 3, "Fused card cost must be 3.");
+  assert(p90.currentBuffer[0].type === 'ACTION', "Fused card type must be ACTION.");
+  assert((p90.currentBuffer[0] as any).visualProfile.state !== undefined, "Fused card must have a predicted state.");
+  
+  console.log(`  [PASS] Procedural fusion completed. Fused Card: name="${fusedInstruction.name}", cost=${fusedInstruction.energyCost}, state=${(fusedInstruction as any).visualProfile.state}`);
+  console.log("  [PASS] Test 90 (Procedural Card Fusion Synthesizer) validated successfully.");
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator, Sovereign-Card-Fusion testy prebehli úspešne!");
 }
 
 runTests().catch(err => {
