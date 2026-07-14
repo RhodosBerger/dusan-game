@@ -31,6 +31,7 @@ import { SovereignStatisticsReporter } from './models/SovereignStatisticsReporte
 import { SovereignTelemetrySpawner } from './models/SovereignTelemetrySpawner';
 import { SovereignCombinatoricsRegistry } from './models/SovereignCombinatoricsRegistry';
 import { ClickHouseTelemetryClient } from './models/ClickHouseTelemetryClient';
+import { SovereignLayerLogger } from './utils/SovereignLayerLogger';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
 
@@ -1163,6 +1164,51 @@ app.get('/api/telemetry', (req, res) => {
       currentPhase: defaultEngine.turnStateMachine.currentPhase,
       traceLog: defaultEngine.traceLog,
       globalEntropy: defaultEngine.dungeonState.totalEntropy
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/telemetry/planning', (req, res) => {
+  try {
+    const { playedCards = [], availableEnergy = 50, currentPhase = 'ACTION' } = req.body;
+    
+    // 1. Get layers performance report
+    const report = SovereignLayerLogger.generatePerformanceReport();
+    
+    // 2. Detect combination played
+    const detectedCombo = SovereignCombinatoricsRegistry.detectComboPlayed(playedCards);
+    
+    // 3. Plan resource allocation between phases (Mulligan vs Action)
+    const comboPower = detectedCombo ? detectedCombo.power_rating : 0;
+    const efficiencyIndex = Math.min(1.0, 0.5 + (comboPower / 50.0));
+    
+    // Resource split calculations
+    let mulliganAllocation = 0;
+    let actionAllocation = availableEnergy;
+    
+    if (currentPhase === 'MULLIGAN') {
+      mulliganAllocation = Math.round(availableEnergy * 0.4);
+      actionAllocation = availableEnergy - mulliganAllocation;
+    } else {
+      mulliganAllocation = Math.round(availableEnergy * 0.1);
+      actionAllocation = availableEnergy - mulliganAllocation;
+    }
+    
+    res.status(200).json({
+      report,
+      detectedCombo,
+      planning: {
+        mulliganAllocation,
+        actionAllocation,
+        efficiencyIndex,
+        totalEnergySpent: availableEnergy,
+        phaseDistributions: {
+          MULLIGAN: mulliganAllocation,
+          ACTION: actionAllocation
+        }
+      }
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

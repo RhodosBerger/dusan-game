@@ -18,9 +18,18 @@ export class Thread {
   freeMovementUsed: boolean;
   
   get handLimit(): number {
-    return 4 + this.axiomaticFlags;
+    return (this.maxHandSize || 4) + this.axiomaticFlags;
   }
   
+  altitudeTier: 'LOW_GROUND' | 'STANDARD_HEX' | 'HIGH_OVERCLOCK';
+  unitType: 'HERO' | 'TOWER' | 'FLAG' | 'NPC' | 'MONSTER';
+  isCollectible: boolean;
+  collectedFlags: number;
+  maxHandSize: number;
+  baseResistance: number;
+  memoryIntegrity: number;
+  superpositionState: 'WAVE_FUNCTION' | 'ENTANGLED' | 'SCHRODINGER_SHIELD' | null;
+
   materials: Record<string, number>;
   quests: Quest[];
   items: { itemKey: string; category: string; quantity: number; durability: number }[];
@@ -84,6 +93,15 @@ export class Thread {
     this.isDisarmed = false;
     this.isSilenced = false;
     this.isStealthed = false;
+
+    this.altitudeTier = 'STANDARD_HEX';
+    this.unitType = type === 'PLAYER' ? 'HERO' : type === 'NPC' ? 'NPC' : 'TOWER';
+    this.isCollectible = false;
+    this.collectedFlags = 0;
+    this.maxHandSize = 4;
+    this.baseResistance = 1.0;
+    this.memoryIntegrity = 15;
+    this.superpositionState = null;
 
     this.position = { meta: null, hex: null };
     this.currentBuffer = [];
@@ -224,7 +242,15 @@ export class Thread {
       discardPileCount: this.discardPile.length,
       items: this.items,
       wounds: this.wounds,
-      towerHeightRanges: this.getTowerHeightRanges()
+      towerHeightRanges: this.getTowerHeightRanges(),
+      altitudeTier: this.altitudeTier,
+      unitType: this.unitType,
+      isCollectible: this.isCollectible,
+      collectedFlags: this.collectedFlags,
+      maxHandSize: this.maxHandSize,
+      baseResistance: this.baseResistance,
+      memoryIntegrity: this.memoryIntegrity,
+      superpositionState: this.superpositionState
     };
   }
 }

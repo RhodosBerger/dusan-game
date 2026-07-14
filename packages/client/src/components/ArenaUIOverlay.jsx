@@ -1189,7 +1189,7 @@ export default function ArenaUIOverlay({
 
 
             {/* Spodná ruka kariet (Spodný HUD z bodu 2 checklistu) */}
-            <div className="w-full flex flex-col items-center gap-2 pointer-events-auto pb-4">
+            <div className="w-full h-[30vh] flex flex-col items-center justify-center gap-2 pointer-events-auto bg-slate-950/20 backdrop-blur-md border-t border-cyan-500/25 px-6 py-2 mt-auto">
                 {/* Compact Horizontal Action / Node Dock */}
                 {selectedCard && (
                     <div className="flex flex-col md:flex-row gap-3 items-stretch justify-center max-w-full mb-1">
@@ -1341,7 +1341,7 @@ export default function ArenaUIOverlay({
                     </div>
                 )}
 
-                <div className="glass-panel-heavy p-3 md:p-4 rounded-2xl flex gap-2.5 md:gap-3 shadow-2xl max-w-full overflow-x-auto custom-scrollbar border border-cyan-500/20">
+                <div className="flex gap-2.5 md:gap-3 max-w-full overflow-x-auto custom-scrollbar p-1">
                     {cards.length === 0 ? (
                         <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>
                     ) : (

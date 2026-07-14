@@ -219,6 +219,21 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState, selectedCard, selectedNode]);
 
+  // Sledovanie zmeny/miešania/výmeny kariet pre vysielanie animácií na mriežku
+  const currentHand = useMemo(() => {
+    const activePlayerId = gameState?.activePlayerId || 'thread_king_ai';
+    return gameState?.threads?.find(t => t.id === activePlayerId)?.currentBuffer || [];
+  }, [gameState, gameState?.activePlayerId]);
+
+  const lastCardsStr = useRef('');
+  useEffect(() => {
+    const cardsStr = currentHand.map(c => c.id).join(',');
+    if (lastCardsStr.current && lastCardsStr.current !== cardsStr) {
+      window.dispatchEvent(new CustomEvent('grid_shuffle_pulse'));
+    }
+    lastCardsStr.current = cardsStr;
+  }, [currentHand]);
+
   // Načítanie semantických sektorov a telemetrie prostredia
   useEffect(() => {
     if (!gameState) return;
@@ -655,35 +670,41 @@ function App() {
 
   return (
     <div 
-      className="w-full h-screen relative bg-black overflow-hidden"
+      className="w-full h-screen flex flex-col bg-black overflow-hidden"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleCanvasDrop}
     >
-      {/* 3D WebGL Render Shell */}
-      <CanvasRenderer3D 
-        entropy={entropy} 
-        threads={gameState?.threads || []}
-        myThreadId={myThreadId}
-        selectedNode={selectedNode}
-        onNodeClick={handleNodeClick}
-        selectedCard={selectedCard}
-        onExecuteAction={handleExecuteAction}
-        onMoveHero={handleMoveHero}
-        shakeIntensity={shakeIntensity}
-        turnsElapsed={gameState?.turnsElapsed || 1}
-        map={gameState?.map}
-        terrainTelemetry={terrainTelemetry}
-        ultimateFlash={ultimateFlash}
-        gameMode={gameMode}
-        weatherOverride={weatherOverride}
-        activeTransitions={activeTransitions}
-        onTransitionComplete={(id) => setActiveTransitions(prev => prev.filter(t => t.id !== id))}
-        surgeTile={surgeTile}
-        scorchedTiles={scorchedTiles}
-        hoveredNode={hoveredNode}
-        setHoveredNode={setHoveredNode}
-        realityPhase={realityPhase}
-      />
+      {/* Top 70% Viewport: Zoomable Hexagon World */}
+      <div className="w-full h-[70vh] relative overflow-hidden">
+        <CanvasRenderer3D 
+          entropy={entropy} 
+          threads={gameState?.threads || []}
+          myThreadId={myThreadId}
+          selectedNode={selectedNode}
+          onNodeClick={handleNodeClick}
+          selectedCard={selectedCard}
+          onExecuteAction={handleExecuteAction}
+          onMoveHero={handleMoveHero}
+          shakeIntensity={shakeIntensity}
+          turnsElapsed={gameState?.turnsElapsed || 1}
+          map={gameState?.map}
+          terrainTelemetry={terrainTelemetry}
+          ultimateFlash={ultimateFlash}
+          gameMode={gameMode}
+          weatherOverride={weatherOverride}
+          activeTransitions={activeTransitions}
+          onTransitionComplete={(id) => setActiveTransitions(prev => prev.filter(t => t.id !== id))}
+          surgeTile={surgeTile}
+          scorchedTiles={scorchedTiles}
+          hoveredNode={hoveredNode}
+          setHoveredNode={setHoveredNode}
+          realityPhase={realityPhase}
+        />
+      </div>
+
+      {/* Bottom 30% Viewport: Translucent Card Hand Area */}
+      <div className="w-full h-[30vh] relative bg-[#090a10] border-t border-cyan-500/20 overflow-hidden">
+      </div>
       
       {/* Cyber-Glassmorphism Tailwind UI */}
       <ArenaUIOverlay 

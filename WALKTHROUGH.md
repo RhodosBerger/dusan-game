@@ -310,8 +310,29 @@ Vytvorili sme kompletnú Docker konfiguráciu pre automatické spúšťanie a be
     *   Redis inštancie (`redis`) pre potreby Matchmaking Workera.
     *   Go Core a Express serverov s prepojenou konfiguráciou cez premennú `GO_CORE_URL`.
 
-**Spustenie v Dockeri:**
+*   **Spustenie v Dockeri:**
 ```bash
 docker-compose up --build
 ```
 Po zbehnutí príkazu sú všetky služby prepojené a automaticky spustené.
+
+---
+
+### AK. Sprint Sovereign AI Opponent & CommonJS Server Staging (V3.1)
+
+Implementovali sme plnohodnotný tréningový režim proti umelej inteligencii (vs AI) v našom modernizovanom Babylon.js stacku:
+
+*   **Stateless AI Opponent Director (`AIOpponentDirector.ts`):**
+    *   Vytvorili sme dedikovaný stavový simulátor [AIOpponentDirector.ts](file:///home/rhoddos_berger/Documents/Github/dusan-game/packages/babylon-sovereign/src/server/models/AIOpponentDirector.ts), ktorý riadi správanie AI protivníka (`thread_hacker_root`).
+    *   **Decision Tree Matrix:** Pri každom tiku ťahu AI (1-sekundový interval) vyhodnocuje optimálne akcie na základe euklidovskej a manhattanskej vzdialenosti metapozícií:
+        1. *Attack:* Ak je nepriateľ v dosahu, AI automaticky zahraje útočnú kartu a vyrieši poškodenie cez prepojený **Go Core** bridge (s fallbackom na lokálne TS výpočty).
+        2. *Advance:* Ak nepriateľ nie je v dosahu a AI má voľný pohyb, presunie sa o 1 metapozíciu bližšie k hráčovi.
+        3. *Pass:* Ak nie sú dostupné iné akcie, korektne ukončí svoj ťah a odovzdá ho human hráčovi.
+*   **Auto-Approved Mulligan for AI:**
+    *   Pri štarte AI zápasu server automaticky označí mulligan AI protivníka za dokončený, čím predchádza deadlocku stavového automatu.
+*   **Server Module System Shift (CommonJS Staging):**
+    *   Zmenili sme typ projektu `babylon-sovereign` v `package.json` na `commonjs` a zosynchronizovali `tsconfig.server.json` tak, aby ts-node spúšťal server bez ES Module kolízií a explicitných prípon `.js` v importoch.
+    *   Vytvorili sme dedikovaný konfigurátor [nodemon.json](file:///home/rhoddos_berger/Documents/Github/dusan-game/packages/babylon-sovereign/nodemon.json) pre konzistentné automatické reštarty servera pri vývoji.
+*   **Defensive UI Fallbacks:**
+    *   Pridali sme ochranné fallbacky do [SovereignBuilderCMS.jsx](file:///home/rhoddos_berger/Documents/Github/dusan-game/packages/babylon-sovereign/src/client/components/SovereignBuilderCMS.jsx) na zabránenie crashovaniu Reactu v prípade chýbajúcich mapových dát (auto-generuje 63-hexových uzlov).
+

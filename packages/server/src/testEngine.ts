@@ -8,7 +8,9 @@ import { DatabaseSyncManager } from './models/DatabaseSyncManager';
 import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignEffectSequencer, SovereignElementorRegistry, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { TelemetryBigQueryService } from './services/TelemetryBigQueryService';
-import { GameState, resolveEngineState } from './models/EnginePipeline';
+import { GameState, resolveEngineState, EnginePipeline } from './models/EnginePipeline';
+import { SovereignIntrospectionEngine } from './models/SovereignIntrospectionEngine';
+import { GameMap } from './models/Map';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -2967,13 +2969,21 @@ async function runTests() {
   // Set starting energy
   testEngine86.systemEnergy = 50;
 
+  // Clear any procedural opportunity on target tiles to prevent double energy modification
+  const chunk02 = testEngine86.map.chunks.find(c => c.id === 0);
+  const hex02 = chunk02?.blocks.find(b => b.id === 2);
+  if (hex02) hex02.hasOpportunity = null;
+  const chunk03 = testEngine86.map.chunks.find(c => c.id === 0);
+  const hex03 = chunk03?.blocks.find(b => b.id === 3);
+  if (hex03) hex03.hasOpportunity = null;
+
   // Move player to the flag position (0, 2)
   player86.position = { meta: 0, hex: 2 };
   testEngine86.triggerOpportunityCheck(player86, 0, 2);
 
   // The flag thread must be collected (removed from threads list) and grant 10 energy
-  const flagAfter = testEngine86.threads.find(t => t.id === 'sample_flag_01');
-  assert(!flagAfter, "Flag thread should be collected/removed after player walks onto it.");
+  const flagAfter86 = testEngine86.threads.find(t => t.id === 'sample_flag_01');
+  assert(!flagAfter86, "Flag thread should be collected/removed after player walks onto it.");
   assert(testEngine86.systemEnergy === 60, "Collecting flag should increase system energy by 10 (50 -> 60).");
 
   // Move player to the tower position (0, 3)
@@ -2981,8 +2991,8 @@ async function runTests() {
   testEngine86.triggerOpportunityCheck(player86, 0, 3);
 
   // The tower thread must be collected and grant 5 energy
-  const towerAfter = testEngine86.threads.find(t => t.id === 'sample_tower_01');
-  assert(!towerAfter, "Tower thread should be collected/removed after player walks onto it.");
+  const towerAfter86 = testEngine86.threads.find(t => t.id === 'sample_tower_01');
+  assert(!towerAfter86, "Tower thread should be collected/removed after player walks onto it.");
   assert(testEngine86.systemEnergy === 65, "Collecting/dismantling tower should increase system energy by 5 (60 -> 65).");
 
   console.log(`  [PASS] Towers and flags instantiated in identical thread formats.`);
@@ -2990,7 +3000,104 @@ async function runTests() {
   console.log(`  [PASS] Opportunity collection of flag and tower threads verified.`);
   console.log(`  [PASS] Test 86 (Helper Tower/Flag Collection & Ranges) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection testy prebehli úspešne!");
+  // ----------------------------------------------------
+  // TEST 87: Helper Tower Altitude Reach & Flag Collect
+  // ----------------------------------------------------
+  console.log("\nTest 87: Helper Tower Altitude Reach & Flag Collect Validation");
+  // Inicializácia testovacieho bezstavového rigidného prostredia
+  const mockState87: any = {
+    systemHeat: 0,
+    globalEntropy: 0.1,
+    threads: [
+      {
+        id: 'player_hero_root',
+        unitType: 'HERO',
+        collectedFlags: 0,
+        maxHandSize: 4,
+        position: { meta: 4, hex: 0 },
+        baseResistance: 1.0,
+        memoryIntegrity: 15
+      } as any,
+      {
+        id: 'collectible_flag_01',
+        unitType: 'FLAG',
+        isCollectible: true,
+        position: { meta: 4, hex: 0 } // Na rovnakej metapozícii pre úspešný zber
+      } as any,
+      {
+        id: 'helper_tower_low',
+        unitType: 'TOWER',
+        faction: 'CRYSTAL',
+        altitudeTier: 'LOW_GROUND', // Pozícia zo spodu (znevýhodnená)
+        attackReach: 2,
+        baseResistance: 1.0,
+        memoryIntegrity: 10
+      } as any
+    ]
+  };
+
+  // SCENÁR A: Zber vlajky (Collect Action)
+  const stateAfterCollect = EnginePipeline.resolveEngineState(mockState87, {
+    actorId: 'player_hero_root',
+    voltage: 0,
+    resistance: 0,
+    semanticErosion: 0
+  } as any, 'collectible_flag_01');
+
+  const playerAfter87 = stateAfterCollect.threads.find((t: any) => t.id === 'player_hero_root');
+  const flagAfter87 = stateAfterCollect.threads.find((t: any) => t.id === 'collectible_flag_01');
+
+  if (flagAfter87 !== undefined || playerAfter87?.collectedFlags !== 1 || playerAfter87?.maxHandSize !== 5) {
+    throw new Error("[FAIL] Test 87: Flag collection engine logic failed to increment parameters.");
+  }
+  console.log("  [PASS] Flag collected successfully: Hand size scaled from 4 to 5 cards dynamically.");
+
+  // SCENÁR B: Výpočet dostrelu veže zo spodu (Disadvantaged Altitude Mod)
+  const reachModResult = EnginePipeline.calculateAltitudeReachModifier('LOW_GROUND', 'STANDARD_HEX');
+  if (reachModResult.reachMod !== -1) {
+    throw new Error(`[FAIL] Test 87: Disadvantaged reach modifier incorrect. Expected -1, got ${reachModResult.reachMod}`);
+  }
+  console.log("  [PASS] Znevýhodnený dostrel zo spodu z plochy hexagonu úspešne penalizovaný o -1 reach.");
+  console.log("  [PASS] Test 87 (Helper Tower Altitude Reach & Flag Collect) validated successfully.");
+
+  // ----------------------------------------------------
+  // TEST 88: Sovereign Introspection & VPC Generator
+  // ----------------------------------------------------
+  console.log("\nTest 88: Sovereign Introspection & VPC Generator Validation");
+  const testTraces = [
+    "[LOG] Game initialized.",
+    "[LOG] Action voltage: 5.0 successful.",
+    "[LOG] OVERLOAD anomaly detected on circuit M0_H3.",
+    "[LOG] PASS: Flag collected successfully."
+  ];
+
+  // 1. Inverted Parsing Introspection
+  const metrics = SovereignIntrospectionEngine.introspectLogs(testTraces);
+  assert(metrics.anomaliesDetected === 1, "Should detect 1 anomaly trace.");
+  assert(metrics.activeLayerEfficiency === 0.25, "Efficiency rating should be 0.25 (1 PASS out of 4 total log records).");
+  console.log("  [PASS] Inverted parsing of traces correctly extracted efficiency and anomalies.");
+
+  // 2. VPC Position Adjustment
+  const mockTower = new Thread('tower_01', 'HELPER');
+  mockTower.unitType = 'TOWER';
+  mockTower.position = { meta: 0, hex: 3 };
+  mockTower.altitudeTier = 'STANDARD_HEX';
+
+  const vpcVectors = SovereignIntrospectionEngine.calculateVPC(metrics, [mockTower]);
+  assert(vpcVectors.length === 1, "Should generate 1 VPC vector for mock tower.");
+  assert(vpcVectors[0].targetMeta === 0 && vpcVectors[0].targetHex === 3, "VPC coordinates must target the tower position.");
+  console.log("  [PASS] VPC vectors calculated successfully for polymorphic towers.");
+
+  // 3. Gameplay Generator Refinement
+  const testMap = new GameMap();
+  SovereignIntrospectionEngine.refineGameplayGeneration(testMap, vpcVectors);
+
+  const blockM0_H3 = testMap.chunks.find(c => c.id === 0)?.blocks.find(b => b.id === 3)!;
+  assert(blockM0_H3.friction > 0.1, "Refined block friction must be adapted.");
+  console.log("  [PASS] Gameplay generator parameters refined successfully using VPC vectors.");
+  console.log("  [PASS] Test 88 (Sovereign Introspection & VPC) validated successfully.");
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

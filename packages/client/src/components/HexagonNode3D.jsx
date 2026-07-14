@@ -553,6 +553,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
     }, [isSelected, isHovered, isTargetable, targetableType, matrixInfo]);
 
     const [flash, setFlash] = React.useState(false);
+    const [shufflePulse, setShufflePulse] = React.useState(false);
 
     React.useEffect(() => {
         const handleEffect = (e) => {
@@ -572,9 +573,17 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             }
         };
 
+        const handleShuffle = () => {
+            setShufflePulse(true);
+            const timer = setTimeout(() => setShufflePulse(false), 800);
+            return () => clearTimeout(timer);
+        };
+
         window.addEventListener('card_played_effect', handleEffect);
+        window.addEventListener('grid_shuffle_pulse', handleShuffle);
         return () => {
             window.removeEventListener('card_played_effect', handleEffect);
+            window.removeEventListener('grid_shuffle_pulse', handleShuffle);
         };
     }, [node.macroIndex, node.subIndex]);
 
@@ -597,6 +606,12 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             targetLift = 0;
         } else if (isHovered || isSelected) {
             targetLift = 0.25;
+        } else if (shufflePulse) {
+            // Radial outward ripple propagation from grid center
+            const distance = Math.sqrt(node.position[0]*node.position[0] + node.position[2]*node.position[2]);
+            const delay = distance * 0.05;
+            const progress = time - delay;
+            targetLift = Math.sin(progress * 6.0) * 0.22;
         } else if (isSurgeActive || phase === 'SURGE') {
             // Smoothly elevate with dynamic oscillation wave based on time
             targetLift = 0.85 + Math.sin(time * 12.0) * 0.20;
@@ -662,9 +677,32 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         }
 
         if (innerMaterialRef.current) {
-            innerMaterialRef.current.color.set(isSelected ? "#00ffff" : isHovered ? "#3b82f6" : "#0c0f1d");
-            innerMaterialRef.current.emissive.set(isSelected ? "#00ffff" : isHovered ? "#22d3ee" : "#000000");
-            innerMaterialRef.current.emissiveIntensity = isSelected ? 1.5 : isHovered ? 0.8 : 0.0;
+            const phase = node.realityPhase || realityPhase || 'STANDARD';
+            let baseColor = "#0c0f1d";
+            let emissiveColor = "#000000";
+            let emissiveInt = 0.0;
+            
+            if (isSelected) {
+                baseColor = "#00ffff";
+                emissiveColor = "#00ffff";
+                emissiveInt = 1.8;
+            } else if (isHovered) {
+                baseColor = "#111827";
+                emissiveColor = "#22d3ee";
+                emissiveInt = 1.0;
+            } else if (shufflePulse) {
+                baseColor = "#1e1b4b";
+                emissiveColor = "#a855f7"; // Glowing purple during card shuffle/swap
+                emissiveInt = 1.4;
+            } else if (isSurgeActive || phase === 'SURGE') {
+                baseColor = "#064e3b";
+                emissiveColor = "#39ff14";
+                emissiveInt = 1.5;
+            }
+            
+            innerMaterialRef.current.color.set(baseColor);
+            innerMaterialRef.current.emissive.set(emissiveColor);
+            innerMaterialRef.current.emissiveIntensity = emissiveInt;
             innerMaterialRef.current.needsUpdate = true;
         }
     });
@@ -819,9 +857,9 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                     />
                 </mesh>
 
-                <lineSegments position={[0, 0, 0.41]}>
-                    <edgesGeometry args={[sharedConeEdgeGeometry]} />
-                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : isTargetable ? 0.8 : 0.45} />
+                <lineSegments position={[0, 0, 0.403]}>
+                    <edgesGeometry args={[sharedInnerHexGeometry]} />
+                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : isTargetable ? 0.8 : 0.4} linewidth={2} />
                 </lineSegments>
 
                 {/* Spell Casting VFX projected on the Hexagon */}

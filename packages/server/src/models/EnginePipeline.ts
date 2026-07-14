@@ -152,3 +152,94 @@ export function resolveEngineState(currentState: GameState): GameState {
 
   return nextState;
 }
+
+// ─── ALTITUDE & MOVEMENT PIPELINE EXTENSIONS ──────────────────────────────────
+import { SafeMath } from '../utils/SafeMath';
+import { SovereignSuperpositionEngine } from './SovereignSuperpositionEngine';
+
+export type AltitudeTier = 'LOW_GROUND' | 'STANDARD_HEX' | 'HIGH_OVERCLOCK';
+
+export interface InstructionPayload {
+  actorId: string;
+  voltage: number;
+  resistance: number;
+  semanticErosion: number;
+}
+
+export class EnginePipeline {
+  /**
+   * Vypočíta modifikátor dostrelu a prúdu na základe výškovej pozície Věže
+   */
+  public static calculateAltitudeReachModifier(attackerTier: AltitudeTier, targetTier: AltitudeTier): { reachMod: number, resistanceMod: number } {
+    // 1. Low Ground Advantage Deficit: LOW_GROUND up towards HIGH_OVERCLOCK (or vice versa)
+    if ((attackerTier === 'LOW_GROUND' && targetTier === 'HIGH_OVERCLOCK') || (attackerTier === 'HIGH_OVERCLOCK' && targetTier === 'LOW_GROUND')) {
+      return { reachMod: -2, resistanceMod: 1.5 };
+    }
+    // 2. Hex-to-Ground Disadvantage: LOW_GROUND targeting STANDARD_HEX
+    if (attackerTier === 'LOW_GROUND' && targetTier === 'STANDARD_HEX') {
+      return { reachMod: -1, resistanceMod: 0.5 };
+    }
+    // 3. Symmetric Baseline: Standard to Standard
+    return { reachMod: 0, resistanceMod: 0 };
+  }
+
+  /**
+   * Čistá stavová funkcia integrujúca zber vlajok (Collect) a superpozície veží
+   */
+  public static resolveEngineState(currentState: any, action: InstructionPayload, targetId: string): any {
+    const nextState: any = JSON.parse(JSON.stringify(currentState));
+    const actor = nextState.threads.find((t: any) => t.id === action.actorId);
+    const target = nextState.threads.find((t: any) => t.id === targetId);
+
+    if (!actor) return nextState;
+
+    // MECHANIKA: ZBER VLAJOK (Collect Flag)
+    if (target && target.isCollectible && target.unitType === 'FLAG') {
+      // Overenie vzdialenosti (dosah nula = rovnaká metapozícia)
+      if (actor.position && target.position && actor.position.meta === target.position.meta) {
+        actor.collectedFlags = (actor.collectedFlags || 0) + 1;
+        actor.maxHandSize = 4 + actor.collectedFlags; // Trvale zvyšuje limit kariet
+        
+        // Odstránenie vlajky z hernej plochy (De-alokácia zberom)
+        nextState.threads = nextState.threads.filter((t: any) => t.id !== targetId);
+        return nextState;
+      }
+    }
+
+    // VYHODNOTENIE OHMOVHO ZÁKONA S ALTITUDE MODIFIKÁTOROM & KVANTOVOU SUPERPOZÍCIOU
+    if (target && actor.unitType === 'TOWER') {
+      const modifier = this.calculateAltitudeReachModifier(actor.altitudeTier, target.altitudeTier);
+      
+      // Kvantové modifikátory superpozície
+      let baseVoltage = action.voltage;
+      let semanticErosion = action.semanticErosion;
+      
+      const actorSuper = actor.superpositionState;
+      const targetSuper = target.superpositionState;
+
+      if (actorSuper === 'WAVE_FUNCTION') {
+        baseVoltage *= 1.25;
+        semanticErosion = Math.round(semanticErosion * 1.3);
+      } else if (actorSuper === 'ENTANGLED') {
+        baseVoltage *= 1.5;
+      }
+
+      if (targetSuper === 'SCHRODINGER_SHIELD') {
+        baseVoltage *= 0.5;
+      }
+
+      // Výpočet prúdu s modifikovaným odporom
+      const totalR = SafeMath.clampMin((target.baseResistance || 1.0) + action.resistance + modifier.resistanceMod, 0.1);
+      const current = baseVoltage / totalR;
+
+      if (current >= 1.0) {
+        target.memoryIntegrity = SafeMath.subSaturate(target.memoryIntegrity, semanticErosion);
+      } else {
+        nextState.systemHeat += (1.0 - current) * 40;
+      }
+    }
+
+    return nextState;
+  }
+}
+

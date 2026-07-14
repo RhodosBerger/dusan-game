@@ -1,5 +1,5 @@
 # packages/server/Dockerfile
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY . .
 RUN yarn workspace @dusan-game/shared build
 
 # Production Stage
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 COPY --from=build /app /app
 EXPOSE 3001

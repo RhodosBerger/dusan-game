@@ -142,25 +142,11 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
         const z = focusedNode.position[2];
         const r = Math.sqrt(x * x + z * z);
         
-        // 1. Yaw (Head slant heading): skewed slightly based on tile position angle
-        const angleOffset = Math.atan2(z, x) - Math.PI / 4;
-        let yaw = Math.PI / 4 + Math.sin(angleOffset) * 0.12;
+        // 1. Yaw (Head slant heading): locked to stable view without skew animation
+        const yaw = Math.PI / 4;
 
-        // 2. Pitch (Elevation slant angle)
-        let pitch = 1.05; // Base 60 degrees
-        if (focusedNode.hazardIndex > 0.6) {
-            pitch = 1.14; // Low-angle dramatic slant for hazards
-        } else {
-            // Inner tiles: higher camera angle. Outer tiles: lower angle (flatter slant)
-            pitch = 0.96 + (r / 14.0) * 0.15;
-        }
-
-        // Apply biome modifications to slant
-        if (activeBiome === 'TOXIC_SWAMP') {
-            pitch += 0.08;
-        } else if (activeBiome === 'GLACIER') {
-            pitch -= 0.08;
-        }
+        // 2. Pitch (Elevation slant angle): locked to stable 2.5D angle
+        const pitch = 1.05;
 
         // 3. FOV (Zoom factor)
         let fov = 22;
@@ -374,7 +360,7 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode, realityPhase = 'STANDARD' }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode, realityPhase = 'STANDARD', onCollectFlag = () => {} }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -653,6 +639,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 realityPhase={realityPhase}
                                 matrixSource={matrixSource}
                                 threads={threads}
+                                onCollectFlag={onCollectFlag}
                             />
                         );
                     })}

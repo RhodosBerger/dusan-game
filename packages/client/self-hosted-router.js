@@ -7,23 +7,25 @@ import fs from 'fs';
 const app = express();
 const vercelConfig = JSON.parse(fs.readFileSync('./vercel.json', 'utf8'));
 
+const GO_CORE_URL = process.env.GO_CORE_URL || 'http://localhost:8081';
+const NODE_SERVER_URL = process.env.NODE_SERVER_URL || 'http://localhost:3001';
+
 // 1. Map vercel.json routes dynamically
 vercelConfig.routes.forEach(route => {
-    if (route.dest.includes('api/')) {
-        // Forward /api/go/* to Go Core microservice (port 8081)
-        if (route.src.includes('go')) {
-            app.use(route.src, createProxyMiddleware({
-                target: 'http://localhost:8081',
-                changeOrigin: true,
-                pathRewrite: { '^/api/go': '' }
-            }));
-        } else {
-            // Forward other /api/* to local Node server (port 3001)
-            app.use(route.src, createProxyMiddleware({
-                target: 'http://localhost:3001',
-                changeOrigin: true
-            }));
-        }
+    // Forward /api/go/* to Go Core microservice (port 8081)
+    if (route.src.includes('/api/go')) {
+        app.use('/api/go', createProxyMiddleware({
+            target: GO_CORE_URL,
+            changeOrigin: true,
+            pathRewrite: { '^/api/go': '' }
+        }));
+    } else if (route.src.includes('/api')) {
+        // Forward other /api/* to local Node server (port 3001)
+        app.use('/api', createProxyMiddleware({
+            target: NODE_SERVER_URL,
+            changeOrigin: true,
+            pathRewrite: (path) => '/api' + path
+        }));
     }
 });
 

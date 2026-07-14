@@ -26,4 +26,7 @@ services:
     depends_on:
       - go-core
       - node-server
+    environment:
+      - GO_CORE_URL=http://go-core:8081
+      - NODE_SERVER_URL=http://node-server:3001
     restart: always
