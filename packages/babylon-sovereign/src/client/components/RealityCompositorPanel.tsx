@@ -107,7 +107,7 @@ export default function RealityCompositorPanel({ isOpen, onClose }: RealityCompo
       previewMeshRef.current = null;
     }
 
-    const { target, colorHex, heightMultiplier, bevelOffset, rotationSpeed, teethCount } = simulationData;
+    const { target, colorHex, heightMultiplier, bevelOffset, rotationSpeed, teethCount, layers } = simulationData;
 
     // 1. Create root node group
     const root = MeshBuilder.CreateBox('root', { size: 0.01 }, scene);
@@ -123,40 +123,84 @@ export default function RealityCompositorPanel({ isOpen, onClose }: RealityCompo
     mat.roughness = 1.0 - bevelOffset;
     mat.metallic = bevelOffset * 2.0;
 
-    // 2. Build template geometry based on target
+    // A. Critical Layer (Snapping Wireframe Box Collider)
+    const collider = MeshBuilder.CreateBox('collider', { 
+      width: layers.critical.width, 
+      height: layers.critical.height, 
+      depth: layers.critical.depth 
+    }, scene);
+    collider.parent = root;
+    const colMat = new StandardMaterial('colliderMat', scene);
+    colMat.wireframe = true;
+    colMat.emissiveColor = new Color3(0.6, 0.1, 0.1);
+    collider.material = colMat;
+
+    // B. Structural Layer (Solid Core Shape)
     if (target === 'HEX') {
-      const hex = MeshBuilder.CreateCylinder('hex', { diameter: 1.4, height: heightMultiplier, tessellation: 6 }, scene);
+      const hex = MeshBuilder.CreateCylinder('hex', { 
+        diameter: layers.structural.diameter, 
+        height: layers.structural.height, 
+        tessellation: layers.structural.tessellation 
+      }, scene);
       hex.parent = root;
       hex.material = mat;
     } else if (target === 'GEAR') {
-      const baseGear = MeshBuilder.CreateCylinder('gearBase', { diameter: 1.1, height: 0.25, tessellation: 12 }, scene);
+      const baseGear = MeshBuilder.CreateCylinder('gearBase', { 
+        diameter: layers.structural.diameter, 
+        height: 0.25, 
+        tessellation: layers.structural.tessellation 
+      }, scene);
       baseGear.parent = root;
       baseGear.material = mat;
 
-      // Procedural teeth generator based on teethCount parameter
       for (let i = 0; i < teethCount; i++) {
         const angle = (i * Math.PI * 2) / teethCount;
         const tooth = MeshBuilder.CreateBox('tooth', { width: 0.15, height: 0.25, depth: 0.25 }, scene);
-        tooth.position = new Vector3(Math.cos(angle) * 0.58, 0, Math.sin(angle) * 0.58);
+        tooth.position = new Vector3(Math.cos(angle) * (layers.structural.diameter / 2 + 0.03), 0, Math.sin(angle) * (layers.structural.diameter / 2 + 0.03));
         tooth.rotation.y = -angle;
         tooth.parent = baseGear;
         tooth.material = mat;
       }
     } else if (target === 'CRYSTAL') {
-      const crystal = MeshBuilder.CreateCylinder('crystal', { diameterTop: 0, diameterBottom: 0.8, height: heightMultiplier, tessellation: 6 }, scene);
+      const crystal = MeshBuilder.CreateCylinder('crystal', { 
+        diameterTop: 0, 
+        diameterBottom: layers.structural.diameter, 
+        height: layers.structural.height, 
+        tessellation: 6 
+      }, scene);
       crystal.parent = root;
       crystal.material = mat;
     } else if (target === 'TOWER') {
-      const base = MeshBuilder.CreateCylinder('base', { diameter: 0.9, height: heightMultiplier * 0.6, tessellation: 8 }, scene);
+      const base = MeshBuilder.CreateCylinder('base', { 
+        diameter: layers.structural.diameter, 
+        height: layers.structural.height * 0.6, 
+        tessellation: layers.structural.tessellation 
+      }, scene);
       base.parent = root;
-      base.position.y = -0.3;
+      base.position.y = -0.15;
       base.material = mat;
 
-      const top = MeshBuilder.CreateBox('top', { width: 0.5, height: heightMultiplier * 0.4, depth: 0.5 }, scene);
+      const top = MeshBuilder.CreateBox('top', { 
+        width: layers.structural.diameter * 0.55, 
+        height: layers.structural.height * 0.4, 
+        depth: layers.structural.diameter * 0.55 
+      }, scene);
       top.parent = root;
-      top.position.y = heightMultiplier * 0.3;
+      top.position.y = layers.structural.height * 0.35;
       top.material = mat;
     }
+
+    // C. Cosmetic Layer (Outer Orbiting Rings / Accents)
+    const ring = MeshBuilder.CreateTorus('cosmeticRing', { 
+      diameter: layers.structural.diameter * 1.3, 
+      thickness: 0.03, 
+      tessellation: 12 
+    }, scene);
+    ring.parent = root;
+    ring.scaling.set(layers.cosmetic.scale, layers.cosmetic.scale, layers.cosmetic.scale);
+    const ringMat = new StandardMaterial('ringMat', scene);
+    ringMat.emissiveColor = Color3.FromHexString(layers.cosmetic.colorHex);
+    ring.material = ringMat;
 
     previewMeshRef.current = root;
 

@@ -1,3 +1,9 @@
+export interface GeometryLayer {
+    critical: { width: number; height: number; depth: number };
+    structural: { diameter: number; height: number; tessellation: number };
+    cosmetic: { speed: number; colorHex: string; scale: number };
+}
+
 export interface PhraseOutput {
     verb: string;
     target: string;
@@ -8,6 +14,7 @@ export interface PhraseOutput {
     colorHex: string;
     rotationSpeed: number;
     teethCount: number;
+    layers: GeometryLayer;
 }
 
 export class SovereignPhraseGenerator {
@@ -55,6 +62,25 @@ export class SovereignPhraseGenerator {
         const rotationSpeed = 0.01 + ((combinedHash % 70) / 1000); // 0.01 to 0.08
         const teethCount = 6 + (combinedHash % 19); // 6 to 24 teeth
 
+        // 3. RAG Semantic Shape Library layers with mutual topological coherence
+        const layers: GeometryLayer = {
+            critical: {
+                width: 0.8 + ((combinedHash % 40) / 100), // collider width
+                height: heightMultiplier * 0.9,           // collider height (coherently snapped)
+                depth: 0.8 + ((combinedHash % 40) / 100)
+            },
+            structural: {
+                diameter: 1.0 + ((combinedHash % 50) / 100),
+                height: heightMultiplier,                 // main base height
+                tessellation: t === 'HEX' ? 6 : (t === 'GEAR' ? 8 : 12)
+            },
+            cosmetic: {
+                speed: rotationSpeed,
+                colorHex,
+                scale: 1.0 + bevelOffset
+            }
+        };
+
         return {
             verb: v,
             target: t,
@@ -64,7 +90,8 @@ export class SovereignPhraseGenerator {
             hazardIndex,
             colorHex,
             rotationSpeed,
-            teethCount
+            teethCount,
+            layers
         };
     }
 }
