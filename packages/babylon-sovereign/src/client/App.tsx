@@ -13,6 +13,7 @@ import RPGClassBoard from './components/RPGClassBoard';
 import MetacognitiveArchitectureHub from './components/MetacognitiveArchitectureHub';
 import AdrenalineVignette from './components/AdrenalineVignette';
 import CorporateSimulationPanel from './components/CorporateSimulationPanel';
+import RealityCompositorPanel from './components/RealityCompositorPanel';
 
 export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -53,6 +54,7 @@ export default function App() {
   const [isAdminDiagnosticsOpen, setIsAdminDiagnosticsOpen] = useState<boolean>(false);
   const [isMetaHubOpen, setIsMetaHubOpen] = useState<boolean>(false);
   const [isCorpSimOpen, setIsCorpSimOpen] = useState<boolean>(false);
+  const [isRealityCompositorOpen, setIsRealityCompositorOpen] = useState<boolean>(false);
 
   // Combat VFX & Telemetry States
   const [entropy, setEntropy] = useState<number>(0.2);
@@ -537,6 +539,12 @@ export default function App() {
         >
           🏢 Corp Simulation
         </button>
+        <button 
+          onClick={() => setIsRealityCompositorOpen(true)}
+          className="bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all tracking-wider"
+        >
+          💠 Reality Compositor
+        </button>
       </div>
 
       {/* Float Panels Modals */}
@@ -562,6 +570,9 @@ export default function App() {
       )}
       {isCorpSimOpen && (
         <CorporateSimulationPanel onClose={() => setIsCorpSimOpen(false)} />
+      )}
+      {isRealityCompositorOpen && (
+        <RealityCompositorPanel isOpen={isRealityCompositorOpen} onClose={() => setIsRealityCompositorOpen(false)} />
       )}
     </div>
   );

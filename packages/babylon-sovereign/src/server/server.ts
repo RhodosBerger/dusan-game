@@ -20,7 +20,8 @@ import {
   SovereignPredictiveGenerator,
   SovereignKeyframeInterpreter,
   getPhysicsSpecs,
-  SovereignFailoverGateway
+  SovereignFailoverGateway,
+  SovereignPhraseGenerator
 } from '@dusan-game/shared';
 
 import { AIOpponentDirector } from './models/AIOpponentDirector';
@@ -274,6 +275,16 @@ app.get('/api/health/go-core', async (req, res) => {
     res.json({ online });
   } catch (e: any) {
     res.json({ online: false, error: e.message });
+  }
+});
+
+app.post('/api/simulation/geometry-nodes', (req, res) => {
+  try {
+    const { verb = 'DEFORM', target = 'HEX' } = req.body;
+    const stats = SovereignPhraseGenerator.compilePhrase(verb, target);
+    res.json(stats);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 
