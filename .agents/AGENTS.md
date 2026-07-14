@@ -60,3 +60,15 @@
 *   **Throttled Database Telemetry**: WebGL CustomMaterial uniform updates driven by database sets (e.g., polling SQLite register address `0x4F` or `0x5A`) must be debounced to a maximum update frequency of 10Hz to prevent GPU register power spikes.
 *   **Staggered Render Layers**: Procedural terrain generation must stagger map construction across a 3-frame cycle (`requestAnimationFrame` for Critical, Structural, and Cosmetic layers) to eliminate startup stutters.
 *   **Spawner Guard Fallbacks**: Spawned objects must verify safety parameters (`block.hazardIndex < 0.9` and chunk threads count `< 6`) before rendering high-fidelity meshes; elements failing this check must fallback to low-poly 2D billboards.
+
+## 11. TypeScript Strict Union Type Enforcement
+*   **No Invalid Union Comparisons**: When comparing typed fields originating from `packages/shared/src/core/types.ts` (e.g., `CardEffect`, `BiomeType`, `CardColor`, `DamageType`), NEVER compare them against string literals that are NOT declared members of the union type. TypeScript will emit error `TS2367` ("This comparison appears to be unintentional because the types have no overlap"), causing `ts-node` (and therefore the `nodemon` server process) to crash immediately at startup — **making the game completely non-functional without any obvious client-side error**.
+*   **Fallback Pattern for Card Abilities**: If a card mechanic (e.g., `stealth`, `blink`, `curse`) has no corresponding `CardEffect` enum value, detect it exclusively via the raw `cardId` string pattern matching:
+    ```ts
+    // CORRECT — safe string pattern, no type conflict
+    if (baseCardId.toLowerCase().includes('stealth')) { ... }
+
+    // WRONG — causes TS2367 crash if 'stealth' is not in the CardEffect union
+    if (specs.effect === 'stealth') { ... }
+    ```
+*   **Diagnosis Reminder**: When the game appears to accept socket connections but never responds to `start_match` events, always check `babylon-server.log` for `TSError: ⨯ Unable to compile TypeScript` before investigating gameplay logic — a crashed server process is the most common root cause.
