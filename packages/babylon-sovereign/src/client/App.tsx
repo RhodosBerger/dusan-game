@@ -359,6 +359,11 @@ export default function App() {
           hoveredNode={hoveredNode}
           setHoveredNode={setHoveredNode}
           socket={socket}
+          weatherOverride={weatherOverride}
+          ultimateFlash={ultimateFlash}
+          scorchedTiles={scorchedTiles}
+          surgeTile={surgeTile}
+          entropy={entropy}
         />
       </div>
 

@@ -18,8 +18,61 @@ import { ActionManager } from '@babylonjs/core/Actions/actionManager';
 import { ExecuteCodeAction } from '@babylonjs/core/Actions/directActions';
 import { Scalar } from '@babylonjs/core/Maths/math.scalar';
 import { CustomMaterial } from '@babylonjs/materials';
+import { SSAO2RenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline';
 import neonMatrixTexUrl from '../../assets/neon_matrix_grid.png';
 import brushedMetalTexUrl from '../../assets/brushed_metal_tech.png';
+
+const WORLD_PROFILES = {
+  DEFAULT: {
+    ambientColor: new Color3(0.48, 0.53, 0.66),
+    ambientIntensity: 0.35,
+    keyColor: new Color3(1.0, 0.96, 0.88),
+    keyIntensity: 1.3,
+    fogColor: new Color3(0.03, 0.04, 0.05),
+    fogNear: 35.0,
+    fogFar: 160.0
+  },
+  TOXIC_HAZE: {
+    ambientColor: new Color3(0.13, 0.16, 0.08),
+    ambientIntensity: 0.3,
+    keyColor: new Color3(0.82, 0.95, 0.65),
+    keyIntensity: 0.9,
+    fogColor: new Color3(0.03, 0.05, 0.02),
+    fogNear: 20.0,
+    fogFar: 100.0
+  },
+  VOID_ECLIPSE: {
+    ambientColor: new Color3(0.07, 0.05, 0.12),
+    ambientIntensity: 0.15,
+    keyColor: new Color3(0.18, 0.04, 0.31),
+    keyIntensity: 0.5,
+    fogColor: new Color3(0.01, 0.01, 0.02),
+    fogNear: 15.0,
+    fogFar: 70.0
+  },
+  AURORA_STORM: {
+    ambientColor: new Color3(0.11, 0.05, 0.17),
+    ambientIntensity: 0.5,
+    keyColor: new Color3(0.22, 1.0, 0.08),
+    keyIntensity: 1.1,
+    fogColor: new Color3(0.02, 0.04, 0.06),
+    fogNear: 30.0,
+    fogFar: 140.0
+  }
+};
+
+const getActiveProfile = (weatherOverride: string | null | undefined, entropy: number) => {
+  if (weatherOverride && WORLD_PROFILES[weatherOverride as keyof typeof WORLD_PROFILES]) {
+    return WORLD_PROFILES[weatherOverride as keyof typeof WORLD_PROFILES];
+  }
+  if (entropy >= 0.6) {
+    return WORLD_PROFILES.VOID_ECLIPSE;
+  }
+  if (entropy >= 0.3) {
+    return WORLD_PROFILES.AURORA_STORM;
+  }
+  return WORLD_PROFILES.DEFAULT;
+};
 
 interface Node {
   id: number;
@@ -42,6 +95,11 @@ interface BabylonCanvasRendererProps {
   hoveredNode: any;
   setHoveredNode: (node: any) => void;
   socket: any;
+  weatherOverride?: string | null;
+  ultimateFlash?: boolean;
+  scorchedTiles?: string[];
+  surgeTile?: any;
+  entropy?: number;
 }
 
 export default function BabylonCanvasRenderer({
@@ -54,10 +112,32 @@ export default function BabylonCanvasRenderer({
   onMoveHero,
   hoveredNode,
   setHoveredNode,
-  socket
+  socket,
+  weatherOverride = 'CLEAR',
+  ultimateFlash = false,
+  scorchedTiles = [],
+  surgeTile = null,
+  entropy = 0.2
 }: BabylonCanvasRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shuffleTriggerRef = useRef<{ time: number }>({ time: 0 });
+
+  const weatherOverrideRef = useRef(weatherOverride);
+  const ultimateFlashRef = useRef(ultimateFlash);
+  const scorchedTilesRef = useRef(scorchedTiles);
+  const surgeTileRef = useRef(surgeTile);
+  const entropyRef = useRef(entropy);
+  const selectedCardRef = useRef(selectedCard);
+  const hoveredNodeRef = useRef(hoveredNode);
+
+  // Keep refs updated
+  useEffect(() => { weatherOverrideRef.current = weatherOverride; }, [weatherOverride]);
+  useEffect(() => { ultimateFlashRef.current = ultimateFlash; }, [ultimateFlash]);
+  useEffect(() => { scorchedTilesRef.current = scorchedTiles; }, [scorchedTiles]);
+  useEffect(() => { surgeTileRef.current = surgeTile; }, [surgeTile]);
+  useEffect(() => { entropyRef.current = entropy; }, [entropy]);
+  useEffect(() => { selectedCardRef.current = selectedCard; }, [selectedCard]);
+  useEffect(() => { hoveredNodeRef.current = hoveredNode; }, [hoveredNode]);
 
   useEffect(() => {
     const handleShuffle = () => {
@@ -94,6 +174,12 @@ export default function BabylonCanvasRenderer({
     scene.clearColor = new Color4(0.04, 0.04, 0.06, 1.0);
     scene.ambientColor = new Color3(0.15, 0.2, 0.35);
 
+    // Volumetric/fog setup (Clear Painted Realm default)
+    scene.fogMode = Scene.FOGMODE_LINEAR;
+    scene.fogColor = new Color3(0.03, 0.04, 0.05);
+    scene.fogStart = 35.0;
+    scene.fogEnd = 160.0;
+
     // 2. Camera Setup (Fixed 2.5D RTS Camera)
     const camera = new ArcRotateCamera(
       'rtsCamera',
@@ -124,6 +210,18 @@ export default function BabylonCanvasRenderer({
 
     const shadowGenerator = new ShadowGenerator(1024, light);
     shadowGenerator.usePercentageCloserFiltering = true;
+
+    // SSAO post-processing (SSAO Rendering Pipeline with WebGL availability guards)
+    let ssao: any = null;
+    try {
+      ssao = new SSAO2RenderingPipeline("ssao", scene, { ssaoRatio: 0.5, blurRatio: 0.5 }, [camera]);
+      ssao.radius = 2.0;
+      ssao.totalStrength = 1.0;
+      ssao.expensiveBlur = false;
+      scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", camera);
+    } catch (e) {
+      console.warn("[CANVAS] SSAO pipeline failed to initialize, bypassing.", e);
+    }
 
     // 4. Custom PBR Shader Materials
     const baseTex = new Texture(neonMatrixTexUrl, scene);
@@ -234,47 +332,235 @@ export default function BabylonCanvasRenderer({
       return trapGroup;
     };
 
-    // Helper to create faction-specific thread meshes
+    // Helper to create faction-specific thread meshes (Pillar 3 & Section 2)
     const createThreadMesh = (threadId: string) => {
-      let mesh: AbstractMesh;
+      const threadGroup = MeshBuilder.CreateBox(threadId, { size: 0.01 }, scene);
+      threadGroup.setEnabled(true);
+
       const isPlayer = threadId === myThreadId;
       const isAi = threadId.includes('ai') || threadId.includes('hacker') || threadId.includes('root');
       const isVoid = threadId.includes('void') || threadId.includes('weaver');
+      const isHelper = threadId.includes('tower') || threadId.includes('flag') || threadId.includes('sample');
+      const isFlag = threadId.includes('flag');
 
-      if (isPlayer) {
-        // Crystal Faction
-        mesh = MeshBuilder.CreateIcosahedron(threadId, { radius: 0.42 }, scene);
-        const mat = new StandardMaterial(threadId + '_mat', scene);
-        mat.diffuseColor = new Color3(0.1, 0.45, 0.5);
-        mat.specularColor = new Color3(0.8, 1, 1);
-        mat.emissiveColor = new Color3(0, 0.8, 1);
-        mesh.material = mat;
-      } else if (isAi) {
-        // Toxic Faction
-        mesh = MeshBuilder.CreateTorusKnot(threadId, { radius: 0.32, tube: 0.1 }, scene);
-        const mat = new StandardMaterial(threadId + '_mat', scene);
-        mat.diffuseColor = new Color3(0.1, 0.4, 0.15);
-        mat.specularColor = new Color3(0.5, 1, 0.5);
-        mat.emissiveColor = new Color3(0.2, 0.9, 0.2);
-        mesh.material = mat;
-      } else if (isVoid) {
-        // Void Faction
-        mesh = MeshBuilder.CreatePolyhedron(threadId, { type: 1, size: 0.38 }, scene);
-        const mat = new StandardMaterial(threadId + '_mat', scene);
-        mat.diffuseColor = new Color3(0.2, 0.05, 0.3);
-        mat.emissiveColor = new Color3(0.7, 0, 0.9);
-        mesh.material = mat;
-      } else {
-        // Other NPC / Druid / Sentinel
-        mesh = MeshBuilder.CreateCylinder(threadId, { height: 0.7, diameter: 0.5 }, scene);
-        const mat = new StandardMaterial(threadId + '_mat', scene);
-        mat.diffuseColor = new Color3(0.5, 0.4, 0.1);
-        mat.emissiveColor = new Color3(0.9, 0.6, 0);
-        mesh.material = mat;
+      // Resolve Faction colors and types
+      let faction = 'crystal';
+      let factionColor = new Color3(0, 0.8, 1);
+      if (threadId.includes('hacker') || threadId.includes('toxic') || threadId.includes('root')) {
+        faction = 'toxic';
+        factionColor = new Color3(0.2, 0.9, 0.2);
+      } else if (threadId.includes('void') || threadId.includes('weaver')) {
+        faction = 'void';
+        factionColor = new Color3(0.7, 0, 0.9);
+      } else if (threadId.includes('druid') || threadId.includes('warden')) {
+        faction = 'druid';
+        factionColor = new Color3(0.9, 0.6, 0);
+      }
+      const isNPC = !isPlayer && !isAi && !isVoid && !isHelper;
+      if (isNPC) {
+        faction = 'npc';
+        factionColor = new Color3(1, 0.2, 0.2);
       }
 
-      shadowGenerator.addShadowCaster(mesh);
-      return mesh;
+      // 1. Base pedestal
+      const basePedestal = MeshBuilder.CreateCylinder('pedestal', { diameterTop: 0.8, diameterBottom: 0.9, height: 0.1, tessellation: 16 }, scene);
+      basePedestal.parent = threadGroup;
+      basePedestal.position.y = 0.05;
+      const pedestalMat = new StandardMaterial('pedestalMat_' + threadId, scene);
+      pedestalMat.diffuseColor = isNPC ? new Color3(0.16, 0.02, 0.04) : new Color3(0.1, 0.1, 0.1);
+      pedestalMat.roughness = 0.9;
+      pedestalMat.metallic = 0.1;
+      basePedestal.material = pedestalMat;
+      shadowGenerator.addShadowCaster(basePedestal);
+      basePedestal.receiveShadows = true;
+
+      // 2. Base neon glow ring
+      const glowRing = MeshBuilder.CreateTorus('glowRing', { diameter: 0.84, thickness: 0.06, tessellation: 24 }, scene);
+      glowRing.parent = threadGroup;
+      glowRing.position.y = 0.08;
+      const ringMat = new StandardMaterial('ringMat_' + threadId, scene);
+      ringMat.emissiveColor = factionColor;
+      ringMat.disableLighting = true;
+      glowRing.material = ringMat;
+
+      if (isFlag) {
+        // Flagpole (Iron/Carbon)
+        const pole = MeshBuilder.CreateCylinder('pole', { diameter: 0.05, height: 1.8, tessellation: 8 }, scene);
+        pole.parent = threadGroup;
+        pole.position.y = 0.9;
+        const poleMat = new StandardMaterial('poleMat_' + threadId, scene);
+        poleMat.diffuseColor = new Color3(0.27, 0.27, 0.33);
+        poleMat.metallic = 0.8;
+        poleMat.roughness = 0.3;
+        pole.material = poleMat;
+        shadowGenerator.addShadowCaster(pole);
+
+        // Flag Banner
+        const flagBanner = MeshBuilder.CreateBox('flagBanner', { width: 0.6, height: 0.35, depth: 0.02 }, scene);
+        flagBanner.parent = threadGroup;
+        flagBanner.position.x = 0.3;
+        flagBanner.position.y = 1.4;
+        const flagMat = new StandardMaterial('flagMat_' + threadId, scene);
+        flagMat.diffuseColor = factionColor;
+        flagMat.roughness = 0.8;
+        flagBanner.material = flagMat;
+        shadowGenerator.addShadowCaster(flagBanner);
+
+        // Floating Faction Sigil Ornament
+        let ornament: AbstractMesh;
+        if (faction === 'crystal') {
+          ornament = MeshBuilder.CreatePolyhedron('ornament', { type: 1, size: 0.08 }, scene); // Octahedron
+        } else if (faction === 'toxic') {
+          ornament = MeshBuilder.CreateBox('ornament', { size: 0.08 }, scene);
+        } else {
+          ornament = MeshBuilder.CreateSphere('ornament', { diameter: 0.07 }, scene);
+        }
+        ornament.parent = threadGroup;
+        ornament.position.x = 0.3;
+        ornament.position.y = 1.4;
+        ornament.position.z = 0.02;
+        ornament.rotation.z = Math.PI / 4;
+        const whiteMat = new StandardMaterial('whiteMat_' + threadId, scene);
+        whiteMat.emissiveColor = new Color3(1, 1, 1);
+        whiteMat.disableLighting = true;
+        ornament.material = whiteMat;
+
+        // Tip
+        const tip = MeshBuilder.CreateSphere('tip', { diameter: 0.1 }, scene);
+        tip.parent = threadGroup;
+        tip.position.y = 1.82;
+        tip.material = ringMat;
+      }
+      else if (isHelper) {
+        // Tower Base
+        const towerBase = MeshBuilder.CreateCylinder('towerBase', { diameterTop: 0.6, diameterBottom: 0.9, height: 0.2, tessellation: 6 }, scene);
+        towerBase.parent = threadGroup;
+        towerBase.position.y = 0.1;
+        const towerBaseMat = new StandardMaterial('towerBaseMat_' + threadId, scene);
+        towerBaseMat.diffuseColor = new Color3(0.18, 0.18, 0.25);
+        towerBaseMat.metallic = 0.8;
+        towerBaseMat.roughness = 0.3;
+        towerBase.material = towerBaseMat;
+        shadowGenerator.addShadowCaster(towerBase);
+
+        // Tower Trunk
+        const towerTrunk = MeshBuilder.CreateCylinder('towerTrunk', { diameterTop: 0.36, diameterBottom: 0.44, height: 0.8, tessellation: 6 }, scene);
+        towerTrunk.parent = threadGroup;
+        towerTrunk.position.y = 0.6;
+        const trunkMat = new StandardMaterial('trunkMat_' + threadId, scene);
+        trunkMat.diffuseColor = new Color3(0.1, 0.1, 0.14);
+        trunkMat.metallic = 0.9;
+        trunkMat.roughness = 0.2;
+        towerTrunk.material = trunkMat;
+        shadowGenerator.addShadowCaster(towerTrunk);
+
+        // Floating Energy Ring
+        const floatingRing = MeshBuilder.CreateTorus('floatingRing', { diameter: 0.7, thickness: 0.06, tessellation: 24 }, scene);
+        floatingRing.parent = threadGroup;
+        floatingRing.position.y = 0.6;
+        floatingRing.rotation.x = Math.PI / 2;
+        floatingRing.material = ringMat;
+
+        // Cap / Emitter Head
+        const emitterHead = MeshBuilder.CreateSphere('emitterHead', { diameter: 0.44 }, scene);
+        emitterHead.parent = threadGroup;
+        emitterHead.position.y = 1.1;
+        emitterHead.material = towerBaseMat;
+        shadowGenerator.addShadowCaster(emitterHead);
+
+        // Cone emitter lens
+        const lens = MeshBuilder.CreateCylinder('lens', { diameterTop: 0, diameterBottom: 0.16, height: 0.16, tessellation: 8 }, scene);
+        lens.parent = threadGroup;
+        lens.position.y = 1.1;
+        lens.position.z = 0.18;
+        lens.rotation.x = Math.PI / 2;
+        lens.material = ringMat;
+      }
+      else if (isNPC) {
+        // Crimson pulsing Glitch Core
+        const core = MeshBuilder.CreatePolyhedron('core', { type: 1, size: 0.35 }, scene); // Octahedron
+        core.parent = threadGroup;
+        core.position.y = 0.6;
+        const coreMat = new StandardMaterial('coreMat_' + threadId, scene);
+        coreMat.diffuseColor = new Color3(0.2, 0.02, 0.05);
+        coreMat.emissiveColor = new Color3(1, 0.02, 0.33);
+        coreMat.disableLighting = false;
+        core.material = coreMat;
+        shadowGenerator.addShadowCaster(core);
+      }
+      else {
+        // Torso
+        const torso = MeshBuilder.CreateCylinder('torso', { diameterTop: 0.4, diameterBottom: 0.3, height: 0.5, tessellation: 6 }, scene);
+        torso.parent = threadGroup;
+        torso.position.y = 0.4;
+        const torsoMat = new StandardMaterial('torsoMat_' + threadId, scene);
+        torsoMat.diffuseColor = new Color3(0.1, 0.1, 0.1);
+        torsoMat.roughness = 0.9;
+        torsoMat.metallic = 0.1;
+        torso.material = torsoMat;
+        shadowGenerator.addShadowCaster(torso);
+
+        // Head
+        const head = MeshBuilder.CreateSphere('head', { diameter: 0.36 }, scene);
+        head.parent = threadGroup;
+        head.position.y = 0.78;
+        head.material = torsoMat;
+        shadowGenerator.addShadowCaster(head);
+
+        // Eyes
+        const eyes = MeshBuilder.CreateBox('eyes', { width: 0.24, height: 0.04, depth: 0.04 }, scene);
+        eyes.parent = threadGroup;
+        eyes.position.y = 0.83;
+        eyes.position.z = 0.14;
+        const eyesMat = new StandardMaterial('eyesMat_' + threadId, scene);
+        eyesMat.emissiveColor = factionColor;
+        eyesMat.disableLighting = true;
+        eyes.material = eyesMat;
+
+        // Limbs - Left Arm
+        const leftArm = MeshBuilder.CreateCylinder('leftArm', { diameter: 0.1, height: 0.28 }, scene);
+        leftArm.parent = threadGroup;
+        leftArm.position.x = -0.28;
+        leftArm.position.y = 0.45;
+        const armorMat = new StandardMaterial('armorMat_' + threadId, scene);
+        armorMat.diffuseColor = factionColor;
+        armorMat.roughness = 0.5;
+        armorMat.metallic = 0.8;
+        leftArm.material = armorMat;
+
+        // Right Arm
+        const rightArm = MeshBuilder.CreateCylinder('rightArm', { diameter: 0.1, height: 0.28 }, scene);
+        rightArm.parent = threadGroup;
+        rightArm.position.x = 0.28;
+        rightArm.position.y = 0.45;
+        rightArm.material = armorMat;
+
+        // Floating Aetheric Dice
+        const isD12 = faction === 'void' || faction === 'crystal';
+        const dice = MeshBuilder.CreatePolyhedron('dice', { type: isD12 ? 2 : 1, size: 0.12 }, scene);
+        dice.parent = threadGroup;
+        dice.position.y = 1.25;
+        const diceMat = new StandardMaterial('diceMat_' + threadId, scene);
+        diceMat.emissiveColor = factionColor;
+        diceMat.wireframe = true;
+        diceMat.disableLighting = true;
+        dice.material = diceMat;
+
+        // Neon Sword Weapon
+        const swordBlade = MeshBuilder.CreateBox('swordBlade', { width: 0.04, height: 0.45, depth: 0.02 }, scene);
+        swordBlade.parent = threadGroup;
+        swordBlade.position.x = 0.45;
+        swordBlade.position.y = 0.65;
+        swordBlade.position.z = 0.1;
+        swordBlade.rotation.z = Math.PI / 6;
+        const bladeMat = new StandardMaterial('bladeMat_' + threadId, scene);
+        bladeMat.emissiveColor = factionColor;
+        bladeMat.disableLighting = true;
+        swordBlade.material = bladeMat;
+        shadowGenerator.addShadowCaster(swordBlade);
+      }
+
+      return threadGroup;
     };
 
     // 5. Build Hexagonal Mesh Grid
@@ -313,6 +599,19 @@ export default function BabylonCanvasRenderer({
     innerHex.material = innerPlateMat;
     innerHex.setEnabled(false);
 
+    // Scorched material for Short Circuit degradation (Rule 5 & Section 2)
+    const scorchedMaterial = new StandardMaterial('scorchedMaterial', scene);
+    scorchedMaterial.diffuseColor = new Color3(0.15, 0.15, 0.15);
+    scorchedMaterial.emissiveColor = new Color3(0.85, 0.18, 0.05); // red ember glow
+    scorchedMaterial.roughness = 0.9;
+
+    // Shared SpellFlashBeam mesh (VFX overlay)
+    const spellBeam = MeshBuilder.CreateCylinder('spellBeam', { height: 9.0, diameterTop: 0.05, diameterBottom: 0.5, tessellation: 8 }, scene);
+    spellBeam.setEnabled(false);
+    const beamMat = new StandardMaterial('beamMat', scene);
+    beamMat.disableLighting = true;
+    spellBeam.material = beamMat;
+
     // Dynamic node mapping logic
     const hexNodes: any[] = [];
     const hexMeshInstances: AbstractMesh[] = [];
@@ -342,8 +641,13 @@ export default function BabylonCanvasRenderer({
         baseInstance.receiveShadows = true;
 
         // Assign instanced color based on biome (Pillar 2: Material Distribution)
+        const nodeKey = `m${chunk.id}_s${block.id}`;
+        const isScorched = scorchedTilesRef.current && scorchedTilesRef.current.includes(nodeKey);
+
         let biomeColor = new Color4(0.5, 0.5, 0.5, 1.0);
-        if (block.biome === 'LUSH_FOREST') {
+        if (isScorched) {
+          biomeColor = new Color4(0.12, 0.12, 0.12, 1.0); // charcoal black base
+        } else if (block.biome === 'LUSH_FOREST') {
           biomeColor = new Color4(0.20, 0.55, 0.35, 1.0);
         } else if (block.biome === 'TOXIC_SWAMP') {
           biomeColor = new Color4(0.35, 0.45, 0.15, 1.0);
@@ -363,12 +667,29 @@ export default function BabylonCanvasRenderer({
         innerInstance.position = new Vector3(posX, 0.1, posZ);
         innerInstance.parent = baseInstance;
         innerInstance.setEnabled(true);
-        innerInstance.material = biomeMaterials.get(block.biome) || innerPlateMat;
+        innerInstance.material = isScorched
+          ? scorchedMaterial
+          : (biomeMaterials.get(block.biome) || innerPlateMat);
 
-        // Highlight/outline edge renderer
+        // Highlight/outline edge renderer (Gravity Well Overdrive edge glows)
+        let edgeColor = new Color4(0, 0.8, 1, 0.35);
+        if (block.biome === 'LUSH_FOREST') {
+          edgeColor = new Color4(0.22, 1.0, 0.08, 0.35);
+        } else if (block.biome === 'TOXIC_SWAMP') {
+          edgeColor = new Color4(0.5, 0.9, 0.0, 0.35);
+        } else if (block.biome === 'GLACIER') {
+          edgeColor = new Color4(0.0, 0.8, 1.0, 0.35);
+        } else if (block.biome === 'DESERT') {
+          edgeColor = new Color4(1.0, 0.6, 0.0, 0.35);
+        } else if (block.biome === 'BARRENS') {
+          edgeColor = new Color4(0.8, 0.4, 0.1, 0.35);
+        } else if (block.biome === 'SCORCHED') {
+          edgeColor = new Color4(1.0, 0.15, 0.15, 0.35);
+        }
+
         baseInstance.enableEdgesRendering();
         baseInstance.edgesWidth = 3.0;
-        baseInstance.edgesColor = new Color4(0, 0.8, 1, 0.35);
+        baseInstance.edgesColor = edgeColor;
 
         // Set action manager for click and hover behaviors
         baseInstance.actionManager = new ActionManager(scene);
@@ -384,13 +705,13 @@ export default function BabylonCanvasRenderer({
         baseInstance.actionManager.registerAction(
           new ExecuteCodeAction(ActionManager.OnPointerOutTrigger, () => {
             setHoveredNode(null);
-            baseInstance.edgesColor = new Color4(0, 0.8, 1, 0.35);
+            baseInstance.edgesColor = edgeColor;
           })
         );
 
         // Click trigger routing
         baseInstance.actionManager.registerAction(
-          new ExecuteCodeAction(ActionManager.OnPointerDownTrigger, () => {
+          new ExecuteCodeAction(ActionManager.OnLeftPickTrigger, () => {
             onNodeClick({ id: `${chunk.id}_${block.id}`, macroIndex: chunk.id, subIndex: block.id, type: block.biome, walkable: block.walkable, friction: block.friction, hazardIndex: block.hazardIndex });
           })
         );
@@ -405,7 +726,7 @@ export default function BabylonCanvasRenderer({
           hexMeshInstances.push(trapMesh);
         }
 
-        hexNodes.push({ chunkId: chunk.id, blockId: block.id, mesh: baseInstance, innerPlate: innerInstance });
+        hexNodes.push({ chunkId: chunk.id, blockId: block.id, mesh: baseInstance, innerPlate: innerInstance, baseEdgeColor: edgeColor });
         hexMeshInstances.push(baseInstance);
       });
     });
@@ -479,6 +800,28 @@ export default function BabylonCanvasRenderer({
             const hoverOffset = Math.sin(Date.now() * 0.003 + t.id.charCodeAt(0)) * 0.06;
             targetMesh.position.y += hoverOffset;
             targetMesh.rotation.y += 0.015;
+
+            // Animate rotating components of the thread (dice, weapon, stabilizer, banner)
+            targetMesh.getChildMeshes().forEach(child => {
+              if (child.name.includes('dice')) {
+                child.rotation.y += 0.04;
+                child.rotation.x += 0.02;
+                // Gently bounce dice above the head
+                child.position.y = 1.25 + Math.sin(Date.now() * 0.004 + t.id.charCodeAt(0)) * 0.08;
+              } else if (child.name.includes('floatingRing')) {
+                child.rotation.z += 0.03;
+                child.position.y = 0.6 + Math.sin(Date.now() * 0.0025 + t.id.charCodeAt(0)) * 0.08;
+              } else if (child.name.includes('emitterHead')) {
+                child.rotation.y += 0.015;
+              } else if (child.name.includes('flagBanner') || child.name.includes('ornament')) {
+                // Wave/flutter flag banner
+                child.rotation.y = Math.sin(Date.now() * 0.0035 + t.id.charCodeAt(0)) * 0.08;
+              } else if (child.name.includes('core')) {
+                // Pulse NPC core size
+                const pulseScale = 1.0 + Math.sin(Date.now() * 0.008) * 0.15;
+                child.scaling.set(pulseScale, pulseScale, pulseScale);
+              }
+            });
           }
         }
       });
@@ -515,6 +858,87 @@ export default function BabylonCanvasRenderer({
         totalFrameTime = 0;
       }
 
+      const lerp = (start: number, end: number, amt: number) => (1 - amt) * start + amt * end;
+
+      // 1. Resolve active weather profile (Section 1 & 2)
+      const currentProfile = getActiveProfile(weatherOverrideRef.current, entropyRef.current || 0.2);
+      
+      // 2. Smoothly LERP lighting and fog attributes (real-time LERP transitions)
+      scene.ambientColor = Color3.Lerp(scene.ambientColor, currentProfile.ambientColor, 0.05);
+      scene.fogColor = Color3.Lerp(scene.fogColor, currentProfile.fogColor, 0.05);
+      scene.fogStart = lerp(scene.fogStart, currentProfile.fogNear, 0.05);
+      scene.fogEnd = lerp(scene.fogEnd, currentProfile.fogFar, 0.05);
+
+      if (light) {
+        light.diffuse = Color3.Lerp(light.diffuse, currentProfile.keyColor, 0.05);
+        light.intensity = lerp(light.intensity, currentProfile.keyIntensity, 0.05);
+      }
+
+      // 3. Dynamic weather-based terrain texture rendering modifiers (Section 1 & 2)
+      biomeMaterials.forEach((mat) => {
+        let targetRoughness = 0.65;
+        let targetSpecular = new Color3(0.1, 0.1, 0.1);
+        let targetEmissive = new Color3(0, 0, 0);
+
+        if (weatherOverrideRef.current === 'TOXIC_HAZE') {
+          targetRoughness = 0.85;
+          targetSpecular = new Color3(0.02, 0.02, 0.02);
+          targetEmissive = new Color3(0.05, 0.12, 0.05);
+        } else if (weatherOverrideRef.current === 'VOID_ECLIPSE') {
+          targetRoughness = 0.95;
+          targetSpecular = new Color3(0.0, 0.0, 0.0);
+          targetEmissive = new Color3(0.08, 0.02, 0.12);
+        } else if (weatherOverrideRef.current === 'AURORA_STORM') {
+          targetRoughness = 0.35;
+          targetSpecular = new Color3(0.6, 0.6, 0.6);
+          targetEmissive = new Color3(0.05, 0.15, 0.2);
+        }
+
+        mat.roughness = lerp(mat.roughness, targetRoughness, 0.05);
+        mat.specularColor = Color3.Lerp(mat.specularColor, targetSpecular, 0.05);
+        mat.emissiveColor = Color3.Lerp(mat.emissiveColor, targetEmissive, 0.05);
+      });
+
+      // 4. Update SpellFlashBeam card VFX (Section 1 & 2)
+      let activeBeamTarget = null as any;
+      let activeBeamColor = new Color3(0, 1, 1);
+
+      if (currentAiFrame) {
+        const targetNode = hexNodes.find(n => n.chunkId === currentAiFrame.targetChunk && n.blockId === currentAiFrame.targetHex);
+        if (targetNode) {
+          activeBeamTarget = targetNode.mesh;
+          activeBeamColor = currentAiFrame.isThrottled ? new Color3(1.0, 0.9, 0) : new Color3(1.0, 0, 1.0);
+        }
+      } else if (selectedCardRef.current && hoveredNodeRef.current) {
+        const targetNode = hexNodes.find(n => n.chunkId === hoveredNodeRef.current.macroIndex && n.blockId === hoveredNodeRef.current.subIndex);
+        if (targetNode) {
+          activeBeamTarget = targetNode.mesh;
+          activeBeamColor = selectedCardRef.current.type === 'VOID' ? new Color3(0.7, 0, 0.9) : new Color3(0, 1.0, 0.8);
+        }
+      }
+
+      if (activeBeamTarget) {
+        spellBeam.position.x = activeBeamTarget.position.x;
+        spellBeam.position.z = activeBeamTarget.position.z;
+        spellBeam.position.y = activeBeamTarget.position.y + 4.5;
+        beamMat.emissiveColor = activeBeamColor;
+        
+        const pulse = 0.45 + 0.25 * Math.sin(Date.now() * 0.015);
+        beamMat.alpha = pulse;
+        spellBeam.setEnabled(true);
+      } else {
+        spellBeam.setEnabled(false);
+      }
+
+      // 5. Ultimate Flash & Shake effect
+      if (ultimateFlashRef.current) {
+        if (light) {
+          light.intensity = 5.0;
+        }
+        camera.target.x += (Math.random() - 0.5) * 0.4;
+        camera.target.z += (Math.random() - 0.5) * 0.4;
+      }
+
       // 6.8. AI Keyframe Sequence Player
       let currentAiFrame = null as any;
       if (activeTimelineRef.current) {
@@ -547,16 +971,16 @@ export default function BabylonCanvasRenderer({
         } else {
           formulaPlane.setEnabled(false);
         }
-      } else if (selectedCard && hoveredNode) {
-        const targetNode = hexNodes.find(n => n.chunkId === hoveredNode.macroIndex && n.blockId === hoveredNode.subIndex);
+      } else if (selectedCardRef.current && hoveredNodeRef.current) {
+        const targetNode = hexNodes.find(n => n.chunkId === hoveredNodeRef.current.macroIndex && n.blockId === hoveredNodeRef.current.subIndex);
         if (targetNode) {
           formulaPlane.position.x = targetNode.mesh.position.x;
           formulaPlane.position.z = targetNode.mesh.position.z;
           formulaPlane.position.y = targetNode.mesh.position.y + 2.0;
           formulaPlane.setEnabled(true);
 
-          const voltage = selectedCard.cost * 2.0 + 1.0;
-          const resistance = 1.0 + hoveredNode.friction;
+          const voltage = selectedCardRef.current.cost * 2.0 + 1.0;
+          const resistance = 1.0 + hoveredNodeRef.current.friction;
           const current = voltage / resistance;
           const isSuccess = current >= 1.0;
           const heat = isSuccess ? 0.0 : (1.0 - current) * 40.0;
@@ -572,25 +996,30 @@ export default function BabylonCanvasRenderer({
       // Height selection highlight
       hexNodes.forEach((nodeWrapper) => {
         const isSel = selectedNode && selectedNode.macroIndex === nodeWrapper.chunkId && selectedNode.subIndex === nodeWrapper.blockId;
-        const isHov = hoveredNode && hoveredNode.macroIndex === nodeWrapper.chunkId && hoveredNode.subIndex === nodeWrapper.blockId;
+        const isHov = hoveredNodeRef.current && hoveredNodeRef.current.macroIndex === nodeWrapper.chunkId && hoveredNodeRef.current.subIndex === nodeWrapper.blockId;
         const isAiTarget = currentAiFrame && currentAiFrame.targetChunk === nodeWrapper.chunkId && currentAiFrame.targetHex === nodeWrapper.blockId;
+        const isSurge = surgeTileRef.current && surgeTileRef.current.meta === nodeWrapper.chunkId && surgeTileRef.current.hex === nodeWrapper.blockId;
         
         let targetY = -0.6;
-        if (isSel || isHov) {
-          targetY = -0.3;
+        if (isSurge) {
+          targetY = 0.6; // rises high (Pillar 1 height deformation)
         } else if (isAiTarget) {
-          targetY = 0.4;
+          targetY = 0.4; // rises when targeted by AI
+        } else if (isSel || isHov) {
+          targetY = -0.3; // rises slightly when selected/hovered
         }
 
-        // Apply outline border highlights
+        // Apply outline border highlights (Gravity Well Overdrive)
         if (isAiTarget) {
           nodeWrapper.mesh.edgesColor = currentAiFrame.isThrottled 
             ? new Color4(1, 0.9, 0, 1.0) // Throttled Yellow
             : new Color4(1, 0, 0.5, 1.0); // Neon Magenta
         } else if (isHov) {
-          nodeWrapper.mesh.edgesColor = new Color4(0.2, 1.0, 0.8, 1.0);
+          nodeWrapper.mesh.edgesColor = new Color4(0.2, 1.0, 0.8, 1.0); // Active Hover Cyan
+        } else if (isSurge) {
+          nodeWrapper.mesh.edgesColor = new Color4(0.2, 1.0, 0.8, 1.0); // Surge Highlight
         } else {
-          nodeWrapper.mesh.edgesColor = new Color4(0, 0.8, 1, 0.35);
+          nodeWrapper.mesh.edgesColor = nodeWrapper.baseEdgeColor; // Revert to biome-specific neon outline color
         }
 
         // Apply radial ripple animation from card shuffles (Rule 9 waves)

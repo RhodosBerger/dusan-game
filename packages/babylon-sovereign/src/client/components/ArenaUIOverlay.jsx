@@ -45,7 +45,7 @@ const getFactionHoverClass = (cardId) => {
     return 'card-hover-void';
 };
 
-const getCardMetadata = (cardId) => {
+const getCardMetadata = (cardId, entropy = 0.2) => {
     const cardBase = allBases.find(c => c.id === cardId);
     if (!cardBase) {
         return { name: cardId, type: 'Inštrukcia', desc: 'Simulácia Ohmovho zákona', cost: 1 };
@@ -55,7 +55,11 @@ const getCardMetadata = (cardId) => {
     
     const typeLabel = cardBase.cardCategorization.toUpperCase() + (cardBase.isUnit ? ' // JEDNOTKA' : ' // AKCIA');
     const descLabel = trans.description || (cardBase.effect ? `Efekt: ${cardBase.effect}` : 'Základná inštrukcia');
-    const cost = cardBase.isUltimate ? 2 : 1;
+    
+    // Void Walker casting rule (Rule 3 Environmental Scaling):
+    // If globalEntropy > 0.7, card cost reduces to 0 (W = 0)
+    const isVoidCard = cardBase.heroId === 'void_weaver' || cardBase.heroId === 'void_walker';
+    const cost = (isVoidCard && entropy > 0.7) ? 0 : (cardBase.isUltimate ? 2 : 1);
 
     return {
         name: trans.name,
@@ -902,7 +906,7 @@ export default function ArenaUIOverlay({
 
                         <div className="flex flex-wrap justify-center gap-6 max-w-4xl mb-8">
                             {cards.map((card, idx) => {
-                                const meta = getCardMetadata(card.id);
+                                const meta = getCardMetadata(card.id, entropy);
                                 const isSelected = selectedMulliganCardIds.includes(card.id);
                                 const isAttack = meta.type.includes('ATTACK') || card.id.toLowerCase().includes('attack') || card.id.toLowerCase().includes('cleave') || card.id.toLowerCase().includes('shards') || card.id.toLowerCase().includes('meteor');
                                 const isMagic = meta.type.includes('MAGIC') || card.id.toLowerCase().includes('spell') || card.id.toLowerCase().includes('lance') || card.id.toLowerCase().includes('shield');
@@ -998,7 +1002,7 @@ export default function ArenaUIOverlay({
                 const currentAction = gameState?.turnStateMachine?.currentAction;
                 const attacker = gameState?.threads?.find(t => t.id === currentAction?.sourceId);
                 const attackerName = attacker ? attacker.name : (currentAction?.sourceId || 'Nepriateľ');
-                const cardMeta = currentAction ? getCardMetadata(currentAction.instruction.id) : null;
+                const cardMeta = currentAction ? getCardMetadata(currentAction.instruction.id, entropy) : null;
                 const timerVal = gameState?.turnStateMachine?.timerLeft ?? 3;
                 const circumference = 2 * Math.PI * 16; // r=16 -> ~100.53
                 const strokeDashoffset = circumference - (timerVal / 3) * circumference;
@@ -1196,7 +1200,7 @@ export default function ArenaUIOverlay({
                          {/* Action Header Panel */}
                          <div className="glass-panel-heavy text-white px-4 py-2 rounded-xl shadow-xl text-xs font-mono text-center flex flex-col justify-center min-w-[260px] border border-cyan-400/30">
                              <div>
-                                 Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
+                                 Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id, entropy).name}</span>
                              </div>
                              {selectedNode ? (
                                  <div className="mt-1.5">
@@ -1346,7 +1350,7 @@ export default function ArenaUIOverlay({
                         <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>
                     ) : (
                         cards.map((card, idx) => {
-                            const meta = getCardMetadata(card.id);
+                            const meta = getCardMetadata(card.id, entropy);
                             const isSelected = selectedCard === card;
                             const isCasting = castingCard === card;
                             const hoverClass = getFactionHoverClass(card.id);

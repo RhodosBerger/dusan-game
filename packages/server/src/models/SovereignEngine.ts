@@ -446,9 +446,16 @@ export class SovereignEngine {
       const costMultiplier = energyCostInfo.costMultiplier;
       const isVoidCard = VOID_CARDS_BASE.some(c => c.id === node.instruction.id);
       if (isVoidCard) {
-        const entropyDelta = node.instruction.energyCost * 0.05 * costMultiplier;
-        this.globalEntropy = Math.min(1.0, this.globalEntropy + entropyDelta);
-        console.log(`[VOID_ENERGY] Void card ${node.instruction.id} played: added ${entropyDelta.toFixed(2)} to globalEntropy (current: ${this.globalEntropy.toFixed(2)}).`);
+        // Void Walker casting rule (Rule 3 Environmental Scaling):
+        // If globalEntropy > 0.7, card cost reduces to 0 (both accumulated energy and entropy delta become 0)
+        if (this.globalEntropy > 0.7) {
+          console.log(`[VOID_ENERGY] Void card ${node.instruction.id} cost reduced to 0 because globalEntropy (${this.globalEntropy.toFixed(2)}) > 0.7.`);
+        } else {
+          const entropyDelta = node.instruction.energyCost * 0.05 * costMultiplier;
+          this.globalEntropy = Math.min(1.0, this.globalEntropy + entropyDelta);
+          console.log(`[VOID_ENERGY] Void card ${node.instruction.id} played: added ${entropyDelta.toFixed(2)} to globalEntropy (current: ${this.globalEntropy.toFixed(2)}).`);
+          accumulatedEnergy += energyCostInfo.cost;
+        }
       } else {
         accumulatedEnergy += energyCostInfo.cost;
       }
