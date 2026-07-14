@@ -4,13 +4,14 @@ import React, { useState, useMemo } from 'react';
 const BIOMES = ['LUSH_FOREST', 'TOXIC_SWAMP', 'GLACIER', 'DESERT', 'BARRENS'];
 const ACTOR_TYPES = ['PLAYER', 'NPC', 'TOWN', 'NONE'];
 
-const ModelPreview3D = ({ fileJson }) => {
+const ModelPreview3D = ({ fileJson, selectedFile }) => {
     const canvasRef = React.useRef(null);
+    const anglesRef = React.useRef({ x: 0, y: 0 });
 
     React.useEffect(() => {
         let active = true;
-        let angleX = 0;
-        let angleY = 0;
+        let angleX = anglesRef.current.x;
+        let angleY = anglesRef.current.y;
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -20,13 +21,19 @@ const ModelPreview3D = ({ fileJson }) => {
         let color = "#39ff14";
         let meshType = "cube";
         let scale = 1.0;
-        try {
-            const parsed = JSON.parse(fileJson);
-            color = parsed.color || "#39ff14";
-            meshType = parsed.meshType || "cube";
-            scale = parsed.scale || 1.0;
-        } catch (e) {
-            // fallback
+
+        if (selectedFile && selectedFile.includes('configs/')) {
+            meshType = "gear";
+            color = "#ffd700";
+        } else {
+            try {
+                const parsed = JSON.parse(fileJson);
+                color = parsed.color || "#39ff14";
+                meshType = parsed.meshType || "cube";
+                scale = parsed.scale || 1.0;
+            } catch (e) {
+                // fallback
+            }
         }
 
         const render = () => {
@@ -50,6 +57,25 @@ const ModelPreview3D = ({ fileJson }) => {
                     [4, 5], [5, 6], [6, 7], [7, 4],
                     [0, 4], [1, 5], [2, 6], [3, 7]
                 ];
+            } else if (meshType === "gear") {
+                const teeth = 12;
+                const innerRad = 0.5;
+                const outerRad = 0.85;
+                const depth = 0.25;
+                for (let i = 0; i < teeth * 2; i++) {
+                    const angle = (i * Math.PI) / teeth;
+                    const r = (i % 2 === 0) ? outerRad : innerRad;
+                    vertices.push([Math.cos(angle) * r, Math.sin(angle) * r, -depth]);
+                    vertices.push([Math.cos(angle) * r, Math.sin(angle) * r, depth]);
+                }
+                for (let i = 0; i < teeth * 2; i++) {
+                    const next = ((i + 1) % (teeth * 2));
+                    const idx1 = i * 2;
+                    const idx2 = next * 2;
+                    edges.push([idx1, idx2]);
+                    edges.push([idx1 + 1, idx2 + 1]);
+                    edges.push([idx1, idx1 + 1]);
+                }
             } else if (meshType === "sphere") {
                 const latitudeBands = 8;
                 const longitudeBands = 8;
@@ -156,8 +182,11 @@ const ModelPreview3D = ({ fileJson }) => {
         };
 
         render();
-        return () => { active = false; };
-    }, [fileJson]);
+        return () => {
+            active = false;
+            anglesRef.current = { x: angleX, y: angleY };
+        };
+    }, [fileJson, selectedFile]);
 
     return (
         <div style={{
@@ -173,6 +202,200 @@ const ModelPreview3D = ({ fileJson }) => {
         }}>
             <span style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Real-time 3D Object Preview</span>
             <canvas ref={canvasRef} width={240} height={180} style={{ display: 'block', background: '#0d0e12', borderRadius: 4 }} />
+        </div>
+    );
+};
+
+const KeyframePreview3D = ({ formula, variant, elementType }) => {
+    const canvasRef = React.useRef(null);
+    const anglesRef = React.useRef({ x: 0, y: 0 });
+
+    React.useEffect(() => {
+        let active = true;
+        let angleX = anglesRef.current.x;
+        let angleY = anglesRef.current.y;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const render = () => {
+            if (!active) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            const t = (Date.now() % 1600) / 1600;
+            const mult = variant * 0.5;
+
+            let offsetX = 0;
+            let offsetY = 0;
+            let offsetZ = 0;
+            let scaleFactor = 1.0;
+            let opacity = 1.0;
+            let rotationY = 0;
+
+            if (formula === 'slow_walk') {
+                offsetY = Math.sin(t * Math.PI) * 1.0 * mult;
+                scaleFactor = 1.0 + Math.sin(t * Math.PI) * 0.15 * mult;
+            } else if (formula === 'slime_trail') {
+                offsetX = Math.sin(t * Math.PI * 2 * 2.5) * 0.35 * mult;
+                rotationY = Math.cos(t * Math.PI * 2 * 2.5) * 0.45;
+            } else if (formula === 'teleport_dash') {
+                if (t < 0.2) {
+                    opacity = 1.0 - (t / 0.2);
+                    scaleFactor = 1.0 - (t / 0.2);
+                } else if (t >= 0.2 && t < 0.8) {
+                    opacity = 0;
+                    scaleFactor = 0;
+                } else {
+                    opacity = (t - 0.8) / 0.2;
+                    scaleFactor = (t - 0.8) / 0.2;
+                }
+            } else if (formula === 'earth_glide') {
+                offsetY = -Math.sin(t * Math.PI) * 0.8 * mult;
+                scaleFactor = 1.0 - Math.sin(t * Math.PI) * 0.35 * mult;
+            } else if (formula === 'helix_drill') {
+                offsetX = Math.cos(t * Math.PI * 4) * 0.3 * mult;
+                offsetZ = Math.sin(t * Math.PI * 4) * 0.3 * mult;
+                offsetY = (t - 0.5) * 0.6 * mult;
+                rotationY = t * Math.PI * 4;
+            } else if (formula === 'linear_dash') {
+                offsetX = (t - 0.5) * 1.5 * mult;
+            } else if (formula === 'step_clamber') {
+                offsetY = Math.floor(t * 4) * 0.25 * mult;
+            } else if (formula === 'phase_fade') {
+                opacity = 1.0 - t * 0.6 * mult;
+            } else if (formula === 'friction_brake') {
+                offsetX = Math.sin(t * Math.PI / 2) * 1.2 * mult;
+            } else if (formula === 'wind_drift') {
+                offsetX = (Math.random() - 0.5) * 0.15 * mult;
+                offsetZ = (Math.random() - 0.5) * 0.15 * mult;
+            } else if (formula === 'charge_surge') {
+                offsetX = Math.pow(t, 3) * 1.6 * mult;
+            } else if (formula === 'entropy_decay') {
+                offsetX = Math.cos(t * 8) * (1 - t) * 0.8 * mult;
+                offsetZ = Math.sin(t * 8) * (1 - t) * 0.8 * mult;
+            }
+
+            const size = 30 * scaleFactor;
+
+            let vertices = [];
+            let edges = [];
+
+            if (elementType === 'NPC' || elementType === 'CHEST') {
+                vertices = [
+                    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+                    [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+                ];
+                edges = [
+                    [0, 1], [1, 2], [2, 3], [3, 0],
+                    [4, 5], [5, 6], [6, 7], [7, 4],
+                    [0, 4], [1, 5], [2, 6], [3, 7]
+                ];
+            } else if (elementType === 'PLAYER') {
+                const segments = 8;
+                for (let i = 0; i < segments; i++) {
+                    const angle = (i * 2 * Math.PI) / segments;
+                    vertices.push([Math.cos(angle) * 0.6, -0.8, Math.sin(angle) * 0.6]);
+                }
+                for (let i = 0; i < segments; i++) {
+                    const angle = (i * 2 * Math.PI) / segments;
+                    vertices.push([Math.cos(angle) * 0.6, 0.8, Math.sin(angle) * 0.6]);
+                }
+                for (let i = 0; i < segments; i++) {
+                    const next = (i + 1) % segments;
+                    edges.push([i, next]);
+                    edges.push([i + segments, next + segments]);
+                    edges.push([i, i + segments]);
+                }
+            } else {
+                const segments = 8;
+                for (let i = 0; i < segments; i++) {
+                    const angle = (i * 2 * Math.PI) / segments;
+                    const r = (i % 2 === 0) ? 0.8 : 0.4;
+                    vertices.push([Math.cos(angle) * r, -0.2, Math.sin(angle) * r]);
+                    vertices.push([Math.cos(angle) * r, 0.2, Math.sin(angle) * r]);
+                }
+                for (let i = 0; i < segments * 2; i += 2) {
+                    const next = (i + 2) % (segments * 2);
+                    edges.push([i, next]);
+                    edges.push([i + 1, next + 1]);
+                    edges.push([i, i + 1]);
+                }
+            }
+
+            const radX = angleX * Math.PI / 180;
+            const radY = (angleY + rotationY * 180 / Math.PI) * Math.PI / 180;
+
+            const cosX = Math.cos(radX);
+            const sinX = Math.sin(radX);
+            const cosY = Math.cos(radY);
+            const sinY = Math.sin(radY);
+
+            const color = elementType === 'PLAYER' ? '#00eeff' : elementType === 'NPC' ? '#39ff14' : elementType === 'TRAP' ? '#a855f7' : '#ffd700';
+
+            const projected = vertices.map(([vx, vy, vz]) => {
+                let y1 = vy * cosX - vz * sinX;
+                let z1 = vy * sinX + vz * cosX;
+                let x2 = vx * cosY + z1 * sinY;
+                let z2 = -vx * sinY + z1 * cosY;
+
+                x2 += offsetX;
+                y1 -= offsetY;
+                z2 += offsetZ;
+
+                const distance = 4;
+                const factor = 180 / (distance + z2);
+                const px = cx + x2 * size * factor * 0.5;
+                const py = cy + y1 * size * factor * 0.5;
+                return [px, py];
+            });
+
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = opacity;
+            ctx.lineWidth = 1.8;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 6;
+            
+            edges.forEach(([i, j]) => {
+                if (projected[i] && projected[j]) {
+                    ctx.beginPath();
+                    ctx.moveTo(projected[i][0], projected[i][1]);
+                    ctx.lineTo(projected[j][0], projected[j][1]);
+                    ctx.stroke();
+                }
+            });
+
+            angleX += 0.5;
+            angleY += 0.8;
+
+            requestAnimationFrame(render);
+        };
+
+        render();
+        return () => {
+            active = false;
+            anglesRef.current = { x: angleX, y: angleY };
+        };
+    }, [formula, variant, elementType]);
+
+    return (
+        <div style={{
+            background: '#0d0e12',
+            border: '1px solid #232733',
+            borderRadius: 8,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: 10,
+            marginBottom: 16
+        }}>
+            <span style={{ fontSize: 10, color: '#ffd700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Formula Trajectory 3D Preview</span>
+            <canvas ref={canvasRef} width={240} height={160} style={{ display: 'block', background: '#07070a', borderRadius: 4 }} />
         </div>
     );
 };
@@ -249,6 +472,18 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
             entropyRate: 0.05,
             maxTurns: 30,
             collapseStartTurn: 8
+        }, null, 2),
+        "game_content/configs/database_sets.json": JSON.stringify({
+            registers: [
+                { address: "0x3C", description: "Active Combat Phase Buffer Index", value: "0x00FF08" },
+                { address: "0x4F", description: "Ohmic Entropy Feedback Thread State", value: "0x120C1F" },
+                { address: "0x5A", description: "Voltage Surge Combo Register", value: "0x000256" }
+            ],
+            procedures: [
+                { id: "proc_combos", name: "Gauss-Seidel combo chain resolver", status: "OPTIMAL" },
+                { id: "proc_traps", name: "Collision-free trap spawner guard", status: "ACTIVE" },
+                { id: "proc_mmr", name: "Redis MMR matchmaking pairings scheduler", status: "STANDBY" }
+            ]
         }, null, 2)
     });
     const [selectedFile, setSelectedFile] = useState("game_content/models/crystal_knight.json");
@@ -845,10 +1080,10 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                             </div>
                         </div>
 
-                        {/* Live 3D projection canvas for models */}
+                        {/* Live 3D projection canvas for models or configs */}
                         <div style={{ padding: '16px 20px 0 20px', flexShrink: 0 }}>
-                            {selectedFile.includes('models/') && (
-                                <ModelPreview3D fileJson={fileContent} />
+                            {selectedFile && (
+                                <ModelPreview3D fileJson={fileContent} selectedFile={selectedFile} />
                             )}
                         </div>
 
@@ -918,6 +1153,13 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                             <h3 style={{ margin: 0, fontSize: 14, color: '#ffd700' }}>🎬 KEYFRAME TIMELINE EDITOR</h3>
                             <span style={{ fontSize: 10, opacity: 0.6 }}>Ohmic Walk Formulas & Combinatorics</span>
                         </div>
+
+                        {/* Live 3D Keyframe Trajectory Previewer */}
+                        <KeyframePreview3D 
+                            formula={selectedFormula} 
+                            variant={selectedVariant} 
+                            elementType={selectedElementType} 
+                        />
 
                         {/* Element Filter */}
                         <div style={{ marginBottom: 12 }}>
