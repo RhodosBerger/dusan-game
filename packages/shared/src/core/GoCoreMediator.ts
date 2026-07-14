@@ -64,6 +64,42 @@ export interface GoCombatResponse {
     log: string;
 }
 
+export interface GoThread {
+    id: string;
+    name: string;
+    type: string;
+    health: number;
+    maxHealth: number;
+    energy: number;
+}
+
+export interface GoStateEngine {
+    matchId: string;
+    turnsElapsed: number;
+    activePhase: string;
+    activePlayerId: string;
+    systemEnergy: number;
+    threads: GoThread[];
+    playedVoltage: number;
+    playedResist: number;
+}
+
+export interface GoActionPayload {
+    attackerId: string;
+    targetId: string;
+    cardId: string;
+    voltage: number;
+    resistance: number;
+    damage: number;
+}
+
+export interface GoStateResolveResponse {
+    success: boolean;
+    state: GoStateEngine;
+    comboTrigger: string;
+    logs: string;
+}
+
 export class GoCoreMediator {
     private apiBaseUrl: string;
 
@@ -217,4 +253,107 @@ export class GoCoreMediator {
         }
         return { placeable: true, reason: 'Target location is valid.' };
     }
+
+    /**
+     * Query Go Core State Engine to initialize game state
+     */
+    public async initializeSovereignState(): Promise<GoStateEngine> {
+        // Trigger non-blocking heartbeat check
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        if (SovereignFailoverGateway.isOnline()) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/state/init`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                    return await res.json();
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
+                }
+            } catch (err) {
+                SovereignFailoverGateway.setOnlineState(false);
+            }
+        }
+
+        // TS local fallback state
+        return {
+            matchId: "match_simulation_01",
+            turnsElapsed: 1,
+            activePhase: "ACTION",
+            activePlayerId: "thread_king_ai",
+            systemEnergy: 80,
+            threads: [
+                { id: "thread_king_ai", name: "AI Overlord", type: "PLAYER", health: 30, maxHealth: 30, energy: 100 },
+                { id: "thread_hacker_root", name: "Root Hacker", type: "AI", health: 30, maxHealth: 30, energy: 100 }
+            ],
+            playedVoltage: 0,
+            playedResist: 0
+        };
+    }
+
+    /**
+     * Query Go Core State Engine to resolve a thread action
+     */
+    public async resolveSovereignAction(state: GoStateEngine, action: GoActionPayload): Promise<GoStateResolveResponse> {
+        // Trigger non-blocking heartbeat check
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        if (SovereignFailoverGateway.isOnline()) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/state/resolve-action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state, action })
+                });
+                if (res.ok) {
+                    return await res.json();
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
+                }
+            } catch (err) {
+                SovereignFailoverGateway.setOnlineState(false);
+            }
+        }
+
+        // TS local fallback calculations (Exact parity)
+        const nextState = { ...state };
+        const attacker = nextState.threads.find(t => t.id === action.attackerId);
+        const defender = nextState.threads.find(t => t.id === action.targetId);
+
+        let combo = "NONE";
+        let logs = `Bypassed Go Core. Resolved locally via TypeScript Fallback.`;
+
+        if (attacker && defender) {
+            attacker.energy = Math.max(0, attacker.energy - 20);
+            defender.health = Math.max(0, defender.health - action.damage);
+            nextState.playedVoltage += action.voltage;
+            if (nextState.playedResist === 0) {
+                nextState.playedResist = action.resistance;
+            } else {
+                nextState.playedResist *= action.resistance;
+            }
+
+            if (nextState.playedVoltage >= 8.0) {
+                combo = "VOLTAGE_SURGE";
+                defender.health = Math.max(0, defender.health - 2);
+                logs += " [COMBO] Voltage Surge triggered! +2 bonus damage applied.";
+                nextState.playedVoltage = 0.0;
+            } else if (nextState.playedResist > 0.0 && nextState.playedResist <= 1.0) {
+                combo = "SHORT_CIRCUIT";
+                attacker.energy = Math.max(0, attacker.energy - 15);
+                logs += " [COMBO] Short Circuit triggered! Attacker suffered energy drain.";
+                nextState.playedResist = 0.0;
+            }
+        }
+
+        return {
+            success: true,
+            state: nextState,
+            comboTrigger: combo,
+            logs
+        };
+    }
 }
+

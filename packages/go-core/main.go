@@ -731,6 +731,65 @@ func handleSimulation(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func handleStateInit(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	threads := []engine.Thread{
+		{ID: "thread_king_ai", Name: "AI Overlord", Type: "PLAYER", Health: 30, MaxHealth: 30, Energy: 100},
+		{ID: "thread_hacker_root", Name: "Root Hacker", Type: "AI", Health: 30, MaxHealth: 30, Energy: 100},
+	}
+
+	state := &engine.StateEngine{
+		MatchID:        "match_simulation_01",
+		TurnsElapsed:   1,
+		ActivePhase:    "ACTION",
+		ActivePlayerID: "thread_king_ai",
+		SystemEnergy:   80,
+		Threads:        threads,
+		PlayedVoltage:  0.0,
+		PlayedResist:   0.0,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
+func handleStateResolveAction(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type ActionRequest struct {
+		State  engine.StateEngine  `json:"state"`
+		Action engine.ActionPayload `json:"action"`
+	}
+
+	var req ActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp, err := req.State.ResolveAction(req.Action)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 func main() {
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/api/physics/energy-cost", handlePhysicsCost)
@@ -750,6 +809,8 @@ func main() {
 	http.HandleFunc("/api/telemetry/analytics", handleGetAnalytics)
 	http.HandleFunc("/api/scenarios/html5-entities", handleHTMLEntities)
 	http.HandleFunc("/api/simulation/geometry-nodes", handleSimulation)
+	http.HandleFunc("/api/state/init", handleStateInit)
+	http.HandleFunc("/api/state/resolve-action", handleStateResolveAction)
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/health", handleHealth)
 
