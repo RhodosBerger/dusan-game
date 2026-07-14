@@ -364,6 +364,7 @@ export default function App() {
           scorchedTiles={scorchedTiles}
           surgeTile={surgeTile}
           entropy={entropy}
+          lastComboEvent={gameState?.lastComboEvent}
         />
       </div>
 
