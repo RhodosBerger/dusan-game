@@ -12,7 +12,8 @@ import {
   DRUID_CARDS_BASE,
   VOID_CARDS_BASE,
   GoCoreMediator,
-  SovereignKeyframeInterpreter
+  SovereignKeyframeInterpreter,
+  getPhysicsSpecs
 } from '@dusan-game/shared';
 
 import { AIOpponentDirector } from './models/AIOpponentDirector';
@@ -338,17 +339,44 @@ io.on('connection', (socket) => {
           });
         }
 
+        // Dynamically resolve card specs (Rule 3 and Rule 6 boundaries)
+        const baseCardId = cardId.split('_')[0];
+        const isVoidCard = VOID_CARDS_BASE.some(c => c.id === baseCardId);
+        
+        let cardCost = card.cost;
+        if (isVoidCard && matchState.entropy > 0.7) {
+          cardCost = 0;
+          console.log(`[VOID_WALKER] High entropy (${matchState.entropy.toFixed(2)} > 0.7) detected. Void card ${baseCardId} cost reduced to 0.`);
+        }
+        matchState.systemEnergy = Math.max(0, matchState.systemEnergy - cardCost);
+
+        let cardDamage = 3;
+        let isSnakeOrStealth = false;
+        try {
+          const specs = getPhysicsSpecs(baseCardId);
+          if (specs) {
+            if (typeof specs.damage === 'number') {
+              cardDamage = specs.damage;
+            }
+            if (specs.effect === 'stealth' || baseCardId.toLowerCase().includes('snake') || baseCardId.toLowerCase().includes('stealth')) {
+              isSnakeOrStealth = true;
+            }
+          }
+        } catch (e) {
+          console.warn('[SERVER] Failed to retrieve physics specs for card:', baseCardId, e);
+        }
+
         // Solve combat damage via Go Core (Rule 6 boundary routing with local TS fallback)
         const opponent = matchState.threads.find(t => t.id !== playerId);
         if (opponent) {
           const defenderArmor = opponent.items.length * 2;
           goMediator.resolveCombatDamage({
-            damage: 3,
+            damage: cardDamage,
             attackerHeroId: playerId,
             defenderHeroId: opponent.id,
             defenderArmor: defenderArmor,
             reactionsCount: 1,
-            isSnakeOrStealth: false
+            isSnakeOrStealth: isSnakeOrStealth
           }).then((combatRes) => {
             opponent.health = Math.max(0, opponent.health - combatRes.finalDamage);
             console.log(`[COMBAT RESOLUTION] ${combatRes.log}`);
