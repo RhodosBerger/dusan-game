@@ -358,7 +358,7 @@ io.on('connection', (socket) => {
             if (typeof specs.damage === 'number') {
               cardDamage = specs.damage;
             }
-            if (specs.effect === 'stealth' || baseCardId.toLowerCase().includes('snake') || baseCardId.toLowerCase().includes('stealth')) {
+            if (baseCardId.toLowerCase().includes('snake') || baseCardId.toLowerCase().includes('stealth')) {
               isSnakeOrStealth = true;
             }
           }
