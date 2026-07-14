@@ -791,6 +791,41 @@ export class SovereignEngine {
   triggerOpportunityCheck(thread: Thread, chunkId: number, blockId: number): void {
     const chunk = this.map.chunks.find(c => c.id === chunkId);
     const block = chunk?.blocks.find(b => b.id === blockId);
+
+    // Check for collectable helper threads at this location (flags, tower samples)
+    const collectable = this.threads.find(t =>
+      t.id !== thread.id &&
+      t.position &&
+      t.position.meta === chunkId &&
+      t.position.hex === blockId &&
+      (t.id.includes('flag') || t.id.includes('tower') || t.id.includes('turret') || t.type === 'HELPER')
+    );
+    if (collectable) {
+      console.log(`[COLLECT] Thread ${thread.id} collected/interacted with helper entity ${collectable.id}`);
+      
+      let energyReward = 0;
+      let msg = '';
+      if (collectable.id.includes('flag')) {
+        energyReward = 10;
+        this.systemEnergy = Math.min(100, this.systemEnergy + energyReward);
+        msg = `Captured/collected flag ${collectable.id}! +10 system energy.`;
+      } else {
+        energyReward = 5;
+        this.systemEnergy = Math.min(100, this.systemEnergy + energyReward);
+        msg = `Dismantled/collected helper tower ${collectable.id}! +5 system energy.`;
+      }
+
+      // Remove from active threads
+      this.threads = this.threads.filter(t => t.id !== collectable.id);
+
+      this.traceLog.push({
+        type: 'ChestClaim',
+        threadId: thread.id,
+        message: msg,
+        timestamp: Date.now()
+      } as any);
+    }
+
     if (block && block.hasOpportunity) {
       const oppType = block.hasOpportunity;
       block.hasOpportunity = null; // consume

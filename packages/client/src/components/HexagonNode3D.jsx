@@ -852,6 +852,19 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 {node.isTown && !isCollapsing && <TownBuilding3D />}
                 {hasTrap && !isCollapsing && <Trap3D type={hasTrap} />}
 
+                {/* Helper sub-hexagon overlay representing the 3x3 sector sub-cell */}
+                {activeOccupyingThread?.type === 'HELPER' && !isCollapsing && (
+                    <mesh geometry={sharedInnerHexGeometry} scale={[0.33, 0.33, 1.0]} position={[0, 0, 0.405]} castShadow receiveShadow>
+                        <meshStandardMaterial 
+                            color="#39ff14" 
+                            emissive="#39ff14"
+                            emissiveIntensity={1.0}
+                            transparent 
+                            opacity={0.7} 
+                        />
+                    </mesh>
+                )}
+
                 {/* Render Faction Base Flags at starting points */}
                 {!isCollapsing && node.macroIndex === 0 && node.subIndex === 0 && (
                     <group position={[-0.65, 0.45, 0.41]}>

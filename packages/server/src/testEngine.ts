@@ -2939,7 +2939,58 @@ async function runTests() {
   console.log(`  [PASS] Campaign completion and Game Over victory verified.`);
   console.log(`  [PASS] Test 85 (SovereignIslandSystem) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System testy prebehli úspešne!");
+  // ----------------------------------------------------
+  // TEST 86: Spawning and Collecting Flags/Towers
+  // ----------------------------------------------------
+  console.log("\nTest 86: Helper Tower and Flag Collection and Height Ranges");
+  const testEngine86 = new SovereignEngine();
+  initializeSeedData(testEngine86);
+
+  // 1. Verify that sample tower and flag are spawned in the same format as players (active threads)
+  const towerThread = testEngine86.threads.find(t => t.id === 'sample_tower_01');
+  const flagThread = testEngine86.threads.find(t => t.id === 'sample_flag_01');
+  
+  assert(!!towerThread, "Sample tower thread must be present on game start.");
+  assert(!!flagThread, "Sample flag thread must be present on game start.");
+  assert(towerThread!.type === 'HELPER', "Tower thread type must be HELPER.");
+  assert(flagThread!.type === 'HELPER', "Flag thread type must be HELPER.");
+
+  // 2. Verify that tower thread returns 3 possible height range positions
+  const ranges = towerThread!.getTowerHeightRanges();
+  assert(ranges.towerReach === 3, "Tower reach at high height should be 3.");
+  assert(ranges.midReach === 2, "Tower reach at mid height should be 2.");
+  assert(ranges.groundReach === 1, "Tower reach at ground height should be 1.");
+
+  // 3. Test collecting helper units (standing/moving onto their tile)
+  const player86 = testEngine86.threads.find(t => t.id === 'thread_king_ai')!;
+  
+  // Set starting energy
+  testEngine86.systemEnergy = 50;
+
+  // Move player to the flag position (0, 2)
+  player86.position = { meta: 0, hex: 2 };
+  testEngine86.triggerOpportunityCheck(player86, 0, 2);
+
+  // The flag thread must be collected (removed from threads list) and grant 10 energy
+  const flagAfter = testEngine86.threads.find(t => t.id === 'sample_flag_01');
+  assert(!flagAfter, "Flag thread should be collected/removed after player walks onto it.");
+  assert(testEngine86.systemEnergy === 60, "Collecting flag should increase system energy by 10 (50 -> 60).");
+
+  // Move player to the tower position (0, 3)
+  player86.position = { meta: 0, hex: 3 };
+  testEngine86.triggerOpportunityCheck(player86, 0, 3);
+
+  // The tower thread must be collected and grant 5 energy
+  const towerAfter = testEngine86.threads.find(t => t.id === 'sample_tower_01');
+  assert(!towerAfter, "Tower thread should be collected/removed after player walks onto it.");
+  assert(testEngine86.systemEnergy === 65, "Collecting/dismantling tower should increase system energy by 5 (60 -> 65).");
+
+  console.log(`  [PASS] Towers and flags instantiated in identical thread formats.`);
+  console.log(`  [PASS] Tower returns three height range position configurations.`);
+  console.log(`  [PASS] Opportunity collection of flag and tower threads verified.`);
+  console.log(`  [PASS] Test 86 (Helper Tower/Flag Collection & Ranges) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

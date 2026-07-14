@@ -183,6 +183,14 @@ export class Thread {
     }
   }
 
+  getTowerHeightRanges(): { towerReach: number; midReach: number; groundReach: number } {
+    return {
+      towerReach: 3,
+      midReach: 2,
+      groundReach: 1
+    };
+  }
+
   toNetworkState(): any {
     return {
       id: this.id,
@@ -215,8 +223,8 @@ export class Thread {
       drawPileCount: this.drawPile.length,
       discardPileCount: this.discardPile.length,
       items: this.items,
-      wounds: this.wounds
+      wounds: this.wounds,
+      towerHeightRanges: this.getTowerHeightRanges()
     };
   }
 }
-

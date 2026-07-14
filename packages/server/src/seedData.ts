@@ -92,6 +92,17 @@ export function initializeSeedData(engine: SovereignEngine) {
   engine.spawnThread(hackerRoot, 8, 6);   // Toxic base at macro 8, hex 6
   engine.spawnThread(voidWeaver, 5, 3);   // Void base at macro 5, hex 3
 
+  // Spawnovanie vzorových placeholderov veží a vlajok ako Thread objektov (v rovnakom formáte ako hráči)
+  const sampleTower = new Thread('sample_tower_01', 'HELPER', 'thread_king_ai');
+  sampleTower.health = 8;
+  sampleTower.armor = 3;
+  engine.spawnThread(sampleTower, 0, 3);  // Spawn tower at chunk 0, hex 3
+
+  const sampleFlag = new Thread('sample_flag_01', 'HELPER', null);
+  sampleFlag.health = 1;
+  sampleFlag.armor = 0;
+  engine.spawnThread(sampleFlag, 0, 2);   // Spawn flag at chunk 0, hex 2
+
   // 2. Crystal Deck Generation
   CRYSTAL_CARDS_BASE.forEach(card => {
     // Vytvoríme inštrukciu pre každý výskyt karty (podľa card.count)

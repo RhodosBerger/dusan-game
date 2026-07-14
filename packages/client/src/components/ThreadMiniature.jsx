@@ -383,6 +383,59 @@ function TowerHelper3D({ tintColor }) {
     );
 }
 
+// ─── FactionFlag3D ────────────────────────────────────────────────────────────
+function FactionFlag3D({ faction }) {
+    const flagRef = useRef();
+    const flagColor = useMemo(() => {
+        if (faction === 'crystal') return '#00ffff';
+        if (faction === 'toxic') return '#39ff14';
+        if (faction === 'void') return '#a855f7';
+        return '#888888'; // Neutral
+    }, [faction]);
+
+    useFrame((state) => {
+        const time = state.clock.elapsedTime;
+        if (flagRef.current) {
+            flagRef.current.rotation.y = Math.sin(time * 3.5) * 0.12;
+        }
+    });
+
+    return (
+        <group position={[0, 0, 0]}>
+            {/* Flagpole (Iron/Carbon) */}
+            <mesh castShadow position={[0, 0.9, 0]}>
+                <cylinderGeometry args={[0.03, 0.03, 1.8, 8]} />
+                <meshStandardMaterial color="#444455" metalness={0.8} roughness={0.3} />
+            </mesh>
+
+            {/* Flag Banner */}
+            <group ref={flagRef} position={[0, 1.4, 0]}>
+                <mesh castShadow position={[0.3, 0, 0]}>
+                    <boxGeometry args={[0.6, 0.35, 0.02]} />
+                    <meshStandardMaterial color={flagColor} roughness={0.8} />
+                </mesh>
+                {/* Floating Faction Sigil Ornament */}
+                <mesh position={[0.3, 0, 0.02]} rotation={[0, 0, Math.PI / 4]}>
+                    {faction === 'crystal' ? (
+                        <octahedronGeometry args={[0.08]} />
+                    ) : faction === 'toxic' ? (
+                        <boxGeometry args={[0.08, 0.08, 0.08]} />
+                    ) : (
+                        <sphereGeometry args={[0.07, 8, 8]} />
+                    )}
+                    <meshBasicMaterial color="#ffffff" />
+                </mesh>
+            </group>
+
+            {/* Glowing flag tip */}
+            <mesh position={[0, 1.82, 0]}>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshBasicMaterial color={flagColor} />
+            </mesh>
+        </group>
+    );
+}
+
 function BiomeSplash({ position, color, onDone }) {
     const pointsRef = useRef();
     const count = 16;
@@ -897,8 +950,12 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
                     /* Pulsing crimson Glitch Core instead of billboard */
                     <GlitchCore3D tintColor="#ff0055" />
                 ) : thread.type === 'HELPER' ? (
-                    /* 3D Cybernetic Helper Defense Tower */
-                    <TowerHelper3D tintColor={tint} />
+                    /* 3D Cybernetic Helper Defense Tower or Flag */
+                    thread.id.includes('flag') ? (
+                        <FactionFlag3D faction={getFaction(thread.id, thread.type)} />
+                    ) : (
+                        <TowerHelper3D tintColor={tint} />
+                    )
                 ) : (
                     <>
                         {/* 3D Hierarchical Low-Poly Stylized Robot */}
