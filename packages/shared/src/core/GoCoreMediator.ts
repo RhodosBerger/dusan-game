@@ -1,5 +1,6 @@
 import { AethericDiceEngine } from './AethericDiceEngine';
 import { SovereignFailoverGateway } from './SovereignFailoverGateway';
+import { SovereignPhraseGenerator, PhraseOutput } from './SovereignPhraseGenerator';
 
 export interface HexNode {
     macroIndex: number;
@@ -171,6 +172,34 @@ export class GoCoreMediator {
             baseArmor: req.defenderArmor,
             log: `Bypassed Go Core. Resolved locally via TypeScript Fallback (Damage: ${finalDmg}).`
         };
+    }
+
+    /**
+     * Query Go Core Tag-Pair Simulation with TS local fallback
+     */
+    public async simulateGeometryNodes(verb: string, target: string): Promise<PhraseOutput> {
+        // Trigger non-blocking heartbeat check
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        if (SovereignFailoverGateway.isOnline()) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/simulation/geometry-nodes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ verb, target })
+                });
+                if (res.ok) {
+                    return await res.json();
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
+                }
+            } catch (err) {
+                SovereignFailoverGateway.setOnlineState(false);
+            }
+        }
+
+        // TS local fallback
+        return SovereignPhraseGenerator.compilePhrase(verb, target);
     }
 
     /**
