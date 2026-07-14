@@ -27,6 +27,7 @@
 ## 6. Monorepo Architectural Cohesion & Layer Integrity
 *   **Layer Boundary Isolation**:
     *   **Go Core boundaries**: All Go algorithms (`packages/go-core`) must remain decoupled from TypeScript runtime systems. Expose them solely via HTTP API endpoints (`/api/...`). Keep the TS fallbacks (`packages/shared` or `packages/server`) fully aligned and updated to ensure seamless operation when the Go server is offline.
+    *   **Go Core Simulation Bridge**: Any simulation algorithm ported to the Go Core microservice must maintain exact mathematical parity (character hashing, XOR math) with the local TypeScript fallback classes, allowing seamless, identical outputs regardless of the failover gateway state.
     *   **Shared Logic separation**: Do NOT write platform-specific imports (e.g., Node `fs`, `path`, or browser DOM references) inside `packages/shared`. Shared code must compile cleanly for both web browser and Node environments.
     *   **State Separation**: Keep database-persistent client profile/upgrading economy actions strictly separate from active in-match gameplay state loops.
 
@@ -78,5 +79,7 @@
 *   **Combinatoric Shape Aggregation**: Spawning of complex mesh configurations must utilize a pre-allocated pool of assets assembled based on statistical/probabilistic weight trees (e.g., matching biome characteristics and hazard indices) rather than hardcoded conditional structures.
 *   **Hardware Coexistence**: Telemetry updates modulating mesh modifiers must be throttled/debounced (maximum update frequency of 10Hz) to allow the OS dynamic frequency governor to settle, preventing TDP/VRAM power spikes.
 *   **Semantic RAG Shape Library & Layer Coherence**: Any procedural mesh generated from semantic text descriptors (words/phrases) must resolve its geometry parameters (scale, vertex offsets, bevel) through a mapped shape dictionary (RAG library). The sampled geometries must be structured into independent but aligned rendering layers (Critical colliders, Structural base, Cosmetic overlays) sharing common top-face height bounds and snap-to offsets to ensure topological cohesion.
+*   **Procedural Timeline Keyframing**: Actions and card plays mapped to RAG tag-pairs must translate their deterministic hashes into animation sequences (squash/stretch ratios, Bezier control tangents) played in-place without mesh re-instantiation, utilizing cached templates to maintain balanced thermal and TDP profiles.
+
 
 
