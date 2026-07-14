@@ -105,7 +105,7 @@ function UltimateOrbVFX({ active }) {
     );
 }
 
-function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate, activeBiome }) {
+function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate, activeBiome, selectedNode, hoveredNode }) {
     const { camera, controls } = useThree();
     const desiredTarget = useRef(new THREE.Vector3(0, 0, 0));
     const isLockedToUnit = useRef(true);
@@ -115,6 +115,68 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     const activePlayer = useMemo(() => {
         return threads.find(t => t.type === 'PLAYER' && t.health > 0) || null;
     }, [threads]);
+
+    const activeUnitNode = useMemo(() => {
+        const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
+        if (targetThread && targetThread.position) {
+            return gridData.find(
+                n => n.macroIndex === targetThread.position.meta && n.subIndex === targetThread.position.hex
+            ) || null;
+        }
+        return null;
+    }, [threads, gridData]);
+
+    const focusedNode = selectedNode || hoveredNode || activeUnitNode;
+
+    // Calculate dynamic slant (pitch, yaw) and zoom (fov) based on focusedNode
+    const cameraProfile = useMemo(() => {
+        if (!focusedNode) {
+            return {
+                pitch: 1.05,
+                yaw: Math.PI / 4,
+                fov: 22
+            };
+        }
+
+        const x = focusedNode.position[0];
+        const z = focusedNode.position[2];
+        const r = Math.sqrt(x * x + z * z);
+        
+        // 1. Yaw (Head slant heading): skewed slightly based on tile position angle
+        const angleOffset = Math.atan2(z, x) - Math.PI / 4;
+        let yaw = Math.PI / 4 + Math.sin(angleOffset) * 0.12;
+
+        // 2. Pitch (Elevation slant angle)
+        let pitch = 1.05; // Base 60 degrees
+        if (focusedNode.hazardIndex > 0.6) {
+            pitch = 1.14; // Low-angle dramatic slant for hazards
+        } else {
+            // Inner tiles: higher camera angle. Outer tiles: lower angle (flatter slant)
+            pitch = 0.96 + (r / 14.0) * 0.15;
+        }
+
+        // Apply biome modifications to slant
+        if (activeBiome === 'TOXIC_SWAMP') {
+            pitch += 0.08;
+        } else if (activeBiome === 'GLACIER') {
+            pitch -= 0.08;
+        }
+
+        // 3. FOV (Zoom factor)
+        let fov = 22;
+        if (isUltimate) {
+            fov = 14;
+        } else if (selectedNode && selectedNode.id === focusedNode.id) {
+            fov = 17; // Close focus zoom on selected tile
+        } else if (focusedNode.hazardIndex > 0.65) {
+            fov = 16; // Deep focus zoom on danger zones
+        } else {
+            // Zoom out slightly for outer tiles
+            fov = 20 + (r / 14.0) * 6.0;
+        }
+
+        return { pitch, yaw, fov };
+    }, [focusedNode, activeBiome, isUltimate, selectedNode]);
 
     // Reset lock on turn/active player change
     const lastActivePlayerId = useRef(null);
@@ -201,8 +263,15 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
             isLockedToUnit.current = false;
         }
 
-        // 1. Plynulý LERP stredu záujmu
+        // 1. Plynulý LERP stredu záujmu a rotačných obmedzení MapControls
         if (controls) {
+            // Apply dynamic tile-specific camera slant limits in-place (Rule 5 safety)
+            controls.minPolarAngle = THREE.MathUtils.lerp(controls.minPolarAngle, cameraProfile.pitch, delta * 3.0);
+            controls.maxPolarAngle = controls.minPolarAngle;
+
+            controls.minAzimuthAngle = THREE.MathUtils.lerp(controls.minAzimuthAngle, cameraProfile.yaw, delta * 3.0);
+            controls.maxAzimuthAngle = controls.minAzimuthAngle;
+
             // If dragging the map, copy controls target to desiredTarget to avoid fighting
             if (!isLockedToUnit.current && state.pointer.down) {
                 desiredTarget.current.copy(controls.target);
@@ -213,15 +282,7 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
         }
 
         // 2. Úprava FOV (zorného uhla) pre detailný zoom a taktický prehľad
-        let targetFov = isUltimate ? 18 : (gameMode === 'SANDBOX' ? 28 : 22);
-        if (gameMode !== 'SANDBOX' && !isUltimate) {
-            if (activeBiome === 'TOXIC_SWAMP') {
-                targetFov = 18;
-            } else if (activeBiome === 'GLACIER') {
-                targetFov = 30;
-            }
-        }
-
+        const targetFov = cameraProfile.fov;
         if (Math.abs(camera.fov - targetFov) > 0.1) {
             camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, delta * 4.0);
             camera.updateProjectionMatrix();
@@ -472,10 +533,6 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 <MapControls 
                     enableDamping 
                     enableRotate={false} // Zamedzí otáčaniu pre čistú taktickú izometriu
-                    maxPolarAngle={1.05} // Fixný pitch uhol
-                    minPolarAngle={1.05}
-                    maxAzimuthAngle={Math.PI / 4} // Fixný yaw uhol (45 stupňov)
-                    minAzimuthAngle={Math.PI / 4}
                     minDistance={10} 
                     maxDistance={120} 
                 />
@@ -489,6 +546,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     shakeIntensity={shakeIntensity} 
                     isUltimate={ultimateFlash} 
                     activeBiome={activeBiome}
+                    selectedNode={selectedNode}
+                    hoveredNode={hoveredNode}
                 />
 
                 {/* Dynamické osvetlenie a volumetrické profily sveta */}
