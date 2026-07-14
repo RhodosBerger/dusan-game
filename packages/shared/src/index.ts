@@ -41,3 +41,5 @@ export * from './core/SovereignGenerativeOrchestrator';
 export * from './core/SovereignRealityMatrix';
 export * from './core/SovereignLIFOArbiter';
 export * from './core/SovereignPredictiveGenerator';
+export * from './core/SovereignFailoverGateway';
+

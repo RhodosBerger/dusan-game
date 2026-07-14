@@ -1,4 +1,5 @@
 import { AethericDiceEngine } from './AethericDiceEngine';
+import { SovereignFailoverGateway } from './SovereignFailoverGateway';
 
 export interface HexNode {
     macroIndex: number;
@@ -107,7 +108,10 @@ export class GoCoreMediator {
      * Query Physics Energy Cost with TS Local Fallback
      */
     public async solvePhysicsCost(baseCost: number, metaId: number, hexId: number, fallbackMultiplier = 1.0): Promise<GoPhysicsCostResponse> {
-        if (!AethericDiceEngine.bypassDice) {
+        // Trigger non-blocking heartbeat check
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        if (!AethericDiceEngine.bypassDice && SovereignFailoverGateway.isOnline()) {
             try {
                 const res = await fetch(`${this.apiBaseUrl}/api/physics/energy-cost`, {
                     method: 'POST',
@@ -116,9 +120,11 @@ export class GoCoreMediator {
                 });
                 if (res.ok) {
                     return await res.json();
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
                 }
             } catch (err) {
-                // Silence network error and trigger local fallback
+                SovereignFailoverGateway.setOnlineState(false);
             }
         }
 
@@ -134,7 +140,10 @@ export class GoCoreMediator {
      * Query Combat Resolution with TS Local Fallback
      */
     public async resolveCombatDamage(req: GoCombatRequest): Promise<GoCombatResponse> {
-        if (!AethericDiceEngine.bypassDice) {
+        // Trigger non-blocking heartbeat check
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        if (!AethericDiceEngine.bypassDice && SovereignFailoverGateway.isOnline()) {
             try {
                 const res = await fetch(`${this.apiBaseUrl}/api/combat/resolve`, {
                     method: 'POST',
@@ -143,9 +152,11 @@ export class GoCoreMediator {
                 });
                 if (res.ok) {
                     return await res.json();
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
                 }
             } catch (err) {
-                // Silence network error and trigger local fallback
+                SovereignFailoverGateway.setOnlineState(false);
             }
         }
 

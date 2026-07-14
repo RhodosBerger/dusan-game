@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface ArenaUIOverlayProps {
   gameState: any;
@@ -34,6 +34,19 @@ export default function ArenaUIOverlay({
   const [selectedMulliganCardIds, setSelectedMulliganCardIds] = useState<string[]>([]);
   const [mulliganSubmitted, setMulliganSubmitted] = useState<boolean>(false);
   const [isStealthed, setIsStealthed] = useState<boolean>(false);
+  const [goCoreOnline, setGoCoreOnline] = useState<boolean>(true);
+
+  useEffect(() => {
+    const checkHealth = () => {
+      fetch('/api/health/go-core')
+        .then(res => res.json())
+        .then(data => setGoCoreOnline(!!data.online))
+        .catch(() => setGoCoreOnline(false));
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const activePlayer = gameState?.threads?.find((t: any) => t.id === myThreadId);
   const activeOpponent = gameState?.threads?.find((t: any) => t.id !== myThreadId);
@@ -140,6 +153,12 @@ export default function ArenaUIOverlay({
           </div>
           <div className="text-sm font-bold text-white font-mono mt-0.5">
             Turn: {gameState.turnsElapsed} | Active Phase: {gameState.turnStateMachine.currentPhase}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 border-t border-slate-800 pt-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${goCoreOnline ? 'bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`} />
+            <span className="text-[8px] font-mono uppercase tracking-wider text-slate-400">
+              Go Core: {goCoreOnline ? 'ONLINE' : 'BYPASSED (TS FALLBACK)'}
+            </span>
           </div>
         </div>
 

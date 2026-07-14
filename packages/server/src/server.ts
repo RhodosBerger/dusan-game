@@ -14,7 +14,7 @@ import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator } from '@dusan-game/shared';
+import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignFailoverGateway } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
@@ -1273,6 +1273,15 @@ app.post('/api/cards/fuse', (req, res) => {
     res.json({ success: true, fusedCard, gameState: targetEngine.getState() });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/health/go-core', async (req, res) => {
+  try {
+    const online = await SovereignFailoverGateway.verifyHealth('http://localhost:8081');
+    res.json({ online });
+  } catch (e: any) {
+    res.json({ online: false, error: e.message });
   }
 });
 

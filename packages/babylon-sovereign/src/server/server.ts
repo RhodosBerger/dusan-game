@@ -19,7 +19,8 @@ import {
   SovereignLIFOArbiter,
   SovereignPredictiveGenerator,
   SovereignKeyframeInterpreter,
-  getPhysicsSpecs
+  getPhysicsSpecs,
+  SovereignFailoverGateway
 } from '@dusan-game/shared';
 
 import { AIOpponentDirector } from './models/AIOpponentDirector';
@@ -264,6 +265,15 @@ app.post('/api/cards/fuse', (req, res) => {
     res.json({ success: true, fusedCard, gameState: matchState });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/health/go-core', async (req, res) => {
+  try {
+    const online = await SovereignFailoverGateway.verifyHealth('http://localhost:8081');
+    res.json({ online });
+  } catch (e: any) {
+    res.json({ online: false, error: e.message });
   }
 });
 
