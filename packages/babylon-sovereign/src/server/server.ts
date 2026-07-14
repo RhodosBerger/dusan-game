@@ -14,6 +14,10 @@ import {
   DRUID_CARDS_BASE,
   VOID_CARDS_BASE,
   GoCoreMediator,
+  SovereignGenerativeOrchestrator,
+  SovereignRealityMatrix,
+  SovereignLIFOArbiter,
+  SovereignPredictiveGenerator,
   SovereignKeyframeInterpreter,
   getPhysicsSpecs
 } from '@dusan-game/shared';
@@ -178,6 +182,28 @@ app.get('/api/devops/telemetry', (req, res) => {
   try {
     const metrics = devopsWatcher.scan();
     res.json(metrics);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/predict', (req, res) => {
+  try {
+    const meta = parseInt(req.query.meta as string || '0', 10);
+    const hex = parseInt(req.query.hex as string || '0', 10);
+    const verb = (req.query.verb as string || 'DEPLOY').toUpperCase();
+    const prediction = SovereignPredictiveGenerator.predictNextState(meta, hex, verb);
+    res.json(prediction);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/predict/log', (req, res) => {
+  try {
+    const { session = 'default', verb = 'DEPLOY', impact = {} } = req.body;
+    SovereignPredictiveGenerator.writeImpactLog(session, verb, impact);
+    res.json({ success: true, logs: SovereignPredictiveGenerator.getImpactLogs() });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

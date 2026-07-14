@@ -22,7 +22,7 @@ import { SSAO2RenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipe
 import { ChromaticAberrationPostProcess } from '@babylonjs/core/PostProcesses/chromaticAberrationPostProcess';
 import neonMatrixTexUrl from '../../assets/neon_matrix_grid.png';
 import brushedMetalTexUrl from '../../assets/brushed_metal_tech.png';
-import { SpatialGuidanceSystem } from '../../../../shared/src/index';
+import { SpatialGuidanceSystem, SovereignPredictiveGenerator } from '../../../../shared/src/index';
 
 const WORLD_PROFILES = {
   DEFAULT: {
@@ -1512,13 +1512,29 @@ export default function BabylonCanvasRenderer({
         const isAiTarget = currentAiFrame && currentAiFrame.targetChunk === nodeWrapper.chunkId && currentAiFrame.targetHex === nodeWrapper.blockId;
         const isSurge = surgeTileRef.current && surgeTileRef.current.meta === nodeWrapper.chunkId && surgeTileRef.current.hex === nodeWrapper.blockId;
         
-        let targetY = -0.6;
+        let heightOffset = 0;
+        if (devopsTelemetryRef.current) {
+          const normBuild = devopsTelemetryRef.current.buildDurationMs / 1000.0;
+          heightOffset = Math.max(0, (normBuild - 1.2) * 1.5);
+        }
+
+        let targetY = -0.6 + heightOffset;
+        let hoverEdgeColor = new Color4(0.2, 1.0, 0.8, 1.0);
+
         if (isSurge) {
-          targetY = 0.6; // rises high (Pillar 1 height deformation)
+          targetY = 0.6 + heightOffset;
         } else if (isAiTarget) {
-          targetY = 0.4; // rises when targeted by AI
-        } else if (isSel || isHov) {
-          targetY = -0.3; // rises slightly when selected/hovered
+          targetY = 0.4 + heightOffset;
+        } else if (isSel) {
+          targetY = -0.3 + heightOffset;
+        } else if (isHov) {
+          const prediction = SovereignPredictiveGenerator.predictNextState(
+            nodeWrapper.chunkId,
+            nodeWrapper.blockId,
+            selectedCardRef.current?.name || 'DEPLOY'
+          );
+          targetY = -0.6 + heightOffset + prediction.height;
+          hoverEdgeColor = Color4.FromColor3(Color3.FromHexString(prediction.colorHex), 0.95);
         }
 
         // Apply outline border highlights (Gravity Well Overdrive)
@@ -1527,7 +1543,7 @@ export default function BabylonCanvasRenderer({
             ? new Color4(1, 0.9, 0, 1.0) // Throttled Yellow
             : new Color4(1, 0, 0.5, 1.0); // Neon Magenta
         } else if (isHov) {
-          nodeWrapper.mesh.edgesColor = new Color4(0.2, 1.0, 0.8, 1.0); // Active Hover Cyan
+          nodeWrapper.mesh.edgesColor = hoverEdgeColor;
         } else if (isSurge) {
           nodeWrapper.mesh.edgesColor = new Color4(0.2, 1.0, 0.8, 1.0); // Surge Highlight
         } else {
