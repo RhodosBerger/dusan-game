@@ -104,6 +104,7 @@ interface BabylonCanvasRendererProps {
   entropy?: number;
   lastComboEvent?: 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null;
   devopsTelemetry?: any;
+  activePhase?: string;
 }
 
 export default function BabylonCanvasRenderer({
@@ -123,7 +124,8 @@ export default function BabylonCanvasRenderer({
   surgeTile = null,
   entropy = 0.2,
   lastComboEvent = null,
-  devopsTelemetry = null
+  devopsTelemetry = null,
+  activePhase = 'ACTION'
 }: BabylonCanvasRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shuffleTriggerRef = useRef<{ time: number }>({ time: 0 });
@@ -138,6 +140,8 @@ export default function BabylonCanvasRenderer({
   const comboEventRef = useRef<'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null>(null);
   const comboFlashFramesRef = useRef(0); // frames remaining for combo flash
 
+  const activePhaseRef = useRef(activePhase);
+
   const [hudConfig, setHudConfig] = React.useState<any>(null);
   const hudConfigRef = useRef<any>(null);
   hudConfigRef.current = hudConfig;
@@ -151,6 +155,7 @@ export default function BabylonCanvasRenderer({
   }, []);
 
   // Keep refs updated
+  useEffect(() => { activePhaseRef.current = activePhase; }, [activePhase]);
   useEffect(() => { weatherOverrideRef.current = weatherOverride; }, [weatherOverride]);
   useEffect(() => { ultimateFlashRef.current = ultimateFlash; }, [ultimateFlash]);
   useEffect(() => { scorchedTilesRef.current = scorchedTiles; }, [scorchedTiles]);
@@ -1713,11 +1718,33 @@ export default function BabylonCanvasRenderer({
           nodeWrapper.innerPlate.position.y = 0.1 + floatOffset;
         }
 
+        // Phase-Modulated Viewport Layering (Rule 10 addition)
+        let phaseRingSpeed = 0.025;
+        const currentPhase = activePhaseRef.current || 'ACTION';
+
+        if (currentPhase === 'MULLIGAN') {
+          targetY -= 0.2;
+          nodeWrapper.mesh.edgesColor = new Color4(0.1, 0.4, 0.6, 0.15); // Dim blue outlines
+          phaseRingSpeed = 0.005; // Throttled preparation speed
+        } else if (currentPhase === 'COMBAT') {
+          const combinedHash = Math.abs((nodeWrapper.chunkId << 5) ^ nodeWrapper.blockId);
+          targetY += Math.sin(Date.now() * 0.08 + combinedHash) * 0.035; // High-frequency structural jitter
+          phaseRingSpeed = 0.055; // Doubled combat speed
+        } else if (currentPhase === 'END') {
+          targetY = -1.8; // Sink below fog line
+          phaseRingSpeed = 0.0;
+        }
+
         // Rotate and animate Spawner Portal Rings (Rule 1 & 5)
         if (nodeWrapper.spawnerRing) {
-          nodeWrapper.spawnerRing.rotation.y += 0.025;
-          const pulseScale = 1.0 + Math.sin(Date.now() * 0.004 + nodeWrapper.chunkId) * 0.06;
-          nodeWrapper.spawnerRing.scaling.set(pulseScale, pulseScale, pulseScale);
+          if (currentPhase === 'END') {
+            nodeWrapper.spawnerRing.setEnabled(false);
+          } else {
+            nodeWrapper.spawnerRing.setEnabled(true);
+            nodeWrapper.spawnerRing.rotation.y += phaseRingSpeed;
+            const pulseScale = 1.0 + Math.sin(Date.now() * 0.004 + nodeWrapper.chunkId) * 0.06;
+            nodeWrapper.spawnerRing.scaling.set(pulseScale, pulseScale, pulseScale);
+          }
         }
 
         nodeWrapper.mesh.position.y = Scalar.Lerp(
