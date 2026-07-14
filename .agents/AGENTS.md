@@ -56,6 +56,10 @@
 
 ## 10. WebGL Viewport State Synchronization & 3D Backoffice Previews
 *   **Continuous Rotation Refs**: Any 3D canvas previewer component in React must preserve intermediate rotation angles (e.g., `anglesRef = React.useRef({ x: 0, y: 0 })`) and restore them on hook recreation. This ensures continuous, smooth rotation when the user is editing JSON code in the textarea.
+*   **Phase-Modulated Layering**: Viewport state rendering must adapt dynamically to active gameplay phases (MULLIGAN, ACTION, COMBAT, END). Instead of instantiating phase-specific assets, modulate the pre-cached geometric layers:
+    - **Mulligan Phase**: Lower structural heights, dim neon outlines, and throttle cosmetic portal rotations.
+    - **Combat Phase**: Introduce high-frequency structural height jitter/vibrations and double cosmetic rotation speeds.
+    - **End Phase**: Sink structural and cosmetic meshes below the viewport fog line.
 *   **Procedural Config Previews**: Selection of configuration files (e.g., in `configs/`) must render a procedurally generated 3D Gear mesh (connecting 24 front/back outer teeth vertices) on the preview canvas to visualize backend engine loops.
 *   **Animated Trajectory Loops**: The backoffice CMS Keyframes panel must render a live 3D preview player (`KeyframePreview3D`) to animate the active walk formula and variant multiplier in a real-time looping preview.
 *   **Throttled Database Telemetry**: WebGL CustomMaterial uniform updates driven by database sets (e.g., polling SQLite register address `0x4F` or `0x5A`) must be debounced to a maximum update frequency of 10Hz to prevent GPU register power spikes.
