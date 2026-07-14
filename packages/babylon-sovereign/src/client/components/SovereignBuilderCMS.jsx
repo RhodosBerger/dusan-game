@@ -289,6 +289,93 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
         }));
     };
 
+    const loadMapPreset = (type) => {
+        let presetGrid = [];
+        if (type === 'glacial') {
+            presetGrid = Array.from({ length: 63 }).map((_, i) => {
+                const m = Math.floor(i / 7);
+                const s = i % 7;
+                const isGlacier = (m + s) % 3 !== 0;
+                return {
+                    macroIndex: m,
+                    subIndex: s,
+                    biome: isGlacier ? 'GLACIER' : 'LUSH_FOREST',
+                    walkable: s !== 0,
+                    hazardIndex: isGlacier ? 0.05 : 0.1,
+                    friction: isGlacier ? 1.3 : 0.5,
+                    actorType: (m === 0 && s === 3) ? 'PLAYER' : 'NONE',
+                    temperature: isGlacier ? -10 : 10,
+                    humidity: 30,
+                    conductivity: 0.2,
+                    estimatedPower: '10W'
+                };
+            });
+            setLogMessages(prev => ['[CMS] Loaded category: Glacial Sanctuary (optimized for Crystal Knight).', ...prev]);
+        } else if (type === 'toxic') {
+            presetGrid = Array.from({ length: 63 }).map((_, i) => {
+                const m = Math.floor(i / 7);
+                const s = i % 7;
+                const isToxic = (m + s) % 2 === 0;
+                return {
+                    macroIndex: m,
+                    subIndex: s,
+                    biome: isToxic ? 'TOXIC_SWAMP' : 'BARRENS',
+                    walkable: s !== 1,
+                    hazardIndex: isToxic ? 0.6 : 0.25,
+                    friction: isToxic ? 0.15 : 0.8,
+                    actorType: (m === 4 && s === 3) ? 'NPC' : 'NONE',
+                    temperature: 25,
+                    humidity: 85,
+                    conductivity: 0.9,
+                    estimatedPower: '35W'
+                };
+            });
+            setLogMessages(prev => ['[CMS] Loaded category: Toxic Hive (optimized for Toxic Hacker).', ...prev]);
+        } else if (type === 'druid') {
+            presetGrid = Array.from({ length: 63 }).map((_, i) => {
+                const m = Math.floor(i / 7);
+                const s = i % 7;
+                const isForest = (m + s) % 4 !== 0;
+                return {
+                    macroIndex: m,
+                    subIndex: s,
+                    biome: isForest ? 'LUSH_FOREST' : 'GLACIER',
+                    walkable: true,
+                    hazardIndex: 0.1,
+                    friction: 0.45,
+                    actorType: (m === 8 && s === 3) ? 'PLAYER' : 'NONE',
+                    temperature: 18,
+                    humidity: 60,
+                    conductivity: 0.4,
+                    estimatedPower: '18W'
+                };
+            });
+            setLogMessages(prev => ['[CMS] Loaded category: Druid\'s Glade (optimized for Druid Scout).', ...prev]);
+        } else {
+            presetGrid = Array.from({ length: 63 }).map((_, i) => {
+                const m = Math.floor(i / 7);
+                const s = i % 7;
+                const isDesert = (m + s) % 2 === 0;
+                return {
+                    macroIndex: m,
+                    subIndex: s,
+                    biome: isDesert ? 'DESERT' : 'BARRENS',
+                    walkable: s !== 5,
+                    hazardIndex: 0.4,
+                    friction: 0.3,
+                    actorType: (m === 6 && s === 3) ? 'NPC' : 'NONE',
+                    temperature: 42,
+                    humidity: 10,
+                    conductivity: 0.1,
+                    estimatedPower: '25W'
+                };
+            });
+            setLogMessages(prev => ['[CMS] Loaded category: Void Crucible (optimized for Void Weaver).', ...prev]);
+        }
+        setEditorGrid(presetGrid);
+        setSelectedNode(null);
+    };
+
     // Trigger Go Core Batch Synthesis to resolve metrics (Rule 6 - Go Core integration)
     const triggerGoCoreBatchSync = async () => {
         setIsSyncing(true);
@@ -378,6 +465,37 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid #232733' }}>
                     <h2 style={{ margin: 0, fontSize: 18, color: '#39ff14', letterSpacing: 0.5 }}>SOVEREIGN BUILDER CMS</h2>
                     <span style={{ fontSize: 11, opacity: 0.6 }}>React-Go Gamedev Layout Composer</span>
+                </div>
+
+                {/* Tactical Map Category Presets */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #232733', background: '#111319' }}>
+                    <div style={{ fontSize: 11, color: '#ffd700', marginBottom: 8, fontWeight: 'bold' }}>TACTICAL MAP PRESETS</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <button 
+                            onClick={() => loadMapPreset('glacial')}
+                            style={{ padding: '6px', fontSize: 10, background: '#1d202b', border: '1px solid #333', color: '#00eeff', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Glacial Sanctuary
+                        </button>
+                        <button 
+                            onClick={() => loadMapPreset('toxic')}
+                            style={{ padding: '6px', fontSize: 10, background: '#1d202b', border: '1px solid #333', color: '#39ff14', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Toxic Hive
+                        </button>
+                        <button 
+                            onClick={() => loadMapPreset('druid')}
+                            style={{ padding: '6px', fontSize: 10, background: '#1d202b', border: '1px solid #333', color: '#ffcc00', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Druid's Glade
+                        </button>
+                        <button 
+                            onClick={() => loadMapPreset('void')}
+                            style={{ padding: '6px', fontSize: 10, background: '#1d202b', border: '1px solid #333', color: '#a855f7', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Void Crucible
+                        </button>
+                    </div>
                 </div>
 
                 {/* Inspector Scroll Area */}
