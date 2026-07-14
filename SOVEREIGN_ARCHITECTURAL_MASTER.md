@@ -144,5 +144,22 @@ Every pull request must compile cleanly and pass all verification tests:
 | `http://localhost:8085` | Babylon.js Frontend | `packages/babylon-sovereign` (client) | `yarn workspace @dusan-game/babylon-sovereign dev:client` |
 | `http://localhost:3005` | Reproduced Backend | `packages/babylon-sovereign` (server) | `yarn workspace @dusan-game/babylon-sovereign dev:server` |
 
+---
+
+## 9. Authoritative Go Core State Engine & LLM Telemetry Pipeline
+
+### 9.1 SovereignStateEngine (Go Core Authoritative Loop)
+To decouple gameplay state calculations from client-side execution, a authoritative state engine is integrated in Go Core (`packages/go-core/engine/sovereign_state_engine.go`). 
+- Tracks players, threads, phase transitions (MULLIGAN, ACTION, COMBAT), and voltage/resistance accumulations.
+- Evaluates Voltage Surge and Short Circuit combat triggers deterministically.
+- Exposes routes `/api/state/init` and `/api/state/resolve-action` to synchronise matches with `GoCoreMediator.ts`.
+
+### 9.2 Metacognitive LLM dataset Tuner
+To train custom LLM chat bots for gameplay balance suggestions, telemetry is streamed directly to a JSON-L log tuner (`LLMTelemetryFineTuner.ts`).
+- Intercepts state changes (voltages, played cards, remaining system energy).
+- Appends training prompt-completion pairs to `scratch/fine_tuning_telemetry.jsonl`.
+- The dataset trains models to predict game balance anomalies and recommend card cost adjustments dynamically.
+
 ### Staging Guardrail
-All code changes must preserve the signatures of the existing 70+ integration tests. Running `npm run build --workspaces` (using yarn workspace commands) must complete with zero compiler warnings.
+All code changes must preserve the signatures of the existing 90+ integration tests. Running `npm run build --workspaces` (using yarn workspace commands) must complete with zero compiler warnings.
+
