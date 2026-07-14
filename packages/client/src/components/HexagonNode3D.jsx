@@ -185,6 +185,155 @@ function TownBuilding3D() {
     );
 }
 
+function RepairKit3D() {
+    const meshRef = useRef();
+
+    useFrame((state) => {
+        if (!meshRef.current) return;
+        const time = state.clock.elapsedTime;
+        meshRef.current.rotation.y = time * 1.5;
+        meshRef.current.position.z = 0.6 + Math.sin(time * 3.0) * 0.08;
+    });
+
+    return (
+        <group ref={meshRef} position={[0, 0, 0.4]}>
+            {/* Hexagonal capsule */}
+            <mesh castShadow>
+                <cylinderGeometry args={[0.12, 0.12, 0.4, 6]} />
+                <meshStandardMaterial color="#065f46" metalness={0.9} roughness={0.1} />
+            </mesh>
+            {/* Glowing neon green bands */}
+            {[-0.12, 0.12].map((zVal, idx) => (
+                <mesh key={idx} position={[0, zVal, 0]}>
+                    <torusGeometry args={[0.13, 0.02, 6, 12]} />
+                    <meshBasicMaterial color="#39ff14" />
+                </mesh>
+            ))}
+            {/* Caps */}
+            {[-0.2, 0.2].map((zVal, idx) => (
+                <mesh key={idx} position={[0, zVal, 0]}>
+                    <cylinderGeometry args={[0.12, 0.12, 0.02, 6]} />
+                    <meshStandardMaterial color="#34d399" metalness={0.8} />
+                </mesh>
+            ))}
+            <pointLight distance={1.5} intensity={1.0} color="#39ff14" />
+        </group>
+    );
+}
+
+function SurgeNode3D() {
+    const coreRef = useRef();
+    const ringRef = useRef();
+
+    useFrame((state) => {
+        const time = state.clock.elapsedTime;
+        if (coreRef.current) {
+            coreRef.current.rotation.x = time * 2.0;
+            coreRef.current.rotation.y = time * 1.5;
+            coreRef.current.position.z = 0.6 + Math.sin(time * 4.0) * 0.06;
+        }
+        if (ringRef.current) {
+            ringRef.current.rotation.z = -time * 3.0;
+            ringRef.current.position.z = 0.6 + Math.sin(time * 4.0) * 0.06;
+        }
+    });
+
+    return (
+        <group position={[0, 0, 0.4]}>
+            {/* Glowing electrical sphere core */}
+            <mesh ref={coreRef}>
+                <sphereGeometry args={[0.14, 16, 16]} />
+                <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.8} />
+            </mesh>
+            {/* Surrounding electric ring */}
+            <mesh ref={ringRef} rotation={[Math.PI / 3, Math.PI / 6, 0]}>
+                <torusGeometry args={[0.22, 0.015, 6, 24]} />
+                <meshBasicMaterial color="#00ffcc" />
+            </mesh>
+            <pointLight distance={2.0} intensity={1.2} color="#00ffcc" />
+        </group>
+    );
+}
+
+function VoidRift3D() {
+    const meshRef = useRef();
+
+    useFrame((state) => {
+        if (!meshRef.current) return;
+        const time = state.clock.elapsedTime;
+        meshRef.current.rotation.z = -time * 0.8;
+        meshRef.current.scale.setScalar(1.0 + Math.sin(time * 5.0) * 0.1);
+    });
+
+    return (
+        <group ref={meshRef} position={[0, 0, 0.9]}>
+            {/* Outer dark matter sphere */}
+            <mesh>
+                <sphereGeometry args={[0.2, 16, 16]} />
+                <meshStandardMaterial color="#1a0826" emissive="#a855f7" emissiveIntensity={2.5} roughness={0.1} />
+            </mesh>
+            {/* Gravitational ring */}
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.3, 0.02, 6, 24]} />
+                <meshBasicMaterial color="#c084fc" />
+            </mesh>
+            <pointLight distance={2.2} intensity={1.4} color="#a855f7" />
+        </group>
+    );
+}
+
+function FactionFlag3D({ faction }) {
+    const flagRef = useRef();
+    const flagColor = useMemo(() => {
+        if (faction === 'crystal') return '#00ffff';
+        if (faction === 'toxic') return '#39ff14';
+        if (faction === 'void') return '#a855f7';
+        return '#888888'; // Neutral
+    }, [faction]);
+
+    useFrame((state) => {
+        const time = state.clock.elapsedTime;
+        if (flagRef.current) {
+            flagRef.current.rotation.y = Math.sin(time * 3.5) * 0.12;
+        }
+    });
+
+    return (
+        <group position={[0, 0, 0]}>
+            {/* Flagpole (Iron/Carbon) */}
+            <mesh castShadow position={[0, 0.9, 0]}>
+                <cylinderGeometry args={[0.03, 0.03, 1.8, 8]} />
+                <meshStandardMaterial color="#444455" metalness={0.8} roughness={0.3} />
+            </mesh>
+
+            {/* Flag Banner */}
+            <group ref={flagRef} position={[0, 1.4, 0]}>
+                <mesh castShadow position={[0.3, 0, 0]}>
+                    <boxGeometry args={[0.6, 0.35, 0.02]} />
+                    <meshStandardMaterial color={flagColor} roughness={0.8} />
+                </mesh>
+                {/* Floating Faction Sigil Ornament */}
+                <mesh position={[0.3, 0, 0.02]} rotation={[0, 0, Math.PI / 4]}>
+                    {faction === 'crystal' ? (
+                        <octahedronGeometry args={[0.08]} />
+                    ) : faction === 'toxic' ? (
+                        <boxGeometry args={[0.08, 0.08, 0.08]} />
+                    ) : (
+                        <sphereGeometry args={[0.07, 8, 8]} />
+                    )}
+                    <meshBasicMaterial color="#ffffff" />
+                </mesh>
+            </group>
+
+            {/* Glowing flag tip */}
+            <mesh position={[0, 1.82, 0]}>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshBasicMaterial color={flagColor} />
+            </mesh>
+        </group>
+    );
+}
+
 function SpellFlashBeam3D({ weatherOverride }) {
     const meshRef = useRef();
 
@@ -219,7 +368,7 @@ function SpellFlashBeam3D({ weatherOverride }) {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, threads = [], isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, threads = [], isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null, hasOpportunity = null, hasChestOnly = false }) {
     const tileRef = useRef();
     const materialRef = useRef();
     const innerMaterialRef = useRef();
@@ -695,9 +844,43 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 </mesh>
 
                 {/* Relocated spawned objects to move together with tile height deformation */}
-                {hasChest && !isCollapsing && <LootChest3D />}
+                {hasChestOnly && !isCollapsing && <LootChest3D />}
+                {hasOpportunity === 'REPAIR_KIT' && !isCollapsing && <RepairKit3D />}
+                {hasOpportunity === 'SURGE_NODE' && !isCollapsing && <SurgeNode3D />}
+                {hasOpportunity === 'VOID_RIFT' && !isCollapsing && <VoidRift3D />}
+                
                 {node.isTown && !isCollapsing && <TownBuilding3D />}
                 {hasTrap && !isCollapsing && <Trap3D type={hasTrap} />}
+
+                {/* Render Faction Base Flags at starting points */}
+                {!isCollapsing && node.macroIndex === 0 && node.subIndex === 0 && (
+                    <group position={[-0.65, 0.45, 0.41]}>
+                        <FactionFlag3D faction="crystal" />
+                    </group>
+                )}
+                {!isCollapsing && node.macroIndex === 8 && node.subIndex === 6 && (
+                    <group position={[-0.65, 0.45, 0.41]}>
+                        <FactionFlag3D faction="toxic" />
+                    </group>
+                )}
+                {!isCollapsing && node.macroIndex === 5 && node.subIndex === 3 && (
+                    <group position={[-0.65, 0.45, 0.41]}>
+                        <FactionFlag3D faction="void" />
+                    </group>
+                )}
+
+                {/* Render dynamic territorial flags next to all towns */}
+                {node.isTown && !isCollapsing && (
+                    <group position={[0.65, -0.45, 0.41]}>
+                        <FactionFlag3D 
+                            faction={
+                                activeOccupyingThread?.id.includes('king') ? 'crystal' :
+                                activeOccupyingThread?.id.includes('hacker') ? 'toxic' :
+                                activeOccupyingThread?.id.includes('void') ? 'void' : 'neutral'
+                            } 
+                        />
+                    </group>
+                )}
             </group>
 
             {/* Časticové efekty biómov */}

@@ -317,6 +317,72 @@ function GlitchCore3D({ tintColor }) {
     );
 }
 
+// ─── TowerHelper3D ────────────────────────────────────────────────────────────
+// Sci-Fi Cybernetic Defense Tower for Helper Units
+function TowerHelper3D({ tintColor }) {
+    const headRef = useRef();
+    const ringRef = useRef();
+    const timeRef = useRef(0);
+    
+    useFrame((state, delta) => {
+        timeRef.current += delta;
+        const time = timeRef.current;
+        if (headRef.current) {
+            headRef.current.rotation.y = time * 0.75;
+        }
+        if (ringRef.current) {
+            ringRef.current.position.y = 0.6 + Math.sin(time * 2.5) * 0.08;
+            ringRef.current.rotation.z = time * 1.5;
+        }
+    });
+
+    return (
+        <group position={[0, 0, 0]}>
+            {/* Tower Base Pedestal */}
+            <mesh castShadow position={[0, 0.1, 0]}>
+                <cylinderGeometry args={[0.3, 0.45, 0.2, 6]} />
+                <meshStandardMaterial color="#2d2f3f" metalness={0.8} roughness={0.3} />
+            </mesh>
+
+            {/* Core Column Trunk */}
+            <mesh castShadow position={[0, 0.6, 0]}>
+                <cylinderGeometry args={[0.18, 0.22, 0.8, 6]} />
+                <meshStandardMaterial color="#1a1a24" metalness={0.9} roughness={0.2} />
+            </mesh>
+
+            {/* Floating Energy Ring */}
+            <mesh ref={ringRef} position={[0, 0.6, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.35, 0.03, 8, 24]} />
+                <meshBasicMaterial color={tintColor} />
+            </mesh>
+
+            {/* Tower Cap / Emitter Head */}
+            <group ref={headRef} position={[0, 1.1, 0]}>
+                {/* Rotating Turret head */}
+                <mesh castShadow>
+                    <sphereGeometry args={[0.22, 12, 12]} />
+                    <meshStandardMaterial color="#3a3d52" metalness={0.8} roughness={0.3} />
+                </mesh>
+                {/* Neon emitter lens */}
+                <mesh position={[0, 0, 0.18]} rotation={[Math.PI / 2, 0, 0]}>
+                    <coneGeometry args={[0.08, 0.16, 8]} />
+                    <meshBasicMaterial color={tintColor} />
+                </mesh>
+                {/* Secondary side stabilizers */}
+                {[-0.2, 0.2].map((x, idx) => (
+                    <mesh key={idx} position={[x, -0.1, 0]} castShadow>
+                        <boxGeometry args={[0.06, 0.18, 0.06]} />
+                        <meshStandardMaterial color="#1a1a24" metalness={0.7} />
+                    </mesh>
+                ))}
+            </group>
+
+            {/* Light Source */}
+            <pointLight position={[0, 1.3, 0]} distance={2.5} intensity={1.2} color={tintColor} />
+        </group>
+    );
+}
+
 function BiomeSplash({ position, color, onDone }) {
     const pointsRef = useRef();
     const count = 16;
@@ -830,6 +896,9 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
                 {isNPC ? (
                     /* Pulsing crimson Glitch Core instead of billboard */
                     <GlitchCore3D tintColor="#ff0055" />
+                ) : thread.type === 'HELPER' ? (
+                    /* 3D Cybernetic Helper Defense Tower */
+                    <TowerHelper3D tintColor={tint} />
                 ) : (
                     <>
                         {/* 3D Hierarchical Low-Poly Stylized Robot */}
