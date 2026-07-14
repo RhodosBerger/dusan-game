@@ -34,6 +34,26 @@ export const CRAFTING_RECIPES: Record<string, CraftingRecipe> = {
         voltageMod:      0.0,
         resistanceMod:   -0.5, // lowers resistance, which increases current flow (I = V/R)
         targetCardId:    'crystal_laser_burst'
+    },
+    RECIPE_ENTROPY_WELL: {
+        id:              'RECIPE_ENTROPY_WELL',
+        name:            'Void Rift Entropy Well Upgrade',
+        requiredSpores:  0,
+        requiredShards:  0,
+        requiredEssence: 120,
+        voltageMod:      0.8,
+        resistanceMod:   0.0,
+        targetCardId:    'voidErosion'
+    },
+    RECIPE_VOID_REACTIVE: {
+        id:              'RECIPE_VOID_REACTIVE',
+        name:            'Void Shield Reactive Capacitor',
+        requiredSpores:  2,
+        requiredShards:  2,
+        requiredEssence: 70,
+        voltageMod:      -0.2,
+        resistanceMod:   0.8,
+        targetCardId:    'entropyShield'
     }
 };
 
