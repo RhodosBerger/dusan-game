@@ -3,6 +3,8 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { 
   Pathfinder, 
   SpatialGuidanceSystem, 
@@ -144,8 +146,52 @@ app.get('/api/telemetry', (req, res) => {
     kclSolverStatus: 'OPTIMAL',
     averageGridVoltage: 12.5,
     entropyCoefficient: matchState.entropy,
-    systemUptimeMs: Date.now()
+    systemUptimeMs: Date.now(),
+    systemEnergy: matchState.systemEnergy || 0,
+    turnCount: matchState.turnsElapsed || 1,
+    currentPhase: matchState.turnStateMachine?.currentPhase || 'PREPARATION',
+    globalEntropy: matchState.entropy || 0.2,
+    threads: matchState.threads || [],
+    traceLog: [
+      {
+        type: 'Spawn',
+        threadId: 'thread_king_ai',
+        chunkId: matchState.threads[0]?.position?.meta || 0,
+        blockId: matchState.threads[0]?.position?.hex || 0,
+        timestamp: Date.now() - 5000
+      },
+      {
+        type: 'Spawn',
+        threadId: 'thread_hacker_root',
+        chunkId: matchState.threads[1]?.position?.meta || 2,
+        blockId: matchState.threads[1]?.position?.hex || 2,
+        timestamp: Date.now() - 4000
+      }
+    ]
   });
+});
+
+app.post('/api/end-turn', (req, res) => {
+  // Force toggle turn via admin/dashboard
+  matchState.activePlayerId = matchState.activePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
+  matchState.turnsElapsed += 1;
+  matchState.systemEnergy = Math.min(100, matchState.systemEnergy + 15);
+  io.emit('match_state_updated', { gameState: matchState });
+  res.json({ success: true, gameState: matchState });
+});
+
+app.get('/', (req, res) => {
+  res.redirect('/goal');
+});
+
+app.get('/goal', (req, res) => {
+  try {
+    const htmlPath = path.join(__dirname, 'goal.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    res.status(200).send(html);
+  } catch (e: any) {
+    res.status(500).send(`Failed to load diagnostics page: ${e.message}`);
+  }
 });
 
 app.get('/api/scenarios/semantic-sector/:threadId', (req, res) => {

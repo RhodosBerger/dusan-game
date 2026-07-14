@@ -1297,6 +1297,20 @@ export default function BabylonCanvasRenderer({
         mat.emissiveColor = Color3.Lerp(mat.emissiveColor, targetEmissive, 0.05);
       });
 
+      // 6.8. AI Keyframe Sequence Player
+      let currentAiFrame = null as any;
+      if (activeTimelineRef.current) {
+        const elapsed = (Date.now() - timelineStartRef.current) / 1000;
+        const timeline = activeTimelineRef.current;
+        
+        currentAiFrame = timeline.timelineFrames.find((f: any) => elapsed >= f.time && elapsed < f.time + 0.4);
+        
+        if (elapsed > timeline.totalTime + 1.0) {
+          activeTimelineRef.current = null;
+          console.log("[CANVAS] AI keyframe simulation sequence playback finished.");
+        }
+      }
+
       // 4. Update SpellFlashBeam card VFX (Section 1 & 2)
       let activeBeamTarget = null as any;
       let activeBeamColor = new Color3(0, 1, 1);
@@ -1384,20 +1398,6 @@ export default function BabylonCanvasRenderer({
         }
         camera.target.x += (Math.random() - 0.5) * 0.4;
         camera.target.z += (Math.random() - 0.5) * 0.4;
-      }
-
-      // 6.8. AI Keyframe Sequence Player
-      let currentAiFrame = null as any;
-      if (activeTimelineRef.current) {
-        const elapsed = (Date.now() - timelineStartRef.current) / 1000;
-        const timeline = activeTimelineRef.current;
-        
-        currentAiFrame = timeline.timelineFrames.find((f: any) => elapsed >= f.time && elapsed < f.time + 0.4);
-        
-        if (elapsed > timeline.totalTime + 1.0) {
-          activeTimelineRef.current = null;
-          console.log("[CANVAS] AI keyframe simulation sequence playback finished.");
-        }
       }
 
       // Update Floating 3D HUD billboard based on hoveredNode/selectedCard or active AI Keyframe
