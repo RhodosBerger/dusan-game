@@ -96,7 +96,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
         setFetchingApi(true);
         const start = performance.now();
         try {
-            const res = await fetch(`http://localhost:3001${endpoint}`);
+            const res = await fetch(`${endpoint}`);
             const data = await res.json();
             setFetchedApiData(data);
             setFetchedApiLatency(performance.now() - start);
@@ -109,7 +109,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
     };
 
     const fetchRealities = () => {
-        fetch('http://localhost:3001/api/scenarios/realities')
+        fetch('/api/scenarios/realities')
             .then(res => res.json())
             .then(data => setRealities(data))
             .catch(() => {});
@@ -117,7 +117,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
 
     const handleCreateReality = async () => {
         try {
-            await fetch('http://localhost:3001/api/scenarios/realities', {
+            await fetch('/api/scenarios/realities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -136,7 +136,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
 
     const handleDeleteReality = async (id) => {
         try {
-            await fetch(`http://localhost:3001/api/scenarios/realities/${id}`, {
+            await fetch(`/api/scenarios/realities/${id}`, {
                 method: 'DELETE'
             });
             fetchRealities();
@@ -147,7 +147,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
 
     const handleSwitchRealityPhase = async (phase) => {
         try {
-            const res = await fetch('http://localhost:3001/api/scenarios/realities/active', {
+            const res = await fetch('/api/scenarios/realities/active', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phase })
@@ -162,7 +162,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
     };
 
     const fetchSpatialData = () => {
-        fetch('http://localhost:3001/api/scenarios/spatial-guidance/calculations')
+        fetch('/api/scenarios/spatial-guidance/calculations')
             .then(res => res.json())
             .then(data => {
                 setSpatialData(data);
@@ -180,7 +180,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
 
     const handleInjectTrajectoryScript = async (script, meta, hex) => {
         try {
-            const res = await fetch('http://localhost:3001/api/scenarios/spatial-guidance/inject', {
+            const res = await fetch('/api/scenarios/spatial-guidance/inject', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -204,7 +204,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
     };
 
     const fetchCompositions = () => {
-        fetch('http://localhost:3001/api/admin/compositions')
+        fetch('/api/admin/compositions')
             .then(res => res.json())
             .then(data => setGeneratedInstances(data))
             .catch(() => {});
@@ -212,7 +212,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
 
     const deleteComposition = async (id) => {
         try {
-            await fetch(`http://localhost:3001/api/admin/compositions/${id}`, {
+            await fetch(`/api/admin/compositions/${id}`, {
                 method: 'DELETE'
             });
             fetchCompositions();
@@ -225,7 +225,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
         setExpressStatus('CHECKING');
         setGoCoreStatus('CHECKING');
         
-        fetch('http://localhost:3001/health')
+        fetch('/health')
             .then(() => setExpressStatus('ONLINE'))
             .catch(() => setExpressStatus('OFFLINE'));
 
@@ -233,14 +233,14 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
             .then(() => setGoCoreStatus('ONLINE'))
             .catch(() => setGoCoreStatus('OFFLINE'));
 
-        fetch('http://localhost:3001/api/telemetry')
+        fetch('/api/telemetry')
             .then(res => res.json())
             .then(data => setTelemetryLogs(data.slice(0, 5)))
             .catch(() => {});
     };
 
     const fetchAccessPoints = () => {
-        fetch(`http://localhost:3001/api/admin/access-points/${activeThreadId}`)
+        fetch(`/api/admin/access-points/${activeThreadId}`)
             .then(res => res.json())
             .then(data => setAccessPoints(data))
             .catch(() => {});
@@ -248,7 +248,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
 
     const handleOverrideSubmit = async (pointId, val) => {
         try {
-            await fetch('http://localhost:3001/api/admin/access-points/override', {
+            await fetch('/api/admin/access-points/override', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ threadId: activeThreadId, pointId, value: val })
@@ -261,7 +261,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
 
     const handleLogicEvaluate = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/admin/logic/evaluate', {
+            const res = await fetch('/api/admin/logic/evaluate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ formula, state: propState })
@@ -274,19 +274,19 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
     };
 
     const fetchAdminDocs = () => {
-        fetch('http://localhost:3001/api/admin/documentation')
+        fetch('/api/admin/documentation')
             .then(res => res.text())
             .then(data => setAdminDocs(data))
             .catch(() => {});
     };
 
     useEffect(() => {
-        fetch('http://localhost:3001/api/scenarios/hero-graphics')
+        fetch('/api/scenarios/hero-graphics')
             .then(res => res.json())
             .then(data => setHeroDataset(data))
             .catch(err => console.warn('[COMPOSITOR] Failed to fetch hero dataset'));
 
-        fetch(`http://localhost:3001/api/scenarios/market-prices/${activeThreadId}`)
+        fetch(`/api/scenarios/market-prices/${activeThreadId}`)
             .then(res => res.json())
             .then(data => setMarketData(data))
             .catch(err => console.warn('[COMPOSITOR] Failed to fetch market data'));
@@ -321,7 +321,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
         setMlLoading(true);
         setMlResult(null);
         try {
-            const res = await fetch('http://localhost:3001/api/scenarios/generate-tactical-instance', {
+            const res = await fetch('/api/scenarios/generate-tactical-instance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ threadId: activeThreadId, tacticPrompt })
@@ -333,7 +333,7 @@ export default function GameplayCompositorTemplate({ activeThreadId = 'thread_ki
             }
             
             // Refresh telemetry
-            const telRes = await fetch('http://localhost:3001/api/telemetry');
+            const telRes = await fetch('/api/telemetry');
             const telData = await telRes.json();
             setTelemetryLogs(telData.slice(0, 5));
         } catch (e) {

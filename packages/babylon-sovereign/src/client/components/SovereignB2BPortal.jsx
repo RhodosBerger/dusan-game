@@ -116,7 +116,7 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
     const handleRegisterEntity = async () => {
         const coord = newCoordInput.trim() || '0x2B';
         try {
-            const res = await fetch('http://localhost:3001/api/scenarios/html5-entities', {
+            const res = await fetch('/api/scenarios/html5-entities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ hexCoord: coord })

@@ -808,7 +808,7 @@ export default function ArenaUIOverlay({
                                     const nextPhase = e.target.checked ? 'GRAVITY_WELL' : 'STANDARD';
                                     if (setRealityPhase) setRealityPhase(nextPhase);
                                     // Also notify server via POST /api/scenarios/realities/active
-                                    fetch('http://localhost:3001/api/scenarios/realities/active', {
+                                    fetch('/api/scenarios/realities/active', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ phase: nextPhase })
@@ -986,7 +986,7 @@ export default function ArenaUIOverlay({
                                 <button
                                     onClick={() => {
                                         setMulliganSubmitted(true);
-                                        fetch('http://localhost:3001/api/match/mulligan', {
+                                        fetch('/api/match/mulligan', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ playerId: activePlayer?.id, cardIds: selectedMulliganCardIds })
