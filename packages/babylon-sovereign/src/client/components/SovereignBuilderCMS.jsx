@@ -273,6 +273,12 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
     const [isSyncing, setIsSyncing] = useState(false);
     const [logMessages, setLogMessages] = useState(['[CMS Builder] initialized. Ready to compile tactical assets.']);
 
+    // Keyframe Backoffice Panel States (Goal 6)
+    const [activeRightTab, setActiveRightTab] = useState('files');
+    const [selectedFormula, setSelectedFormula] = useState('slow_walk');
+    const [selectedVariant, setSelectedVariant] = useState(1); // 1 to 30
+    const [selectedElementType, setSelectedElementType] = useState('PLAYER');
+
     // Selected block details
     const selectedBlockData = useMemo(() => {
         return editorGrid.find(n => n.macroIndex === selectedNode?.macroIndex && n.subIndex === selectedNode?.subIndex);
@@ -727,145 +733,329 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                 flexDirection: 'column',
                 boxSizing: 'border-box'
             }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #232733' }}>
-                    <h2 style={{ margin: 0, fontSize: 16, color: '#00eeff', letterSpacing: 0.5 }}>📂 GAME CONTENT MANAGER</h2>
-                    <span style={{ fontSize: 11, opacity: 0.6 }}>Virtual Assets & Config Overwriter</span>
-                </div>
-
-                {/* File Explorer Tree */}
-                <div style={{ padding: '12px 20px', borderBottom: '1px solid #232733', background: '#0d0e12' }}>
-                    <div style={{ fontSize: 11, color: '#888', marginBottom: 8, fontWeight: 'bold' }}>WORKSPACE HIERARCHY</div>
-                    
-                    {/* Models folder */}
-                    <div style={{ marginLeft: 4, marginBottom: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 'bold', color: '#ffd700', marginBottom: 4 }}>📂 game_content/models</div>
-                        {Object.keys(virtualFiles).filter(f => f.includes('models/')).map(file => {
-                            const isSelected = selectedFile === file;
-                            const displayName = file.split('/').pop();
-                            return (
-                                <div 
-                                    key={file}
-                                    onClick={() => {
-                                        setSelectedFile(file);
-                                        setFileContent(virtualFiles[file]);
-                                    }}
-                                    style={{
-                                        fontSize: 11,
-                                        padding: '4px 8px',
-                                        marginLeft: 12,
-                                        borderRadius: 4,
-                                        background: isSelected ? 'rgba(0, 238, 255, 0.15)' : 'transparent',
-                                        color: isSelected ? '#00eeff' : '#ccc',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <span style={{ marginRight: 6 }}>📄</span> {displayName}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Configs folder */}
-                    <div style={{ marginLeft: 4 }}>
-                        <div style={{ fontSize: 12, fontWeight: 'bold', color: '#ffd700', marginBottom: 4 }}>📂 game_content/configs</div>
-                        {Object.keys(virtualFiles).filter(f => f.includes('configs/')).map(file => {
-                            const isSelected = selectedFile === file;
-                            const displayName = file.split('/').pop();
-                            return (
-                                <div 
-                                    key={file}
-                                    onClick={() => {
-                                        setSelectedFile(file);
-                                        setFileContent(virtualFiles[file]);
-                                    }}
-                                    style={{
-                                        fontSize: 11,
-                                        padding: '4px 8px',
-                                        marginLeft: 12,
-                                        borderRadius: 4,
-                                        background: isSelected ? 'rgba(0, 238, 255, 0.15)' : 'transparent',
-                                        color: isSelected ? '#00eeff' : '#ccc',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <span style={{ marginRight: 6 }}>📄</span> {displayName}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Live 3D projection canvas for models */}
-                <div style={{ padding: '16px 20px 0 20px', flexShrink: 0 }}>
-                    {selectedFile.includes('models/') && (
-                        <ModelPreview3D fileJson={fileContent} />
-                    )}
-                </div>
-
-                {/* File Editor Codearea */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontSize: 11, color: '#ffd700', fontFamily: 'monospace' }}>
-                            {selectedFile}
-                        </span>
-                        <span style={{ fontSize: 10, opacity: 0.5 }}>JSON Mode</span>
-                    </div>
-                    <textarea 
-                        value={fileContent}
-                        onChange={(e) => setFileContent(e.target.value)}
+                {/* Right Sidebar Tab Selector */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #232733', background: '#111319' }}>
+                    <button 
+                        onClick={() => setActiveRightTab('files')}
                         style={{
                             flex: 1,
-                            width: '100%',
-                            background: '#0d0e12',
-                            color: '#00ff00',
-                            border: '1px solid #232733',
-                            borderRadius: 6,
-                            padding: 10,
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                            resize: 'none',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                        }}
-                    />
-                </div>
-
-                {/* Overwrite trigger bar */}
-                <div style={{ padding: '16px 20px', borderTop: '1px solid #232733', background: '#111319' }}>
-                    <button 
-                        onClick={() => {
-                            try {
-                                const parsed = JSON.parse(fileContent);
-                                setVirtualFiles(prev => ({
-                                    ...prev,
-                                    [selectedFile]: JSON.stringify(parsed, null, 2)
-                                }));
-                                setLogMessages(prev => [`[CMS] File '${selectedFile}' overwritten successfully.`, ...prev]);
-                            } catch (e) {
-                                setLogMessages(prev => [`[ERROR] Failed to overwrite '${selectedFile}': Invalid JSON syntax.`, ...prev]);
-                            }
-                        }}
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            background: '#00eeff',
-                            color: '#000',
+                            padding: '12px 6px',
+                            background: activeRightTab === 'files' ? 'transparent' : '#15171e',
+                            color: activeRightTab === 'files' ? '#00eeff' : '#888',
                             border: 'none',
-                            borderRadius: 4,
+                            borderBottom: activeRightTab === 'files' ? '2px solid #00eeff' : 'none',
+                            fontSize: 11,
                             fontWeight: 'bold',
-                            cursor: 'pointer',
-                            boxShadow: '0 0 10px rgba(0, 238, 255, 0.3)'
+                            cursor: 'pointer'
                         }}
                     >
-                        Preísať súbor / Overwrite File
+                        📂 FILE EXPLORER
+                    </button>
+                    <button 
+                        onClick={() => setActiveRightTab('keyframes')}
+                        style={{
+                            flex: 1,
+                            padding: '12px 6px',
+                            background: activeRightTab === 'keyframes' ? 'transparent' : '#15171e',
+                            color: activeRightTab === 'keyframes' ? '#ffd700' : '#888',
+                            border: 'none',
+                            borderBottom: activeRightTab === 'keyframes' ? '2px solid #ffd700' : 'none',
+                            fontSize: 11,
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        🎬 KEYFRAMES BACKOFFICE
                     </button>
                 </div>
+
+                {activeRightTab === 'files' ? (
+                    <>
+                        <div style={{ padding: '16px 20px', borderBottom: '1px solid #232733' }}>
+                            <h2 style={{ margin: 0, fontSize: 16, color: '#00eeff', letterSpacing: 0.5 }}>📂 GAME CONTENT MANAGER</h2>
+                            <span style={{ fontSize: 11, opacity: 0.6 }}>Virtual Assets & Config Overwriter</span>
+                        </div>
+
+                        {/* File Explorer Tree */}
+                        <div style={{ padding: '12px 20px', borderBottom: '1px solid #232733', background: '#0d0e12' }}>
+                            <div style={{ fontSize: 11, color: '#888', marginBottom: 8, fontWeight: 'bold' }}>WORKSPACE HIERARCHY</div>
+                            
+                            {/* Models folder */}
+                            <div style={{ marginLeft: 4, marginBottom: 8 }}>
+                                <div style={{ fontSize: 12, fontWeight: 'bold', color: '#ffd700', marginBottom: 4 }}>📂 game_content/models</div>
+                                {Object.keys(virtualFiles).filter(f => f.includes('models/')).map(file => {
+                                    const isSelected = selectedFile === file;
+                                    const displayName = file.split('/').pop();
+                                    return (
+                                        <div 
+                                            key={file}
+                                            onClick={() => {
+                                                setSelectedFile(file);
+                                                setFileContent(virtualFiles[file]);
+                                            }}
+                                            style={{
+                                                fontSize: 11,
+                                                padding: '4px 8px',
+                                                marginLeft: 12,
+                                                borderRadius: 4,
+                                                background: isSelected ? 'rgba(0, 238, 255, 0.15)' : 'transparent',
+                                                color: isSelected ? '#00eeff' : '#ccc',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            <span style={{ marginRight: 6 }}>📄</span> {displayName}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Configs folder */}
+                            <div style={{ marginLeft: 4 }}>
+                                <div style={{ fontSize: 12, fontWeight: 'bold', color: '#ffd700', marginBottom: 4 }}>📂 game_content/configs</div>
+                                {Object.keys(virtualFiles).filter(f => f.includes('configs/')).map(file => {
+                                    const isSelected = selectedFile === file;
+                                    const displayName = file.split('/').pop();
+                                    return (
+                                        <div 
+                                            key={file}
+                                            onClick={() => {
+                                                setSelectedFile(file);
+                                                setFileContent(virtualFiles[file]);
+                                            }}
+                                            style={{
+                                                fontSize: 11,
+                                                padding: '4px 8px',
+                                                marginLeft: 12,
+                                                borderRadius: 4,
+                                                background: isSelected ? 'rgba(0, 238, 255, 0.15)' : 'transparent',
+                                                color: isSelected ? '#00eeff' : '#ccc',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            <span style={{ marginRight: 6 }}>📄</span> {displayName}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Live 3D projection canvas for models */}
+                        <div style={{ padding: '16px 20px 0 20px', flexShrink: 0 }}>
+                            {selectedFile.includes('models/') && (
+                                <ModelPreview3D fileJson={fileContent} />
+                            )}
+                        </div>
+
+                        {/* File Editor Codearea */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <span style={{ fontSize: 11, color: '#ffd700', fontFamily: 'monospace' }}>
+                                    {selectedFile}
+                                </span>
+                                <span style={{ fontSize: 10, opacity: 0.5 }}>JSON Mode</span>
+                            </div>
+                            <textarea 
+                                value={fileContent}
+                                onChange={(e) => setFileContent(e.target.value)}
+                                style={{
+                                    flex: 1,
+                                    width: '100%',
+                                    background: '#0d0e12',
+                                    color: '#00ff00',
+                                    border: '1px solid #232733',
+                                    borderRadius: 6,
+                                    padding: 10,
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    resize: 'none',
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                        </div>
+
+                        {/* Overwrite trigger bar */}
+                        <div style={{ padding: '16px 20px', borderTop: '1px solid #232733', background: '#111319' }}>
+                            <button 
+                                onClick={() => {
+                                    try {
+                                        const parsed = JSON.parse(fileContent);
+                                        setVirtualFiles(prev => ({
+                                            ...prev,
+                                            [selectedFile]: JSON.stringify(parsed, null, 2)
+                                        }));
+                                        setLogMessages(prev => [`[CMS] File '${selectedFile}' overwritten successfully.`, ...prev]);
+                                    } catch (e) {
+                                        setLogMessages(prev => [`[ERROR] Failed to overwrite '${selectedFile}': Invalid JSON syntax.`, ...prev]);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    background: '#00eeff',
+                                    color: '#000',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 0 10px rgba(0, 238, 255, 0.3)'
+                                }}
+                            >
+                                Prepísať súbor / Overwrite File
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    /* Keyframes Backoffice dashboard */
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px', overflowY: 'auto' }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: 14, color: '#ffd700' }}>🎬 KEYFRAME TIMELINE EDITOR</h3>
+                            <span style={{ fontSize: 10, opacity: 0.6 }}>Ohmic Walk Formulas & Combinatorics</span>
+                        </div>
+
+                        {/* Element Filter */}
+                        <div style={{ marginBottom: 12 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4 }}>ELEMENT FILTER</label>
+                            <select 
+                                value={selectedElementType}
+                                onChange={(e) => setSelectedElementType(e.target.value)}
+                                style={{ width: '100%', padding: '6px', background: '#0d0e12', color: '#fff', border: '1px solid #333', borderRadius: 4, fontSize: 11 }}
+                            >
+                                <option value="PLAYER">Hero / Player Thread</option>
+                                <option value="NPC">Monster / NPC Slayer</option>
+                                <option value="TRAP">Trap Element</option>
+                                <option value="CHEST">Loot Chest Element</option>
+                            </select>
+                        </div>
+
+                        {/* Formulas Selector (12 equations) */}
+                        <div style={{ marginBottom: 12 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4 }}>WALK FORMULA (12 EQUATIONS)</label>
+                            <select 
+                                value={selectedFormula}
+                                onChange={(e) => setSelectedFormula(e.target.value)}
+                                style={{ width: '100%', padding: '6px', background: '#0d0e12', color: '#fff', border: '1px solid #333', borderRadius: 4, fontSize: 11 }}
+                            >
+                                <option value="slow_walk">Formula 1: Bezier Hop Leap (Crystal)</option>
+                                <option value="slime_trail">Formula 2: Slither Sine wave (Toxic)</option>
+                                <option value="teleport_dash">Formula 3: Quantum Warp implosion (Void)</option>
+                                <option value="earth_glide">Formula 4: Druid Sinking Pop-up</option>
+                                <option value="helix_drill">Formula 5: Helical Spiral Roll</option>
+                                <option value="linear_dash">Formula 6: Constant Velocity Glide</option>
+                                <option value="step_clamber">Formula 7: Discrete Height Stagger</option>
+                                <option value="phase_fade">Formula 8: Linear Transparency Shift</option>
+                                <option value="friction_brake">Formula 9: Decelerating Ease-Out Slide</option>
+                                <option value="wind_drift">Formula 10: Random Jitter Turbulence</option>
+                                <option value="charge_surge">Formula 11: Exponential Acceleration Spike</option>
+                                <option value="entropy_decay">Formula 12: Shrinking Orbit Spiral</option>
+                            </select>
+                        </div>
+
+                        {/* Variant Selection (30 variants) */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4 }}>
+                                VARIANT MULTIPLIER (30 OPTIONS)
+                            </label>
+                            <input 
+                                type="range" 
+                                min="1" 
+                                max="30" 
+                                value={selectedVariant} 
+                                onChange={(e) => setSelectedVariant(parseInt(e.target.value))}
+                                style={{ width: '100%', accentColor: '#ffd700' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#ffd700', marginTop: 4 }}>
+                                <span>Variant: #{selectedVariant}/30</span>
+                                <span>Multiplier: {(selectedVariant * 0.5).toFixed(1)}x</span>
+                            </div>
+                        </div>
+
+                        {/* Combinatorics stats */}
+                        <div style={{ background: '#0d0e12', border: '1px solid #333', borderRadius: 6, padding: '10px', marginBottom: 16 }}>
+                            <div style={{ fontSize: 10, color: '#888', textTransform: 'uppercase', marginBottom: 6 }}>Combinatorics Summary</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: 11 }}>
+                                <div>Formulas: <span style={{ color: '#fff', fontWeight: 'bold' }}>12</span></div>
+                                <div>Variants: <span style={{ color: '#fff', fontWeight: 'bold' }}>30</span></div>
+                                <div style={{ gridColumn: 'span 2', color: '#00eeff' }}>
+                                    Total Instances: <span style={{ fontWeight: 'bold' }}>360 combinations</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Calculated Keyframe Coordinates Table */}
+                        <div style={{ flex: 1, minHeight: 180, display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ fontSize: 10, color: '#888', marginBottom: 4 }}>GENERATED TIMELINE STEPS (12 KEYFRAMES)</div>
+                            <div style={{ flex: 1, overflowY: 'auto', background: '#0d0e12', border: '1px solid #232733', borderRadius: 6, padding: '6px' }}>
+                                <table style={{ width: '100%', fontSize: 9, fontFamily: 'monospace', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid #333', color: '#ffd700' }}>
+                                            <th style={{ textAlign: 'left', padding: '4px' }}>Time</th>
+                                            <th style={{ textAlign: 'left', padding: '4px' }}>Coord Offset [X, Y, Z]</th>
+                                            <th style={{ textAlign: 'right', padding: '4px' }}>Scale</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Array.from({ length: 12 }).map((_, i) => {
+                                            const t = i / 11;
+                                            let x = 0, y = 0, z = 0, scale = 1.0;
+                                            const mult = selectedVariant * 0.5;
+
+                                            if (selectedFormula === 'slow_walk') {
+                                                y = Math.sin(t * Math.PI) * 1.5 * mult;
+                                                scale = 1.0 + Math.sin(t * Math.PI) * 0.15 * mult;
+                                            } else if (selectedFormula === 'slime_trail') {
+                                                x = Math.sin(t * Math.PI * 2 * 2.5) * 0.45 * mult;
+                                            } else if (selectedFormula === 'teleport_dash') {
+                                                y = Math.sin(t * Math.PI) * 0.2;
+                                                scale = t < 0.2 ? (1.0 - t/0.2) : t > 0.8 ? (t - 0.8)/0.2 : 0;
+                                            } else if (selectedFormula === 'earth_glide') {
+                                                y = -Math.sin(t * Math.PI) * 0.9 * mult;
+                                            } else if (selectedFormula === 'helix_drill') {
+                                                x = Math.cos(t * Math.PI * 4) * 0.3 * mult;
+                                                z = Math.sin(t * Math.PI * 4) * 0.3 * mult;
+                                                y = t * mult;
+                                            } else if (selectedFormula === 'linear_dash') {
+                                                x = t * 4.0 * mult;
+                                            } else if (selectedFormula === 'step_clamber') {
+                                                y = Math.floor(t * 4) * 0.5 * mult;
+                                            } else if (selectedFormula === 'phase_fade') {
+                                                scale = 1.0 - t * 0.5 * mult;
+                                            } else if (selectedFormula === 'friction_brake') {
+                                                x = Math.sin(t * Math.PI / 2) * 3.0 * mult;
+                                            } else if (selectedFormula === 'wind_drift') {
+                                                x = (Math.random() - 0.5) * 0.3 * mult;
+                                                z = (Math.random() - 0.5) * 0.3 * mult;
+                                            } else if (selectedFormula === 'charge_surge') {
+                                                x = Math.pow(t, 3) * 5.0 * mult;
+                                            } else if (selectedFormula === 'entropy_decay') {
+                                                x = Math.cos(t * 8) * (1 - t) * mult;
+                                                z = Math.sin(t * 8) * (1 - t) * mult;
+                                            }
+
+                                            return (
+                                                <tr key={i} style={{ borderBottom: '1px solid #222' }}>
+                                                    <td style={{ padding: '4px', color: '#888' }}>{(t * 100).toFixed(0)}%</td>
+                                                    <td style={{ padding: '4px', color: '#fff' }}>
+                                                        [{x.toFixed(2)}, {y.toFixed(2)}, {z.toFixed(2)}]
+                                                    </td>
+                                                    <td style={{ padding: '4px', textAlign: 'right', color: '#00ff00' }}>
+                                                        {scale.toFixed(2)}x
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

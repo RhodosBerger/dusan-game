@@ -21,6 +21,7 @@ import { CustomMaterial } from '@babylonjs/materials';
 import { SSAO2RenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline';
 import neonMatrixTexUrl from '../../assets/neon_matrix_grid.png';
 import brushedMetalTexUrl from '../../assets/brushed_metal_tech.png';
+import { SpatialGuidanceSystem } from '../../../../shared/src/index';
 
 const WORLD_PROFILES = {
   DEFAULT: {
@@ -129,6 +130,18 @@ export default function BabylonCanvasRenderer({
   const entropyRef = useRef(entropy);
   const selectedCardRef = useRef(selectedCard);
   const hoveredNodeRef = useRef(hoveredNode);
+
+  const [hudConfig, setHudConfig] = React.useState<any>(null);
+  const hudConfigRef = useRef<any>(null);
+  hudConfigRef.current = hudConfig;
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      setHudConfig(e.detail);
+    };
+    window.addEventListener('spatial_guidance_update', handleUpdate);
+    return () => window.removeEventListener('spatial_guidance_update', handleUpdate);
+  }, []);
 
   // Keep refs updated
   useEffect(() => { weatherOverrideRef.current = weatherOverride; }, [weatherOverride]);
@@ -612,6 +625,8 @@ export default function BabylonCanvasRenderer({
     beamMat.disableLighting = true;
     spellBeam.material = beamMat;
 
+    let activeTrajLine: any = null;
+
     // Dynamic node mapping logic
     const hexNodes: any[] = [];
     const hexMeshInstances: AbstractMesh[] = [];
@@ -928,6 +943,50 @@ export default function BabylonCanvasRenderer({
         spellBeam.setEnabled(true);
       } else {
         spellBeam.setEnabled(false);
+      }
+
+      // 8-Directional Vector Guidance Line Overlay (Goal 5)
+      const currentHudConfig = hudConfigRef.current;
+      if (currentHudConfig && currentHudConfig.targetType === '8direction') {
+        const srcThread = threads.find(t => t.id === (currentHudConfig.sourceId || myThreadId));
+        if (srcThread && srcThread.position?.meta !== undefined) {
+          const sourceNode = hexNodes.find(n => n.chunkId === srcThread.position.meta && n.blockId === srcThread.position.hex);
+          if (sourceNode) {
+            const startP = sourceNode.mesh.position;
+            const srcPos = SpatialGuidanceSystem.resolveCartesian(srcThread.position.meta, srcThread.position.hex);
+            const projectedTarget = SpatialGuidanceSystem.resolveEightDirectionTarget(srcPos, currentHudConfig.eightDDir, currentHudConfig.eightDDist);
+            
+            let closestNode = hexNodes[0];
+            let minDistance = Infinity;
+            hexNodes.forEach(node => {
+              const dx = node.mesh.position.x - projectedTarget.x;
+              const dz = node.mesh.position.z - projectedTarget.z;
+              const d = dx*dx + dz*dz;
+              if (d < minDistance) {
+                minDistance = d;
+                closestNode = node;
+              }
+            });
+            const endP = closestNode.mesh.position;
+            
+            if (activeTrajLine) {
+              activeTrajLine.dispose();
+            }
+            
+            activeTrajLine = MeshBuilder.CreateLines('activeTrajLine', {
+              points: [
+                new Vector3(startP.x, startP.y + 0.8, startP.z),
+                new Vector3(endP.x, endP.y + 0.8, endP.z)
+              ]
+            }, scene);
+            activeTrajLine.color = new Color3(1, 0.84, 0); // Gold glow
+          }
+        }
+      } else {
+        if (activeTrajLine) {
+          activeTrajLine.dispose();
+          activeTrajLine = null;
+        }
       }
 
       // 5. Ultimate Flash & Shake effect
