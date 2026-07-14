@@ -72,3 +72,9 @@
     if (specs.effect === 'stealth') { ... }
     ```
 *   **Diagnosis Reminder**: When the game appears to accept socket connections but never responds to `start_match` events, always check `babylon-server.log` for `TSError: ⨯ Unable to compile TypeScript` before investigating gameplay logic — a crashed server process is the most common root cause.
+
+## 12. Geometric Compiler & Modifier Stack Design Pattern
+*   **Non-Destructive Modifier Pipeline**: Any procedural mesh generation reacting to real-time developer/DevOps telemetry (LOC, compile time, test pass rates) must be implemented as a sequence of non-destructive modifiers (e.g., `ArrayModifier`, `HeightDeformModifier`, `GearTeethModifier`) acting on pre-cached base templates. Do NOT delete or re-instantiate meshes from scratch inside render loops; mutate parameters in-place or update custom shader uniforms.
+*   **Combinatoric Shape Aggregation**: Spawning of complex mesh configurations must utilize a pre-allocated pool of assets assembled based on statistical/probabilistic weight trees (e.g., matching biome characteristics and hazard indices) rather than hardcoded conditional structures.
+*   **Hardware Coexistence**: Telemetry updates modulating mesh modifiers must be throttled/debounced (maximum update frequency of 10Hz) to allow the OS dynamic frequency governor to settle, preventing TDP/VRAM power spikes.
+
