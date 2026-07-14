@@ -176,6 +176,19 @@ export default function BabylonCanvasRenderer({
       socket.on('ai_sequence_triggered', handleAiSequence);
     }
 
+    // Tracks character move transitions
+    const transitions = new Map<string, {
+      startX: number,
+      startZ: number,
+      startY: number,
+      targetX: number,
+      targetZ: number,
+      targetY: number,
+      progress: number,
+      formula: string,
+      variant: number
+    }>();
+
     // Adaptive rendering profile variables
     let activeQuality = 'ULTRA_FIDELITY';
     let frameTimesCount = 0;
@@ -807,21 +820,120 @@ export default function BabylonCanvasRenderer({
         if (targetNode) {
           const targetMesh = threadMeshes.get(t.id);
           if (targetMesh) {
-            targetMesh.position.x = targetNode.mesh.position.x;
-            targetMesh.position.z = targetNode.mesh.position.z;
-            targetMesh.position.y = targetNode.mesh.position.y + 0.8;
+            const targetX = targetNode.mesh.position.x;
+            const targetZ = targetNode.mesh.position.z;
+            const targetY = targetNode.mesh.position.y + 0.8;
+
+            let trans = transitions.get(t.id);
+
+            if (!trans) {
+              transitions.set(t.id, {
+                startX: targetX,
+                startZ: targetZ,
+                startY: targetY,
+                targetX,
+                targetZ,
+                targetY,
+                progress: 1.0,
+                formula: 'slow_walk',
+                variant: 2
+              });
+              trans = transitions.get(t.id);
+            } else if (trans.targetX !== targetX || trans.targetZ !== targetZ || trans.targetY !== targetY) {
+              const formulaObj = (window as any).activeSovereignFormulas?.[t.actorType] || {
+                formula: t.actorType === 'PLAYER' ? 'slow_walk' : t.actorType === 'NPC' ? 'slime_trail' : 'linear_dash',
+                variant: 2
+              };
+              transitions.set(t.id, {
+                startX: targetMesh.position.x,
+                startZ: targetMesh.position.z,
+                startY: targetMesh.position.y,
+                targetX,
+                targetZ,
+                targetY,
+                progress: 0.0,
+                formula: formulaObj.formula,
+                variant: formulaObj.variant
+              });
+              trans = transitions.get(t.id);
+            }
+
+            let xOff = 0;
+            let yOff = 0;
+            let zOff = 0;
+            let scaleVal = 1.0;
+            let alphaVal = 1.0;
+
+            if (trans && trans.progress < 1.0) {
+              const dt = engine.getDeltaTime() / 1000;
+              trans.progress = Math.min(1.0, trans.progress + dt * 1.5);
+
+              const p = trans.progress;
+              targetMesh.position.x = trans.startX + (trans.targetX - trans.startX) * p;
+              targetMesh.position.z = trans.startZ + (trans.targetZ - trans.startZ) * p;
+              targetMesh.position.y = trans.startY + (trans.targetY - trans.startY) * p;
+
+              const mult = trans.variant * 0.5;
+              const formula = trans.formula;
+
+              if (formula === 'slow_walk') {
+                yOff = Math.sin(p * Math.PI) * 0.8 * mult;
+                scaleVal = 1.0 + Math.sin(p * Math.PI) * 0.15 * mult;
+              } else if (formula === 'slime_trail') {
+                xOff = Math.sin(p * Math.PI * 2 * 2.5) * 0.35 * mult;
+              } else if (formula === 'teleport_dash') {
+                alphaVal = p < 0.2 ? (1.0 - p / 0.2) : p > 0.8 ? ((p - 0.8) / 0.2) : 0.0;
+                scaleVal = alphaVal;
+              } else if (formula === 'earth_glide') {
+                yOff = -Math.sin(p * Math.PI) * 0.6 * mult;
+              } else if (formula === 'helix_drill') {
+                xOff = Math.cos(p * Math.PI * 4) * 0.3 * mult;
+                zOff = Math.sin(p * Math.PI * 4) * 0.3 * mult;
+                targetMesh.rotation.y += 0.05;
+              } else if (formula === 'step_clamber') {
+                yOff = Math.floor(p * 4) * 0.2 * mult;
+              } else if (formula === 'phase_fade') {
+                alphaVal = 1.0 - p * 0.5 * mult;
+              } else if (formula === 'friction_brake') {
+                const easeOut = 1.0 - Math.pow(1.0 - p, 3);
+                targetMesh.position.x = trans.startX + (trans.targetX - trans.startX) * easeOut;
+                targetMesh.position.z = trans.startZ + (trans.targetZ - trans.startZ) * p;
+              } else if (formula === 'wind_drift') {
+                xOff = (Math.random() - 0.5) * 0.15 * mult;
+                zOff = (Math.random() - 0.5) * 0.15 * mult;
+              } else if (formula === 'charge_surge') {
+                const easeIn = Math.pow(p, 3);
+                targetMesh.position.x = trans.startX + (trans.targetX - trans.startX) * easeIn;
+                targetMesh.position.z = trans.startZ + (trans.targetZ - trans.startZ) * easeIn;
+              } else if (formula === 'entropy_decay') {
+                xOff = Math.cos(p * 8) * (1 - p) * mult;
+                zOff = Math.sin(p * 8) * (1 - p) * mult;
+              }
+            } else {
+              targetMesh.position.x = targetX;
+              targetMesh.position.z = targetZ;
+              targetMesh.position.y = targetY;
+            }
+
+            targetMesh.position.x += xOff;
+            targetMesh.position.y += yOff;
+            targetMesh.position.z += zOff;
+            targetMesh.scaling.set(scaleVal, scaleVal, scaleVal);
             
-            // Add custom idle animation (Rule 5 & Section 2)
+            targetMesh.getChildMeshes().forEach(child => {
+              if (child.material) {
+                child.material.alpha = alphaVal;
+              }
+            });
+
             const hoverOffset = Math.sin(Date.now() * 0.003 + t.id.charCodeAt(0)) * 0.06;
             targetMesh.position.y += hoverOffset;
             targetMesh.rotation.y += 0.015;
 
-            // Animate rotating components of the thread (dice, weapon, stabilizer, banner)
             targetMesh.getChildMeshes().forEach(child => {
               if (child.name.includes('dice')) {
                 child.rotation.y += 0.04;
                 child.rotation.x += 0.02;
-                // Gently bounce dice above the head
                 child.position.y = 1.25 + Math.sin(Date.now() * 0.004 + t.id.charCodeAt(0)) * 0.08;
               } else if (child.name.includes('floatingRing')) {
                 child.rotation.z += 0.03;
@@ -829,10 +941,8 @@ export default function BabylonCanvasRenderer({
               } else if (child.name.includes('emitterHead')) {
                 child.rotation.y += 0.015;
               } else if (child.name.includes('flagBanner') || child.name.includes('ornament')) {
-                // Wave/flutter flag banner
                 child.rotation.y = Math.sin(Date.now() * 0.0035 + t.id.charCodeAt(0)) * 0.08;
               } else if (child.name.includes('core')) {
-                // Pulse NPC core size
                 const pulseScale = 1.0 + Math.sin(Date.now() * 0.008) * 0.15;
                 child.scaling.set(pulseScale, pulseScale, pulseScale);
               }

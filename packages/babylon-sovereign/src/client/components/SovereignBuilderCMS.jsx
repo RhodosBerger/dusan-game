@@ -514,6 +514,16 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
     const [selectedVariant, setSelectedVariant] = useState(1); // 1 to 30
     const [selectedElementType, setSelectedElementType] = useState('PLAYER');
 
+    React.useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.activeSovereignFormulas = window.activeSovereignFormulas || {};
+            window.activeSovereignFormulas[selectedElementType] = {
+                formula: selectedFormula,
+                variant: selectedVariant
+            };
+        }
+    }, [selectedFormula, selectedVariant, selectedElementType]);
+
     // Selected block details
     const selectedBlockData = useMemo(() => {
         return editorGrid.find(n => n.macroIndex === selectedNode?.macroIndex && n.subIndex === selectedNode?.subIndex);
