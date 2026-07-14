@@ -790,6 +790,31 @@ func handleStateResolveAction(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func handleEnvironmentFlux(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req engine.EnvironmentFluxRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp, err := engine.CalculateFlux(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 func main() {
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/api/physics/energy-cost", handlePhysicsCost)
@@ -812,6 +837,7 @@ func main() {
 	http.HandleFunc("/api/state/init", handleStateInit)
 	http.HandleFunc("/api/state/resolve-action", handleStateResolveAction)
 	http.HandleFunc("/api/pathfinding/search", handlePathfinding)
+	http.HandleFunc("/api/environment/flux", handleEnvironmentFlux)
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/health", handleHealth)
 

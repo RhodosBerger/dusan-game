@@ -118,6 +118,21 @@ export interface GoPathfinderResponse {
     logs: string;
 }
 
+export interface GoEnvironmentNode {
+    chunkId: number;
+    blockId: number;
+    friction: number;
+    conductivity: number;
+    hazardIndex: number;
+    walkable: boolean;
+}
+
+export interface GoEnvironmentFluxResponse {
+    success: boolean;
+    grid: GoEnvironmentNode[];
+    logs: string;
+}
+
 export class GoCoreMediator {
     private apiBaseUrl: string;
 
@@ -558,6 +573,78 @@ export class GoCoreMediator {
         }
 
         return null;
+    }
+
+    /**
+     * Authoritative Go Core environmental flux calculation (Goal 9)
+     */
+    public async calculateEnvironmentFlux(weather: string, gridData: HexNode[]): Promise<HexNode[]> {
+        // Trigger non-blocking heartbeat check
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        const grid: GoEnvironmentNode[] = gridData.map(node => ({
+            chunkId: node.macroIndex,
+            blockId: node.subIndex,
+            friction: node.friction || 1.0,
+            conductivity: node.conductivity || 0.5,
+            hazardIndex: node.hazardIndex || 0.0,
+            walkable: node.walkable !== false
+        }));
+
+        if (SovereignFailoverGateway.isOnline()) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/environment/flux`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ weather, grid })
+                });
+                if (res.ok) {
+                    const data: GoEnvironmentFluxResponse = await res.json();
+                    if (data.success && data.grid) {
+                        return gridData.map(tsNode => {
+                            const goMatch = data.grid.find(g => g.chunkId === tsNode.macroIndex && g.blockId === tsNode.subIndex);
+                            if (!goMatch) return tsNode;
+                            return {
+                                ...tsNode,
+                                friction: goMatch.friction,
+                                conductivity: goMatch.conductivity,
+                                hazardIndex: goMatch.hazardIndex
+                            };
+                        });
+                    }
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
+                }
+            } catch (err) {
+                SovereignFailoverGateway.setOnlineState(false);
+            }
+        }
+
+        // TS Fallback weather calculations (Exact Parity)
+        return gridData.map(tsNode => {
+            let friction = tsNode.friction || 1.0;
+            let conductivity = tsNode.conductivity || 0.5;
+            let hazardIndex = tsNode.hazardIndex || 0.0;
+
+            if (weather === 'TOXIC_STORM') {
+                hazardIndex = 0.8;
+                conductivity = 0.9;
+            } else if (weather === 'BLIZZARD') {
+                friction = 2.0;
+                hazardIndex = 0.4;
+            } else {
+                friction = 1.0;
+                hazardIndex = 0.0;
+                conductivity = 0.5;
+            }
+
+            return {
+                ...tsNode,
+                friction,
+                conductivity,
+                hazardIndex
+            };
+        });
     }
 }
 

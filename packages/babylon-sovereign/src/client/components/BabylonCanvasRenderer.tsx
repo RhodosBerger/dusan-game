@@ -1624,6 +1624,25 @@ export default function BabylonCanvasRenderer({
         formulaPlane.setEnabled(false);
       }
 
+      // Modulate Volumetric Fog & Spawner Portal colors based on Weather override (Goal 9)
+      const activeWeather = weatherOverrideRef.current || 'CLEAR';
+      if (activeWeather === 'TOXIC_STORM') {
+        scene.fogColor.set(0.04, 0.22, 0.12); // Neon Green
+        scene.fogStart = Scalar.Lerp(scene.fogStart, 20.0, 0.05);
+        scene.fogEnd = Scalar.Lerp(scene.fogEnd, 80.0, 0.05);
+        spawnerRingMat.emissiveColor.set(0.1, 0.85, 0.2); // Toxic Green Portal Ring
+      } else if (activeWeather === 'BLIZZARD') {
+        scene.fogColor.set(0.70, 0.82, 0.90); // Glacial Ice White
+        scene.fogStart = Scalar.Lerp(scene.fogStart, 15.0, 0.05);
+        scene.fogEnd = Scalar.Lerp(scene.fogEnd, 60.0, 0.05);
+        spawnerRingMat.emissiveColor.set(0.85, 0.92, 1.0); // Glacial White Portal Ring
+      } else {
+        scene.fogColor.set(0.03, 0.04, 0.05); // CLEAR Nominal
+        scene.fogStart = Scalar.Lerp(scene.fogStart, 35.0, 0.05);
+        scene.fogEnd = Scalar.Lerp(scene.fogEnd, 160.0, 0.05);
+        spawnerRingMat.emissiveColor.set(0.06, 0.7, 0.85); // Nominal Cyan Portal Ring
+      }
+
       // Height selection highlight
       hexNodes.forEach((nodeWrapper) => {
         const isSel = selectedNode && selectedNode.macroIndex === nodeWrapper.chunkId && selectedNode.subIndex === nodeWrapper.blockId;
