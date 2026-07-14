@@ -349,7 +349,7 @@ io.on('connection', (socket) => {
     // Re-draw initial hand for human
     p1.currentBuffer = [
       { id: 'crystal_laser_01', type: 'MAGIC', cost: 1, name: 'Laser Charge', desc: 'Direct beam strike' },
-      { id: 'crystal_shield_01', type: 'MAGIC', cost: 2, name: 'Glass Shield', desc: 'Absorbs 5 DMG' },
+      { id: 'crystal_trap_01', type: 'TRAP', cost: 2, name: 'Electro Spike', desc: 'Lays a root trap' },
       { id: 'crystal_move_01', type: 'MOVE', cost: 1, name: 'Blink Shift', desc: 'Teleport 1 hex' },
       { id: 'crystal_attack_01', type: 'ATTACK', cost: 2, name: 'Prism Sword', desc: 'Deals 3 physical DMG' }
     ];

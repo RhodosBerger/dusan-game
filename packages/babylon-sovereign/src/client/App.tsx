@@ -138,12 +138,21 @@ export default function App() {
 
   const handleExecuteAction = () => {
     if (socket && selectedCard && selectedNode) {
-      socket.emit('execute_action', {
-        playerId: myThreadId,
-        cardId: selectedCard.id,
-        targetMeta: selectedNode.macroIndex,
-        targetHex: selectedNode.subIndex
-      });
+      if (selectedCard.type === 'TRAP') {
+        socket.emit('place_trap', {
+          playerId: myThreadId,
+          trapType: 'ROOT_TRAP',
+          targetMeta: selectedNode.macroIndex,
+          targetHex: selectedNode.subIndex
+        });
+      } else {
+        socket.emit('execute_action', {
+          playerId: myThreadId,
+          cardId: selectedCard.id,
+          targetMeta: selectedNode.macroIndex,
+          targetHex: selectedNode.subIndex
+        });
+      }
       setSelectedCard(null);
       setSelectedNode(null);
     }
