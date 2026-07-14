@@ -811,6 +811,7 @@ func main() {
 	http.HandleFunc("/api/simulation/geometry-nodes", handleSimulation)
 	http.HandleFunc("/api/state/init", handleStateInit)
 	http.HandleFunc("/api/state/resolve-action", handleStateResolveAction)
+	http.HandleFunc("/api/pathfinding/search", handlePathfinding)
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/health", handleHealth)
 

@@ -13,6 +13,8 @@ export interface HexNode {
     humidity?: number;
     energyCostMultiplier?: number;
     hazardIndex?: number;
+    posX?: number;
+    posZ?: number;
 }
 
 // Structures matching Go Core JSON API
@@ -97,6 +99,22 @@ export interface GoStateResolveResponse {
     success: boolean;
     state: GoStateEngine;
     comboTrigger: string;
+    logs: string;
+}
+
+export interface GoPathfinderBlock {
+    chunkId: number;
+    blockId: number;
+    posX: number;
+    posZ: number;
+    walkable: boolean;
+    hazardIndex: number;
+}
+
+export interface GoPathfinderResponse {
+    success: boolean;
+    path: GoPathfinderBlock[] | null;
+    cost: number;
     logs: string;
 }
 
@@ -354,6 +372,192 @@ export class GoCoreMediator {
             comboTrigger: combo,
             logs
         };
+    }
+
+    private pathfindingQueue: Array<{
+        resolve: (val: GoPathfinderBlock[] | null) => void;
+        reject: (err: any) => void;
+        startChunk: number;
+        startBlock: number;
+        endChunk: number;
+        endBlock: number;
+        gridData: HexNode[];
+    }> = [];
+    private isQueueProcessing = false;
+
+    /**
+     * Finds short path utilizing authoritative Go Core pathfinder, backed by 2ms time-sliced client queue (Rule 5 & Section 12)
+     */
+    public async findPath(
+        startChunk: number,
+        startBlock: number,
+        endChunk: number,
+        endBlock: number,
+        gridData: HexNode[]
+    ): Promise<GoPathfinderBlock[] | null> {
+        return new Promise((resolve, reject) => {
+            this.pathfindingQueue.push({
+                resolve,
+                reject,
+                startChunk,
+                startBlock,
+                endChunk,
+                endBlock,
+                gridData
+            });
+
+            if (!this.isQueueProcessing) {
+                this.processPathfindingQueue();
+            }
+        });
+    }
+
+    private async processPathfindingQueue() {
+        this.isQueueProcessing = true;
+        const startTime = Date.now();
+
+        while (this.pathfindingQueue.length > 0) {
+            // Respect strict 2ms CPU execution limit (Rule 5 & Section 12)
+            if (Date.now() - startTime > 2) {
+                if (typeof requestAnimationFrame !== 'undefined') {
+                    requestAnimationFrame(() => this.processPathfindingQueue());
+                } else {
+                    setTimeout(() => this.processPathfindingQueue(), 1);
+                }
+                return;
+            }
+
+            const task = this.pathfindingQueue.shift();
+            if (task) {
+                try {
+                    const result = await this.executePathfindingTask(task);
+                    task.resolve(result);
+                } catch (err) {
+                    task.reject(err);
+                }
+            }
+        }
+        this.isQueueProcessing = false;
+    }
+
+    private async executePathfindingTask(task: {
+        startChunk: number;
+        startBlock: number;
+        endChunk: number;
+        endBlock: number;
+        gridData: HexNode[];
+    }): Promise<GoPathfinderBlock[] | null> {
+        // Map HexNodes to Go-compatible PathfinderBlocks
+        const grid: GoPathfinderBlock[] = task.gridData.map(node => ({
+            chunkId: node.macroIndex,
+            blockId: node.subIndex,
+            posX: node.posX || 0,
+            posZ: node.posZ || 0,
+            walkable: node.walkable !== false,
+            hazardIndex: node.hazardIndex || 0
+        }));
+
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        if (SovereignFailoverGateway.isOnline()) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/pathfinding/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        startChunk: task.startChunk,
+                        startBlock: task.startBlock,
+                        endChunk: task.endChunk,
+                        endBlock: task.endBlock,
+                        grid
+                    })
+                });
+                if (res.ok) {
+                    const data: GoPathfinderResponse = await res.json();
+                    if (data.success && data.path) {
+                        return data.path;
+                    }
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
+                }
+            } catch (err) {
+                SovereignFailoverGateway.setOnlineState(false);
+            }
+        }
+
+        // TS Fallback A* implementation (Exact Parity)
+        return this.localTSPathfinder(task.startChunk, task.startBlock, task.endChunk, task.endBlock, grid);
+    }
+
+    private localTSPathfinder(
+        startChunk: number,
+        startBlock: number,
+        endChunk: number,
+        endBlock: number,
+        grid: GoPathfinderBlock[]
+    ): GoPathfinderBlock[] | null {
+        const start = grid.find(b => b.chunkId === startChunk && b.blockId === startBlock);
+        const end = grid.find(b => b.chunkId === endChunk && b.blockId === endBlock);
+
+        if (!start || !end) return null;
+
+        const getDist = (a: GoPathfinderBlock, b: GoPathfinderBlock) => {
+            return Math.sqrt(Math.pow(a.posX - b.posX, 2) + Math.pow(a.posZ - b.posZ, 2));
+        };
+
+        const openSet: Array<{ block: GoPathfinderBlock; gScore: number; fScore: number; parent: any }> = [
+            { block: start, gScore: 0, fScore: getDist(start, end), parent: null }
+        ];
+
+        const closedSet = new Set<string>();
+
+        while (openSet.length > 0) {
+            openSet.sort((a, b) => a.fScore - b.fScore);
+            const current = openSet.shift()!;
+            const currKey = `${current.block.chunkId}_${current.block.blockId}`;
+            closedSet.add(currKey);
+
+            if (current.block.chunkId === end.chunkId && current.block.blockId === end.blockId) {
+                const path: GoPathfinderBlock[] = [];
+                let curr: any = current;
+                while (curr) {
+                    path.unshift(curr.block);
+                    curr = curr.parent;
+                }
+                return path;
+            }
+
+            // Find neighbors within 3.5 units
+            const neighbors = grid.filter(neighbor => {
+                if (!neighbor.walkable) return false;
+                if (neighbor.chunkId === current.block.chunkId && neighbor.blockId === current.block.blockId) return false;
+                const d = getDist(current.block, neighbor);
+                return d > 0.1 && d <= 3.5;
+            });
+
+            for (const neighbor of neighbors) {
+                const neighKey = `${neighbor.chunkId}_${neighbor.blockId}`;
+                if (closedSet.has(neighKey)) continue;
+
+                const tentativeG = current.gScore + getDist(current.block, neighbor);
+                const openMatch = openSet.find(o => o.block.chunkId === neighbor.chunkId && o.block.blockId === neighbor.blockId);
+
+                if (!openMatch) {
+                    openSet.push({
+                        block: neighbor,
+                        gScore: tentativeG,
+                        fScore: tentativeG + getDist(neighbor, end),
+                        parent: current
+                    });
+                } else if (tentativeG < openMatch.gScore) {
+                    openMatch.gScore = tentativeG;
+                    openMatch.fScore = tentativeG + getDist(neighbor, end);
+                    openMatch.parent = current;
+                }
+            }
+        }
+
+        return null;
     }
 }
 

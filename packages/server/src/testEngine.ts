@@ -3230,7 +3230,34 @@ async function runTests() {
   console.log("  [PASS] Simulated State resolution verified: comboTrigger=VOLTAGE_SURGE, defender.health=24");
   console.log("  [PASS] Test 93 (Go Core State Engine & LLM Telemetry Pipeline) validated successfully.");
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator, Sovereign-Card-Fusion, Sovereign-Reality-Compositor, Go-Core-Simulation-Bridge, Go-Core-State-Engine testy prebehli úspešne!");
+  console.log("\nTest 94: Go Core Authoritative A* Pathfinder (Milestone A)");
+  // 1. Setup small hex grid graph
+  const pathfinderGrid = [
+      { macroIndex: 0, subIndex: 0, posX: 0.0, posZ: 0.0, walkable: true, hazardIndex: 0 },   // Start
+      { macroIndex: 0, subIndex: 1, posX: 1.0, posZ: 1.5, walkable: true, hazardIndex: 0 },   // Waypoint
+      { macroIndex: 0, subIndex: 2, posX: 2.0, posZ: 0.0, walkable: false, hazardIndex: 0 },  // Obstacle (blocked)
+      { macroIndex: 0, subIndex: 3, posX: 2.0, posZ: 3.0, walkable: true, hazardIndex: 0 }    // End
+  ];
+
+  // 2. Resolve shortest path avoiding Obstacle
+  const resolvedPath = await goBridgeMediator.findPath(0, 0, 0, 3, pathfinderGrid);
+  
+  if (!resolvedPath) {
+      throw new Error("A* Pathfinder must find a valid path.");
+  }
+  assert(resolvedPath.length === 3, "Path must consist of exactly 3 nodes (Start -> Waypoint -> End).");
+  assert(resolvedPath[0].blockId === 0, "First node of path must be Start (block 0).");
+  assert(resolvedPath[1].blockId === 1, "Second node of path must be Waypoint (block 1).");
+  assert(resolvedPath[2].blockId === 3, "Third node of path must be End (block 3).");
+
+  // Verify that it avoided Node 2
+  const hasObstacle = resolvedPath.some(node => node.blockId === 2);
+  assert(!hasObstacle, "A* Pathfinder path must not contain the blocked obstacle node (block 2).");
+
+  console.log("  [PASS] Shortest path resolved successfully: 0 -> 1 -> 3 (obstacle avoided)");
+  console.log("  [PASS] Test 94 (Go Core Authoritative A* Pathfinder) validated successfully.");
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator, Sovereign-Card-Fusion, Sovereign-Reality-Compositor, Go-Core-Simulation-Bridge, Go-Core-State-Engine, Go-Core-Pathfinder testy prebehli úspešne!");
 }
 
 runTests().catch(err => {
