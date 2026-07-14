@@ -149,6 +149,54 @@ export default function BabylonCanvasRenderer({
   useEffect(() => { scorchedTilesRef.current = scorchedTiles; }, [scorchedTiles]);
   useEffect(() => { surgeTileRef.current = surgeTile; }, [surgeTile]);
   useEffect(() => { entropyRef.current = entropy; }, [entropy]);
+
+  // Database-to-Shader Telemetry Bridge (Goal 5 & Rule 10)
+  useEffect(() => {
+    let active = true;
+    const fetchRegisters = async () => {
+      try {
+        const res = await fetch('/api/db/registers');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active || !Array.isArray(data)) return;
+
+        // Parse Ohmic Entropy Feedback Register (0x4F)
+        const reg4F = data.find((r: any) => r.register_address === '0x4F');
+        if (reg4F && reg4F.hex_dump) {
+          const hexClean = reg4F.hex_dump.replace('0x', '');
+          const parsedVal = parseInt(hexClean, 16);
+          if (!isNaN(parsedVal)) {
+            // Normalize value to a 0.0 - 1.0 ratio
+            const ratio = (parsedVal % 100) / 100;
+            entropyRef.current = ratio;
+          }
+        }
+
+        // Parse Voltage Surge Combo Register (0x5A)
+        const reg5A = data.find((r: any) => r.register_address === '0x5A');
+        if (reg5A && reg5A.hex_dump) {
+          const hexClean = reg5A.hex_dump.replace('0x', '');
+          const parsedVal = parseInt(hexClean, 16);
+          if (!isNaN(parsedVal) && parsedVal > 0) {
+            // Trigger transient surge flash and camera shake
+            ultimateFlashRef.current = true;
+            setTimeout(() => {
+              ultimateFlashRef.current = false;
+            }, 1500);
+          }
+        }
+      } catch (e) {
+        console.error("[CANVAS] Failed to poll database registers:", e);
+      }
+    };
+
+    fetchRegisters();
+    const interval = setInterval(fetchRegisters, 2000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
   useEffect(() => { selectedCardRef.current = selectedCard; }, [selectedCard]);
   useEffect(() => { hoveredNodeRef.current = hoveredNode; }, [hoveredNode]);
 
