@@ -149,6 +149,7 @@ export default function ArenaUIOverlay({
     const [mulliganSubmitted, setMulliganSubmitted] = React.useState(false);
     const [isCompact, setIsCompact] = React.useState(false);
     const [isHudHovered, setIsHudHovered] = React.useState(false);
+    const [showFlash, setShowFlash] = React.useState(false);
 
     React.useEffect(() => {
         if (gameState?.state === 'MULLIGAN') {
@@ -172,6 +173,13 @@ export default function ArenaUIOverlay({
     const handleExecuteClick = () => {
         if (!selectedCard) return;
         setCastingCard(selectedCard);
+        
+        // Fullscreen flash for ultimate cards
+        if (selectedCard.isUltimate) {
+            setShowFlash(true);
+            setTimeout(() => setShowFlash(false), 150);
+        }
+
         // Wait for card lift animation to finish
         setTimeout(() => {
             onExecuteAction();
@@ -891,6 +899,9 @@ export default function ArenaUIOverlay({
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 z-10 font-sans">
+            {showFlash && (
+                <div className="fixed inset-0 bg-white z-50 pointer-events-none animate-flash-out" />
+            )}
             {/* FULLSCREEN MULLIGAN OVERLAY */}
             {gameState?.state === 'MULLIGAN' && (() => {
                 const oponentId = activePlayer?.id === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
