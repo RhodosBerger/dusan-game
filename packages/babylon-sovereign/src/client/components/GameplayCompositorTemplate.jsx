@@ -4,7 +4,35 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { SpatialGuidanceSystem } from '../../../../shared/src/index';
-export default function GameplayCompositorTemplate({ activeThreadId = 'thread_king_ai', realityPhase = 'STANDARD', setRealityPhase }) {
+export default function GameplayCompositorTemplate({ activeThreadId = 'thread_king_ai', realityPhase = 'STANDARD', setRealityPhase, mini = false }) {
+    if (mini) {
+        return (
+            <div className="w-full h-full relative bg-[#06060c]">
+                <Canvas camera={{ position: [0, 2, 4], fov: 45 }}>
+                    <ambientLight intensity={0.4} />
+                    <directionalLight position={[5, 10, 5]} intensity={1.5} />
+                    <pointLight position={[-5, 5, -5]} intensity={0.5} color="#8800ff" />
+
+                    <mesh>
+                        <sphereGeometry args={[0.8, 32, 32]} />
+                        <meshStandardMaterial
+                            color={'#a855f7'}
+                            roughness={0.9}
+                            metalness={0.1}
+                            emissive={'#d946ef'}
+                            emissiveIntensity={0.5}
+                        />
+                    </mesh>
+
+                    <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -0.9, 0]}>
+                        <ringGeometry args={[1.1, 1.2, 32]} />
+                        <meshBasicMaterial color={'#d946ef'} side={2} />
+                    </mesh>
+                </Canvas>
+            </div>
+        );
+    }
+
     const [heroDataset, setHeroDataset] = useState(null);
     const [marketData, setMarketData] = useState(null);
     const [selectedFaction, setSelectedFaction] = useState('crystal');
