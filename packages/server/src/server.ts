@@ -32,6 +32,7 @@ import { SovereignTelemetrySpawner } from './models/SovereignTelemetrySpawner';
 import { SovereignCombinatoricsRegistry } from './models/SovereignCombinatoricsRegistry';
 import { ClickHouseTelemetryClient } from './models/ClickHouseTelemetryClient';
 import { SovereignLayerLogger } from './utils/SovereignLayerLogger';
+import { DevOpsTelemetryWatcher } from './utils/devopsTelemetryWatcher';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
 
@@ -1165,6 +1166,17 @@ app.get('/api/telemetry', (req, res) => {
       traceLog: defaultEngine.traceLog,
       globalEntropy: defaultEngine.dungeonState.totalEntropy
     });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+const devopsWatcher = new DevOpsTelemetryWatcher('./database.db');
+
+app.get('/api/devops/telemetry', (req, res) => {
+  try {
+    const metrics = devopsWatcher.scan();
+    res.json(metrics);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

@@ -41,6 +41,7 @@ export default function App() {
   const [entropy, setEntropy] = useState<number>(0.2);
   const [semanticSector, setSemanticSector] = useState<any>(null);
   const [terrainTelemetry, setTerrainTelemetry] = useState<any>(null);
+  const [devopsTelemetry, setDevopsTelemetry] = useState<any>(null);
   const [weatherOverride, setWeatherOverride] = useState<string>('CLEAR');
   const [isManualWeather, setIsManualWeather] = useState<boolean>(false);
   const [actionLogs, setActionLogs] = useState<string[]>([]);
@@ -260,6 +261,11 @@ export default function App() {
         .then(res => (res.ok ? res.json() : null))
         .then(data => { if (data && data.difficulty) setTerrainTelemetry(data); })
         .catch(() => console.warn('[TELEMETRY] Terrain Telemetry offline'));
+
+      fetch(`/api/devops/telemetry`)
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => { if (data) setDevopsTelemetry(data); })
+        .catch(() => console.warn('[TELEMETRY] DevOps Telemetry offline'));
     };
 
     fetchTelemetry();
@@ -374,6 +380,7 @@ export default function App() {
           surgeTile={surgeTile}
           entropy={entropy}
           lastComboEvent={gameState?.lastComboEvent}
+          devopsTelemetry={devopsTelemetry}
         />
       </div>
 

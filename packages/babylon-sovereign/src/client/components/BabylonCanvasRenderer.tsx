@@ -103,6 +103,7 @@ interface BabylonCanvasRendererProps {
   surgeTile?: any;
   entropy?: number;
   lastComboEvent?: 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null;
+  devopsTelemetry?: any;
 }
 
 export default function BabylonCanvasRenderer({
@@ -121,7 +122,8 @@ export default function BabylonCanvasRenderer({
   scorchedTiles = [],
   surgeTile = null,
   entropy = 0.2,
-  lastComboEvent = null
+  lastComboEvent = null,
+  devopsTelemetry = null
 }: BabylonCanvasRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shuffleTriggerRef = useRef<{ time: number }>({ time: 0 });
@@ -155,12 +157,21 @@ export default function BabylonCanvasRenderer({
   useEffect(() => { surgeTileRef.current = surgeTile; }, [surgeTile]);
   useEffect(() => { entropyRef.current = entropy; }, [entropy]);
   // Sync combo event — set flash frames when new combo arrives
+  const devopsTelemetryRef = useRef(devopsTelemetry);
+
   useEffect(() => {
     if (lastComboEvent) {
       comboEventRef.current = lastComboEvent;
       comboFlashFramesRef.current = lastComboEvent === 'VOLTAGE_SURGE' ? 30 : 20;
     }
   }, [lastComboEvent]);
+
+  useEffect(() => {
+    devopsTelemetryRef.current = devopsTelemetry;
+    if (devopsTelemetry) {
+      window.dispatchEvent(new CustomEvent('devops_telemetry_updated'));
+    }
+  }, [devopsTelemetry]);
 
   // Database-to-Shader Telemetry Bridge (Goal 5 & Rule 10)
   useEffect(() => {
@@ -799,9 +810,25 @@ export default function BabylonCanvasRenderer({
     ];
 
     // 6. Spawn Thread Player Entities (Dynamic Faction-Themed Models)
-    const threadMeshes = new Map<string, AbstractMesh>();
+    const threadMeshes = new Map<string, AbstractMesh>();    const createProceduralGear = (x: number, y: number, z: number) => {
+      const gearGroup = MeshBuilder.CreateCylinder('gearGroup', { diameter: 1.1, height: 0.15, tessellation: 8 }, scene);
+      gearGroup.position = new Vector3(x, y, z);
+      const gearMat = new StandardMaterial('gearMat', scene);
+      gearMat.diffuseColor = new Color3(0.85, 0.55, 0.08);
+      gearMat.emissiveColor = new Color3(0.2, 0.15, 0.0);
+      gearGroup.material = gearMat;
 
-    // Split map generation into 3 staggered frames (Rule 5 & Procedural Render Layering)
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * Math.PI) / 4;
+        const tooth = MeshBuilder.CreateBox('tooth', { width: 0.2, height: 0.1, depth: 0.25 }, scene);
+        tooth.position = new Vector3(Math.cos(angle) * 0.55, 0, Math.sin(angle) * 0.55);
+        tooth.rotation.y = -angle;
+        tooth.parent = gearGroup;
+        tooth.material = gearMat;
+      }
+      return gearGroup;
+    };
+
     const criticalLayer = () => {
       gridData.forEach((chunk: any) => {
         const offset = META_COORDS[chunk.id] || { x: 0, z: 0 };
@@ -832,8 +859,14 @@ export default function BabylonCanvasRenderer({
         const block = chunk?.blocks.find((b: any) => b.id === node.blockId);
         if (!block) return;
 
+        let heightOffset = 0;
+        if (devopsTelemetryRef.current) {
+          const normBuild = devopsTelemetryRef.current.buildDurationMs / 1000.0;
+          heightOffset = Math.max(0, (normBuild - 1.2) * 1.5);
+        }
+
         const baseInstance = baseHex.createInstance(`hex_${node.chunkId}_${node.blockId}`);
-        baseInstance.position = new Vector3(node.posX, -0.6, node.posZ);
+        baseInstance.position = new Vector3(node.posX, -0.6 + heightOffset, node.posZ);
         baseInstance.setEnabled(true);
         shadowGenerator.addShadowCaster(baseInstance);
         baseInstance.receiveShadows = true;
@@ -857,10 +890,15 @@ export default function BabylonCanvasRenderer({
         } else if (block.biome === 'SCORCHED') {
           biomeColor = new Color4(0.15, 0.15, 0.18, 1.0);
         }
+
+        if (devopsTelemetryRef.current && devopsTelemetryRef.current.testPassRate < 1.0) {
+          const failRate = 1.0 - devopsTelemetryRef.current.testPassRate;
+          biomeColor = Color4.Lerp(biomeColor, new Color4(0.85, 0.15, 0.15, 1.0), failRate * 2.0);
+        }
         baseInstance.instancedBuffers.color = biomeColor;
 
         const innerInstance = innerHex.createInstance(`inner_${node.chunkId}_${node.blockId}`);
-        innerInstance.position = new Vector3(node.posX, 0.1, node.posZ);
+        innerInstance.position = new Vector3(node.posX, 0.1 + heightOffset, node.posZ);
         innerInstance.parent = baseInstance;
         innerInstance.setEnabled(true);
         innerInstance.material = isScorched
@@ -917,6 +955,12 @@ export default function BabylonCanvasRenderer({
     };
 
     const cosmeticLayer = () => {
+      let heightOffset = 0;
+      if (devopsTelemetryRef.current) {
+        const normBuild = devopsTelemetryRef.current.buildDurationMs / 1000.0;
+        heightOffset = Math.max(0, (normBuild - 1.2) * 1.5);
+      }
+
       hexNodes.forEach((node: any) => {
         const chunk = gridData.find((c: any) => c.id === node.chunkId);
         const block = chunk?.blocks.find((b: any) => b.id === node.blockId);
@@ -927,9 +971,9 @@ export default function BabylonCanvasRenderer({
           const isHighFidelity = (block.hazardIndex < 0.9) && (activeThreadsCount < 6);
           let chestMesh;
           if (isHighFidelity) {
-            chestMesh = createLootChest(node.posX, -0.6, node.posZ);
+            chestMesh = createLootChest(node.posX, -0.6 + heightOffset, node.posZ);
           } else {
-            chestMesh = createLowPolyPlaceholder(node.posX, -0.6, node.posZ, 'CHEST', scene);
+            chestMesh = createLowPolyPlaceholder(node.posX, -0.6 + heightOffset, node.posZ, 'CHEST', scene);
           }
           hexMeshInstances.push(chestMesh);
         }
@@ -938,11 +982,18 @@ export default function BabylonCanvasRenderer({
           const isHighFidelity = (block.hazardIndex < 0.9) && (activeThreadsCount < 6);
           let trapMesh;
           if (isHighFidelity) {
-            trapMesh = createTrap(node.posX, -0.6, node.posZ, block.hasTrap);
+            trapMesh = createTrap(node.posX, -0.6 + heightOffset, node.posZ, block.hasTrap);
           } else {
-            trapMesh = createLowPolyPlaceholder(node.posX, -0.6, node.posZ, 'TRAP', scene);
+            trapMesh = createLowPolyPlaceholder(node.posX, -0.6 + heightOffset, node.posZ, 'TRAP', scene);
           }
           hexMeshInstances.push(trapMesh);
+        }
+
+        // DevOps: Spawn procedural gears to represent code complexity
+        if (devopsTelemetryRef.current && block.hazardIndex > 0.3) {
+          const gearHeight = 0.35 + heightOffset;
+          const gear = createProceduralGear(node.posX, gearHeight, node.posZ);
+          hexMeshInstances.push(gear);
         }
       });
 
@@ -952,6 +1003,18 @@ export default function BabylonCanvasRenderer({
     };
 
     criticalLayer();
+
+    const handleDevopsTelemetryRebuild = () => {
+      hexMeshInstances.forEach(m => m.dispose());
+      hexMeshInstances.length = 0;
+      hexNodes.length = 0;
+      scene.meshes
+        .filter(m => m.name.includes('gearGroup') || m.name.includes('chest') || m.name.includes('trap'))
+        .forEach(m => m.dispose());
+
+      criticalLayer();
+    };
+    window.addEventListener('devops_telemetry_updated', handleDevopsTelemetryRebuild);
 
     // 6.5. Floating 3D HUD billboard for Ohmic Equation context (Layer 60)
     const formulaPlane = MeshBuilder.CreatePlane('formulaPlane', { width: 3.6, height: 1.2 }, scene);
@@ -1234,6 +1297,8 @@ export default function BabylonCanvasRenderer({
           const scale = 1.0 + Math.sin(Date.now() * 0.008) * 0.12;
           mesh.scaling.x = scale;
           mesh.scaling.z = scale;
+        } else if (mesh.name === 'gearGroup') {
+          mesh.rotation.y += 0.015;
         }
       });
 
@@ -1529,6 +1594,7 @@ export default function BabylonCanvasRenderer({
       if (socket) {
         socket.off('ai_sequence_triggered');
       }
+      window.removeEventListener('devops_telemetry_updated', handleDevopsTelemetryRebuild);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyDown);
       engine.dispose();

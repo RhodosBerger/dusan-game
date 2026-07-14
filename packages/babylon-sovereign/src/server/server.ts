@@ -19,6 +19,7 @@ import {
 } from '@dusan-game/shared';
 
 import { AIOpponentDirector } from './models/AIOpponentDirector';
+import { DevOpsTelemetryWatcher } from './utils/devopsTelemetryWatcher';
 
 dotenv.config();
 
@@ -170,6 +171,18 @@ app.get('/api/telemetry', (req, res) => {
     ]
   });
 });
+
+const devopsWatcher = new DevOpsTelemetryWatcher('../../database.db');
+
+app.get('/api/devops/telemetry', (req, res) => {
+  try {
+    const metrics = devopsWatcher.scan();
+    res.json(metrics);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 
 app.post('/api/end-turn', (req, res) => {
   // Force toggle turn via admin/dashboard
