@@ -19,6 +19,7 @@ import { ExecuteCodeAction } from '@babylonjs/core/Actions/directActions';
 import { Scalar } from '@babylonjs/core/Maths/math.scalar';
 import { CustomMaterial } from '@babylonjs/materials';
 import { SSAO2RenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline';
+import { ChromaticAberrationPostProcess } from '@babylonjs/core/PostProcesses/chromaticAberrationPostProcess';
 import neonMatrixTexUrl from '../../assets/neon_matrix_grid.png';
 import brushedMetalTexUrl from '../../assets/brushed_metal_tech.png';
 import { SpatialGuidanceSystem } from '../../../../shared/src/index';
@@ -293,6 +294,22 @@ export default function BabylonCanvasRenderer({
       scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", camera);
     } catch (e) {
       console.warn("[CANVAS] SSAO pipeline failed to initialize, bypassing.", e);
+    }
+
+    // Chromatic Aberration Post-process (Rule 10 & E > 0.8)
+    let chromaticAberration: ChromaticAberrationPostProcess | null = null;
+    try {
+      chromaticAberration = new ChromaticAberrationPostProcess(
+        "chromaticAberration",
+        engine.getRenderWidth(),
+        engine.getRenderHeight(),
+        1.0,
+        camera
+      );
+      chromaticAberration.aberrationAmount = 0.0;
+      chromaticAberration.radialIntensity = 0.5;
+    } catch (e) {
+      console.warn("[CANVAS] Chromatic Aberration post-process failed to initialize:", e);
     }
 
     // 4. Custom PBR Shader Materials
@@ -930,6 +947,58 @@ export default function BabylonCanvasRenderer({
       if (nowTime - lastUniformUpdateRef.current >= 100) {
         lastUniformUpdateRef.current = nowTime;
         throttledEntropy = entropyRef.current || 0.1;
+      }
+
+      // Dynamic VFX Orchestration (Rule 10, Goal & Mockup Integration)
+      const currentEntropy = entropyRef.current || 0.1;
+
+      // A. Chromatic Aberration & RGB Split (E > 0.8)
+      if (chromaticAberration) {
+        if (currentEntropy > 0.8) {
+          chromaticAberration.aberrationAmount = (currentEntropy - 0.8) * 75.0;
+        } else {
+          chromaticAberration.aberrationAmount = 0.0;
+        }
+      }
+
+      // B. Biometric Jitter / Camera Shake (E > 0.8)
+      if (currentEntropy > 0.8) {
+        const jitterIntensity = (currentEntropy - 0.8) * 0.12;
+        camera.target.x += (Math.random() - 0.5) * jitterIntensity;
+        camera.target.y += (Math.random() - 0.5) * jitterIntensity;
+        camera.target.z += (Math.random() - 0.5) * jitterIntensity;
+      }
+
+      // C. Wireframe Bleeding (E > 0.6)
+      const shouldBleed = currentEntropy > 0.6;
+      hexNodes.forEach((node: any) => {
+        if (node.mesh) {
+          node.mesh.renderOutline = shouldBleed;
+          if (shouldBleed) {
+            node.mesh.outlineColor = new Color3(1.0, 0.0, 0.5); // Neon Magenta Outline
+            node.mesh.outlineWidth = (currentEntropy - 0.6) * 0.15;
+          }
+        }
+      });
+
+      // D. Amber Warning Pulse (E > 0.5)
+      if (currentEntropy > 0.5) {
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.005);
+        hexNodes.forEach((node: any) => {
+          if (node.mesh) {
+            node.mesh.edgesColor = Color4.Lerp(
+              node.baseEdgeColor,
+              new Color4(1.0, 0.55, 0.0, 0.8), // Warning Amber
+              pulse * (currentEntropy - 0.5) * 2.0
+            );
+          }
+        });
+      } else {
+        hexNodes.forEach((node: any) => {
+          if (node.mesh) {
+            node.mesh.edgesColor = node.baseEdgeColor;
+          }
+        });
       }
 
       // Synchronize positions of threads and apply custom animations
