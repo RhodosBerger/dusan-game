@@ -322,7 +322,9 @@ io.on('connection', (socket) => {
     socket.data.matchId = matchId;
 
     const matchEngine = new SovereignEngine();
+    matchEngine.isIslandCampaign = true;
     initializeSeedData(matchEngine);
+    matchEngine.islandSystem.initializeIslands(matchEngine);
 
     const chosenHero = payload.hero;
     const aiHero = chosenHero === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';

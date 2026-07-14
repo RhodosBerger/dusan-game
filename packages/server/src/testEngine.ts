@@ -18,6 +18,7 @@ import { AestheticMarketCoordinator } from './models/AestheticMarketCoordinator'
 import { TacticalGenerativeCoordinator } from './models/TacticalGenerativeCoordinator';
 import { SovereignContentDistributor } from './models/SovereignContentDistributor';
 import { SovereignSoldierSimulator } from './models/SovereignSoldierSimulator';
+import { SovereignIslandSystem } from './models/SovereignIslandSystem';
 import { DeterministicTurnBalancer } from './models/DeterministicTurnBalancer';
 import { SovereignLogicConsole } from './models/SovereignLogicConsole';
 import { SovereignBattleDirector } from './models/SovereignBattleDirector';
@@ -2854,7 +2855,91 @@ async function runTests() {
   console.log(`  [PASS] Valid hit zone type resolution verified.`);
   console.log(`  [PASS] Test 84 (AethericDiceEngine rollHitZone) validated successfully.`);
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability testy prebehli úspešne!");
+  console.log("\nTest 85: SovereignIslandSystem Campaign and Wave Spawning");
+  const islandTestEngine = new SovereignEngine();
+  islandTestEngine.isIslandCampaign = true;
+  initializeSeedData(islandTestEngine);
+  islandTestEngine.islandSystem.initializeIslands(islandTestEngine);
+
+  // 1. Initial State: Island 1 must be active, Island 2 & 3 must be locked/collapsed (walkable === false)
+  const isld1Chunks = SovereignIslandSystem.ISLANDS[0];
+  const isld2Chunks = SovereignIslandSystem.ISLANDS[1];
+  const isld3Chunks = SovereignIslandSystem.ISLANDS[2];
+
+  for (const chunkId of isld1Chunks) {
+    const chunk = islandTestEngine.map.chunks.find(c => c.id === chunkId);
+    assert(!!(chunk && chunk.blocks.some(b => b.walkable === true)), `Island 1 Chunk ${chunkId} blocks must contain walkable areas.`);
+  }
+
+  for (const chunkId of [...isld2Chunks, ...isld3Chunks]) {
+    const chunk = islandTestEngine.map.chunks.find(c => c.id === chunkId);
+    assert(!!(chunk && chunk.blocks.every(b => b.walkable === false)), `Island 2/3 Chunk ${chunkId} blocks must be collapsed/unwalkable.`);
+  }
+
+  // 2. Active Wave must be 1, active monsters must be spawned on Island 1 (Chunks 1 & 2)
+  assert(islandTestEngine.islandSystem.currentWave === 1, "Initial wave must be Wave 1.");
+  assert(islandTestEngine.islandSystem.activeIslandIndex === 0, "Initial active island must be Island 1 (index 0).");
+  
+  const wave1NPCs = islandTestEngine.threads.filter(t => t.type === 'NPC' && !t.isDeallocated());
+  console.log(`[TEST_DEBUG] Wave 1 NPCs list (${wave1NPCs.length}):`, wave1NPCs.map(t => `${t.id} (${t.name})`));
+  assert(wave1NPCs.length === 2, `Wave 1 must spawn exactly 2 monsters. Found: ${wave1NPCs.length}`);
+
+  // 3. Clear Wave 1 monsters and evaluate progression to Wave 2
+  for (const npc of wave1NPCs) {
+    npc.health = 0; // Simulate defeating them
+  }
+
+  islandTestEngine.islandSystem.evaluateWaveProgress(islandTestEngine);
+
+  // 4. Verification of Wave 2: Island 2 chunks must rise/become walkable, new monsters spawned
+  assert(islandTestEngine.islandSystem.currentWave === 2, "Must progress to Wave 2.");
+  assert(islandTestEngine.islandSystem.activeIslandIndex === 1, "Active island must progress to Island 2 (index 1).");
+
+  for (const chunkId of isld2Chunks) {
+    const chunk = islandTestEngine.map.chunks.find(c => c.id === chunkId);
+    assert(!!(chunk && chunk.blocks.some(b => b.walkable === true)), `Island 2 Chunk ${chunkId} blocks must rise and contain walkable areas.`);
+  }
+
+  const wave2NPCs = islandTestEngine.threads.filter(t => t.type === 'NPC' && !t.isDeallocated());
+  assert(wave2NPCs.length === 3, "Wave 2 must spawn exactly 3 monsters.");
+
+  // 5. Clear Wave 2 monsters and evaluate progression to Wave 3
+  for (const npc of wave2NPCs) {
+    npc.health = 0;
+  }
+
+  islandTestEngine.islandSystem.evaluateWaveProgress(islandTestEngine);
+
+  // 6. Verification of Wave 3: Island 3 must become walkable, boss spawned
+  assert(islandTestEngine.islandSystem.currentWave === 3, "Must progress to Wave 3.");
+  assert(islandTestEngine.islandSystem.activeIslandIndex === 2, "Active island must progress to Island 3 (index 2).");
+
+  for (const chunkId of isld3Chunks) {
+    const chunk = islandTestEngine.map.chunks.find(c => c.id === chunkId);
+    assert(!!(chunk && chunk.blocks.some(b => b.walkable === true)), `Island 3 Chunk ${chunkId} blocks must rise and contain walkable areas.`);
+  }
+
+  const wave3NPCs = islandTestEngine.threads.filter(t => t.type === 'NPC' && !t.isDeallocated());
+  const bossNpc = wave3NPCs.find(t => t.name.includes('Faraday'));
+  assert(!!(bossNpc && bossNpc.health === 40), "Wave 3 Boss 'Faraday the Void Sovereign' must be spawned with 40 HP.");
+
+  // 7. Clear Wave 3 and verify campaign victory (GAME_OVER)
+  for (const npc of wave3NPCs) {
+    npc.health = 0;
+  }
+
+  islandTestEngine.islandSystem.evaluateWaveProgress(islandTestEngine);
+  assert(islandTestEngine.state === 'GAME_OVER', "Match must end in GAME_OVER state upon clearing final wave.");
+
+  console.log(`  [PASS] Initial campaign state and locked chunks verified.`);
+  console.log(`  [PASS] Wave 1 monster spawns verified.`);
+  console.log(`  [PASS] Progressive transition to Wave 2 verified.`);
+  console.log(`  [PASS] Island 2 materialization and walkable state verified.`);
+  console.log(`  [PASS] Transition to Wave 3 and Boss spawning verified.`);
+  console.log(`  [PASS] Campaign completion and Game Over victory verified.`);
+  console.log(`  [PASS] Test 85 (SovereignIslandSystem) validated successfully.`);
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

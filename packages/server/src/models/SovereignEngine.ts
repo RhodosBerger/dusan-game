@@ -6,6 +6,7 @@ import { TurnStateMachine } from './TurnStateMachine';
 import { DatabaseSyncManager } from './DatabaseSyncManager';
 import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
 import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
+import { SovereignIslandSystem } from './SovereignIslandSystem';
 import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator } from '@dusan-game/shared';
 
 // Register Server-Side Interactive Quest Triggers (Rule 6 decoupling)
@@ -74,6 +75,8 @@ export class SovereignEngine {
   turnStateMachine: TurnStateMachine;
   dungeonState: DungeonState;
   spawningPlanner: SovereignSpawningPlanner;
+  isIslandCampaign: boolean;
+  islandSystem: SovereignIslandSystem;
 
   constructor() {
     this.map = new GameMap();
@@ -89,6 +92,8 @@ export class SovereignEngine {
     this.turnStateMachine = new TurnStateMachine(this);
     this.dungeonState = DungeonDirector.generateDungeon();
     this.spawningPlanner = new SovereignSpawningPlanner();
+    this.isIslandCampaign = false;
+    this.islandSystem = new SovereignIslandSystem();
     
     // Asynchrónne načítanie z Go Core (ak je mikroslužba online)
     this.map.initializeWithGoCore();
@@ -587,6 +592,10 @@ export class SovereignEngine {
 
     // Vyhodnotenie odloženého plánu spawnovania
     this.spawningPlanner.tick(this);
+
+    if (this.isIslandCampaign) {
+      this.islandSystem.evaluateWaveProgress(this);
+    }
 
     this.turnCount++;
   }

@@ -142,11 +142,13 @@ export function initializeSeedData(engine: SovereignEngine) {
   }
 
   // 5. Spawning Neutral AI Monsters (PvEvP) cez Fraktálnu Distribúciu
-  generatorStats.npcSpawns.forEach((spawn, idx) => {
-    // Nespaunujeme priamo v štartovacích zónach hráčov (M0 a M8) kvôli férovosti
-    if (spawn.chunkId !== 0 && spawn.chunkId !== 8) {
-      engine.spawnNPC(`thread_npc_fractal_${idx}`, `Fractal Glitch ${idx + 1}`, spawn.chunkId, spawn.blockId, 4);
-    }
-  });
+  if (!engine.isIslandCampaign) {
+    generatorStats.npcSpawns.forEach((spawn, idx) => {
+      // Nespaunujeme priamo v štartovacích zónach hráčov (M0 a M8) kvôli férovosti
+      if (spawn.chunkId !== 0 && spawn.chunkId !== 8) {
+        engine.spawnNPC(`thread_npc_fractal_${idx}`, `Fractal Glitch ${idx + 1}`, spawn.chunkId, spawn.blockId, 4);
+      }
+    });
+  }
 }
 

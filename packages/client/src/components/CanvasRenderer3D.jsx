@@ -380,10 +380,22 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
     const gridData = useMemo(() => generate3DGrid(), []);
     
-    // Calculate which node IDs are collapsing this turn
+    // Calculate which node IDs are collapsing this turn (including locked/collapsed campaign islands)
     const collapsingNodeIds = useMemo(() => {
-        return AdrenalineDirector.getCollapsingNodes(turnsElapsed, gridData);
-    }, [turnsElapsed, gridData]);
+        const base = AdrenalineDirector.getCollapsingNodes(turnsElapsed, gridData);
+        if (map) {
+            gridData.forEach(node => {
+                const serverChunk = map.find(c => c.id === node.macroIndex);
+                const serverBlock = serverChunk?.blocks?.find(b => b.id === node.subIndex);
+                if (serverBlock && serverBlock.walkable === false) {
+                    if (!base.includes(node.id)) {
+                        base.push(node.id);
+                    }
+                }
+            });
+        }
+        return base;
+    }, [turnsElapsed, gridData, map]);
 
     const [localHoveredNode, localSetHoveredNode] = useState(null);
     const hoveredNode = externalHoveredNode !== undefined ? externalHoveredNode : localHoveredNode;
