@@ -783,6 +783,23 @@ export default function BabylonCanvasRenderer({
     innerHex.material = innerPlateMat;
     innerHex.setEnabled(false);
 
+    // Spawner Ring Template (Rule 1 & 5 cached geometry)
+    const spawnerRingTemplate = MeshBuilder.CreateTorus(
+      'templateSpawnerRing',
+      {
+        diameter: 1.6,
+        thickness: 0.03,
+        tessellation: 12
+      },
+      scene
+    );
+    const spawnerRingMat = new StandardMaterial('spawnerRingMat', scene);
+    spawnerRingMat.emissiveColor = new Color3(0.06, 0.7, 0.85); // Cyan glow
+    spawnerRingMat.disableLighting = true;
+    spawnerRingTemplate.material = spawnerRingMat;
+    spawnerRingTemplate.setEnabled(false);
+
+
     // Scorched material for Short Circuit degradation (Rule 5 & Section 2)
     const scorchedMaterial = new StandardMaterial('scorchedMaterial', scene);
     scorchedMaterial.diffuseColor = new Color3(0.15, 0.15, 0.15);
@@ -890,6 +907,7 @@ export default function BabylonCanvasRenderer({
             blockId: block.id, 
             mesh: null, 
             innerPlate: null, 
+            spawnerRing: null,
             posX, 
             posZ, 
             walkable: block.walkable, 
@@ -951,6 +969,24 @@ export default function BabylonCanvasRenderer({
         innerInstance.material = isScorched
           ? scorchedMaterial
           : (biomeMaterials.get(block.biome) || innerPlateMat);
+
+        // Apply RAG Tech-Plate parameters (Rule 9 & 10)
+        const combinedHash = Math.abs((node.chunkId << 5) ^ node.blockId);
+        const ragHeight = 0.5 + ((combinedHash % 200) / 100);
+        const ragScale = 1.0 + (0.05 + ((combinedHash % 30) / 100)); // cosmetic scale
+        innerInstance.scaling.set(ragScale, ragHeight * 0.8, ragScale);
+
+        // Instantiate Spawner Ring if tile is walkable (Rule 1 & 5)
+        let ringInstance: any = null;
+        const cond = block.conductivity !== undefined ? block.conductivity : (block.walkable ? 0.7 : 0.2);
+        if (block.walkable && cond > 0.6) {
+          ringInstance = spawnerRingTemplate.createInstance(`ring_${node.chunkId}_${node.blockId}`);
+          ringInstance.position = new Vector3(node.posX, 0.18 + heightOffset, node.posZ);
+          ringInstance.parent = baseInstance;
+          ringInstance.setEnabled(true);
+        }
+        node.spawnerRing = ringInstance;
+
 
         let edgeColor = new Color4(0, 0.8, 1, 0.35);
         if (block.biome === 'LUSH_FOREST') {
@@ -1643,6 +1679,45 @@ export default function BabylonCanvasRenderer({
               targetY += Math.sin(progress * 8.0) * 0.25;
             }
           }
+        }
+
+        // Apply radial ripple waves from active combo events (VOLTAGE_SURGE / SHORT_CIRCUIT)
+        if (comboFlashFramesRef.current > 0) {
+          const elapsed = (30 - comboFlashFramesRef.current) / 30; // 0.0 to 1.0 progress
+          if (elapsed < 0.9) {
+            let epicX = 0;
+            let epicZ = 0;
+            if (surgeTileRef.current) {
+              const surgeNode = hexNodes.find(n => n.chunkId === surgeTileRef.current.meta && n.blockId === surgeTileRef.current.hex);
+              if (surgeNode) {
+                epicX = surgeNode.posX;
+                epicZ = surgeNode.posZ;
+              }
+            }
+            const distance = Math.sqrt(
+              (nodeWrapper.mesh.position.x - epicX) ** 2 +
+              (nodeWrapper.mesh.position.z - epicZ) ** 2
+            );
+            const waveFront = elapsed * 18.0;
+            if (distance < waveFront && distance > waveFront - 4.0) {
+              const ripple = Math.sin((distance - waveFront) * 1.5) * (1.0 - elapsed) * 0.45;
+              targetY += ripple;
+            }
+          }
+        }
+
+        // Float Tech-Plates slightly to feel hover/alive (Rule 9)
+        if (nodeWrapper.innerPlate) {
+          const combinedHash = Math.abs((nodeWrapper.chunkId << 5) ^ nodeWrapper.blockId);
+          const floatOffset = Math.sin(Date.now() * 0.0035 + combinedHash) * 0.035;
+          nodeWrapper.innerPlate.position.y = 0.1 + floatOffset;
+        }
+
+        // Rotate and animate Spawner Portal Rings (Rule 1 & 5)
+        if (nodeWrapper.spawnerRing) {
+          nodeWrapper.spawnerRing.rotation.y += 0.025;
+          const pulseScale = 1.0 + Math.sin(Date.now() * 0.004 + nodeWrapper.chunkId) * 0.06;
+          nodeWrapper.spawnerRing.scaling.set(pulseScale, pulseScale, pulseScale);
         }
 
         nodeWrapper.mesh.position.y = Scalar.Lerp(
