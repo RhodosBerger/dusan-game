@@ -44,3 +44,11 @@
        npx yarn workspace @dusan-game/server build
        ```
     4. Run the full test suite (`packages/server/src/testEngine.ts`) to ensure 100% green compilation.
+
+## 8. Advanced Isometric & Oblique Camera Guidelines (2.5D RTS Camera)
+*   **Locked Perspective & View-Aligning Panning**: The 3D viewport must enforce a fixed 2.5D projection (using low field-of-view PerspectiveCamera `fov = 20-30` or OrthographicCamera) to maintain visual uniformity. Rotational user inputs must be disabled (`enableRotate={false}`). Map panning (mouse drag or WASD/Arrow keys) must translate both target and position coordinates synchronously along the ground plane X/Z rotated matching screen space projection.
+*   **Contextual Slant & Zoom Profiles (Oblique Adaptation)**: Camera angles (pitch, yaw) and zoom levels (distance, FOV) must be computed dynamically as a function of the focused tile (selected, hovered, or active unit). Pitch (elevation slant) and yaw (heading deviation) must smoothly lerp on frame ticks in-place via direct control-constraint mutation rather than component re-renders to prevent GC spikes. Spacebar must always reset camera lock back to the active unit's coordinate anchor.
+
+## 9. Advanced Topological Grid Animation & Shared Geometry Rules
+*   **Radial Ripple Waves (Pillar 1 Extension)**: Card plays or high-energy actions must dispatch topological radial waves that deform the height map. Hexagon nodes must dynamically calculate their local elevation displacement using cartesian distance from the action epicentre, staggered by propagation delays (`delay = distance * speed_coefficient`) using simple sines for smooth rise-and-sink ripples.
+*   **Decoupled Dual-Tiered Hex Structures**: Hexagon map tiles must render as double-layered structures (an outer extruded base and a nested inner tech-plate overlay) to maximize visual depth and cybernetic aesthetic. Base shapes, bevel outlines, and cylinder stalactites must be cached at the module level and shared across all 63 nodes via scale modifiers to avoid redundant object instantiation.
