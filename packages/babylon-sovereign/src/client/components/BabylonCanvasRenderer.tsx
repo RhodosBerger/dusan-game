@@ -193,6 +193,7 @@ export default function BabylonCanvasRenderer({
     let activeQuality = 'ULTRA_FIDELITY';
     let frameTimesCount = 0;
     let totalFrameTime = 0;
+    const lastUniformUpdateRef = { current: 0 };
 
     // 1. Initialize Engine and Scene
     const engine = new Engine(canvasRef.current, true);
@@ -218,24 +219,21 @@ export default function BabylonCanvasRenderer({
     camera.attachControl(canvasRef.current, true);
 
     // Lock camera angles to disable obliqeness rotations (Rule 8)
-    camera.lowerAlphaLimit = Math.PI / 4;
-    camera.upperAlphaLimit = Math.PI / 4;
-    camera.lowerBetaLimit = 1.05;
-    camera.upperBetaLimit = 1.05;
+    camera.upperAlphaLimit = Math.PI / 4 + 0.01;
+    camera.lowerAlphaLimit = Math.PI / 4 - 0.01;
+    camera.upperBetaLimit = 1.05 + 0.01;
+    camera.lowerBetaLimit = 1.05 - 0.01;
+    camera.upperRadiusLimit = 45;
     camera.lowerRadiusLimit = 15;
-    camera.upperRadiusLimit = 80;
 
-    // 3. Lighting & Shadows (TDP Power-Safety soft shadowing)
+    // 3. Lighting & Shadows (Axiomatic Performance bounds)
     const light = new DirectionalLight('dirLight', new Vector3(-1, -2, -1), scene);
-    light.position = new Vector3(15, 30, 15);
-    light.intensity = 1.5;
-
-    const fillLight = new DirectionalLight('fillLight', new Vector3(1, 1, 1), scene);
-    fillLight.intensity = 0.45;
-    fillLight.diffuse = new Color3(0.4, 0.55, 0.8);
+    light.position = new Vector3(20, 40, 20);
+    light.intensity = 1.2;
 
     const shadowGenerator = new ShadowGenerator(1024, light);
-    shadowGenerator.usePercentageCloserFiltering = true;
+    shadowGenerator.useBlurExponentialShadowMap = true;
+    shadowGenerator.blurKernel = 32;
 
     // SSAO post-processing (SSAO Rendering Pipeline with WebGL availability guards)
     let ssao: any = null;
@@ -258,7 +256,10 @@ export default function BabylonCanvasRenderer({
     cellMaterial.metallic = 0.85;
     cellMaterial.diffuseTexture = baseTex;
 
-    // Quantized GLSL Cell Shading Injection
+    // Dynamic grid overload uniform throttled to 10Hz to prevent register power spikes (Rule 5)
+    cellMaterial.AddUniform('gridOverload', 'float');
+
+    // Quantized GLSL Cell Shading Injection with red hot overload glow (Rule 5 complexity ceiling)
     cellMaterial.Fragment_Before_FragColor(`
       float brightness = (color.r + color.g + color.b) / 3.0;
       if (brightness > 0.01) {
@@ -268,8 +269,17 @@ export default function BabylonCanvasRenderer({
         else if (brightness < 0.70) { quantized = 0.58; }
         else { quantized = 0.88; }
         color.rgb *= (quantized / brightness);
+        color.r += gridOverload * 0.15;
       }
     `);
+
+    let throttledEntropy = 0.1;
+    cellMaterial.onBindObservable.add(() => {
+      const effect = cellMaterial.getEffect();
+      if (effect) {
+        effect.setFloat('gridOverload', throttledEntropy);
+      }
+    });
 
     // Load biome textures
     const textures = {
@@ -297,6 +307,20 @@ export default function BabylonCanvasRenderer({
       mat.roughness = 0.65;
       biomeMaterials.set(b, mat);
     });
+
+    // Helper to spawn low-poly placeholder billboards for power-saving constraints (Rule 5 & Section 2)
+    const createLowPolyPlaceholder = (posX: number, posY: number, posZ: number, type: string, scene: Scene) => {
+      const billboard = MeshBuilder.CreatePlane('lowPolyPlaceholder', { width: 0.5, height: 0.5 }, scene);
+      billboard.position = new Vector3(posX, posY + 0.55, posZ);
+      billboard.billboardMode = AbstractMesh.BILLBOARDMODE_ALL;
+      
+      const mat = new StandardMaterial('lowPolyMat', scene);
+      mat.disableLighting = true;
+      mat.emissiveColor = type === 'CHEST' ? new Color3(0.8, 0.6, 0.1) : new Color3(0.94, 0.27, 0.27);
+      billboard.material = mat;
+      
+      return billboard;
+    };
 
     // Helper to spawn dynamic 3D Loot Chests (Pillar 3)
     const createLootChest = (posX: number, posY: number, posZ: number) => {
@@ -651,30 +675,52 @@ export default function BabylonCanvasRenderer({
       { x: -7, z: 7 },  { x: 0, z: 7 },  { x: 7, z: 7 }
     ];
 
-    gridData.forEach((chunk: any) => {
-      const offset = META_COORDS[chunk.id] || { x: 0, z: 0 };
-      
-      chunk.blocks.forEach((block: any) => {
-        // Hexagonal spacing calculations
-        const angle = (block.id * Math.PI) / 3;
-        const radius = 2.4;
-        const posX = offset.x + Math.cos(angle) * radius;
-        const posZ = offset.z + Math.sin(angle) * radius;
+    // 6. Spawn Thread Player Entities (Dynamic Faction-Themed Models)
+    const threadMeshes = new Map<string, AbstractMesh>();
 
-        // Create instanced base hex (Zero allocation replication)
-        const baseInstance = baseHex.createInstance(`hex_${chunk.id}_${block.id}`);
-        baseInstance.position = new Vector3(posX, -0.6, posZ);
+    // Split map generation into 3 staggered frames (Rule 5 & Procedural Render Layering)
+    const criticalLayer = () => {
+      gridData.forEach((chunk: any) => {
+        const offset = META_COORDS[chunk.id] || { x: 0, z: 0 };
+        chunk.blocks.forEach((block: any) => {
+          const angle = (block.id * Math.PI) / 3;
+          const radius = 2.4;
+          const posX = offset.x + Math.cos(angle) * radius;
+          const posZ = offset.z + Math.sin(angle) * radius;
+
+          hexNodes.push({ 
+            chunkId: chunk.id, 
+            blockId: block.id, 
+            mesh: null, 
+            innerPlate: null, 
+            posX, 
+            posZ, 
+            walkable: block.walkable, 
+            hazardIndex: block.hazardIndex 
+          });
+        });
+      });
+      requestAnimationFrame(structuralLayer);
+    };
+
+    const structuralLayer = () => {
+      hexNodes.forEach((node: any) => {
+        const chunk = gridData.find((c: any) => c.id === node.chunkId);
+        const block = chunk?.blocks.find((b: any) => b.id === node.blockId);
+        if (!block) return;
+
+        const baseInstance = baseHex.createInstance(`hex_${node.chunkId}_${node.blockId}`);
+        baseInstance.position = new Vector3(node.posX, -0.6, node.posZ);
         baseInstance.setEnabled(true);
         shadowGenerator.addShadowCaster(baseInstance);
         baseInstance.receiveShadows = true;
 
-        // Assign instanced color based on biome (Pillar 2: Material Distribution)
-        const nodeKey = `m${chunk.id}_s${block.id}`;
+        const nodeKey = `m${node.chunkId}_s${node.blockId}`;
         const isScorched = scorchedTilesRef.current && scorchedTilesRef.current.includes(nodeKey);
 
         let biomeColor = new Color4(0.5, 0.5, 0.5, 1.0);
         if (isScorched) {
-          biomeColor = new Color4(0.12, 0.12, 0.12, 1.0); // charcoal black base
+          biomeColor = new Color4(0.12, 0.12, 0.12, 1.0);
         } else if (block.biome === 'LUSH_FOREST') {
           biomeColor = new Color4(0.20, 0.55, 0.35, 1.0);
         } else if (block.biome === 'TOXIC_SWAMP') {
@@ -690,16 +736,14 @@ export default function BabylonCanvasRenderer({
         }
         baseInstance.instancedBuffers.color = biomeColor;
 
-        // Create instanced inner tech plate
-        const innerInstance = innerHex.createInstance(`inner_${chunk.id}_${block.id}`);
-        innerInstance.position = new Vector3(posX, 0.1, posZ);
+        const innerInstance = innerHex.createInstance(`inner_${node.chunkId}_${node.blockId}`);
+        innerInstance.position = new Vector3(node.posX, 0.1, node.posZ);
         innerInstance.parent = baseInstance;
         innerInstance.setEnabled(true);
         innerInstance.material = isScorched
           ? scorchedMaterial
           : (biomeMaterials.get(block.biome) || innerPlateMat);
 
-        // Highlight/outline edge renderer (Gravity Well Overdrive edge glows)
         let edgeColor = new Color4(0, 0.8, 1, 0.35);
         if (block.biome === 'LUSH_FOREST') {
           edgeColor = new Color4(0.22, 1.0, 0.08, 0.35);
@@ -719,13 +763,11 @@ export default function BabylonCanvasRenderer({
         baseInstance.edgesWidth = 3.0;
         baseInstance.edgesColor = edgeColor;
 
-        // Set action manager for click and hover behaviors
         baseInstance.actionManager = new ActionManager(scene);
 
-        // Hover event listeners
         baseInstance.actionManager.registerAction(
           new ExecuteCodeAction(ActionManager.OnPointerOverTrigger, () => {
-            setHoveredNode({ id: `${chunk.id}_${block.id}`, macroIndex: chunk.id, subIndex: block.id, type: block.biome, walkable: block.walkable, friction: block.friction, hazardIndex: block.hazardIndex });
+            setHoveredNode({ id: `${node.chunkId}_${node.blockId}`, macroIndex: node.chunkId, subIndex: node.blockId, type: block.biome, walkable: block.walkable, friction: block.friction, hazardIndex: block.hazardIndex });
             baseInstance.edgesColor = new Color4(0.2, 1.0, 0.8, 1.0);
           })
         );
@@ -737,33 +779,56 @@ export default function BabylonCanvasRenderer({
           })
         );
 
-        // Click trigger routing
         baseInstance.actionManager.registerAction(
           new ExecuteCodeAction(ActionManager.OnLeftPickTrigger, () => {
-            onNodeClick({ id: `${chunk.id}_${block.id}`, macroIndex: chunk.id, subIndex: block.id, type: block.biome, walkable: block.walkable, friction: block.friction, hazardIndex: block.hazardIndex });
+            onNodeClick({ id: `${node.chunkId}_${node.blockId}`, macroIndex: node.chunkId, subIndex: node.blockId, type: block.biome, walkable: block.walkable, friction: block.friction, hazardIndex: block.hazardIndex });
           })
         );
 
-        // Spawn Chests and Traps if defined on target hex (Collision-Free Spawner Guard)
+        node.mesh = baseInstance;
+        node.innerPlate = innerInstance;
+        node.baseEdgeColor = edgeColor;
+        hexMeshInstances.push(baseInstance);
+      });
+      requestAnimationFrame(cosmeticLayer);
+    };
+
+    const cosmeticLayer = () => {
+      hexNodes.forEach((node: any) => {
+        const chunk = gridData.find((c: any) => c.id === node.chunkId);
+        const block = chunk?.blocks.find((b: any) => b.id === node.blockId);
+        if (!block) return;
+
         if (block.hasChest) {
-          const chestMesh = createLootChest(posX, -0.6, posZ);
+          const activeThreadsCount = threads.filter(t => t.position.meta === node.chunkId).length;
+          const isHighFidelity = (block.hazardIndex < 0.9) && (activeThreadsCount < 6);
+          let chestMesh;
+          if (isHighFidelity) {
+            chestMesh = createLootChest(node.posX, -0.6, node.posZ);
+          } else {
+            chestMesh = createLowPolyPlaceholder(node.posX, -0.6, node.posZ, 'CHEST', scene);
+          }
           hexMeshInstances.push(chestMesh);
         }
         if (block.hasTrap) {
-          const trapMesh = createTrap(posX, -0.6, posZ, block.hasTrap);
+          const activeThreadsCount = threads.filter(t => t.position.meta === node.chunkId).length;
+          const isHighFidelity = (block.hazardIndex < 0.9) && (activeThreadsCount < 6);
+          let trapMesh;
+          if (isHighFidelity) {
+            trapMesh = createTrap(node.posX, -0.6, node.posZ, block.hasTrap);
+          } else {
+            trapMesh = createLowPolyPlaceholder(node.posX, -0.6, node.posZ, 'TRAP', scene);
+          }
           hexMeshInstances.push(trapMesh);
         }
-
-        hexNodes.push({ chunkId: chunk.id, blockId: block.id, mesh: baseInstance, innerPlate: innerInstance, baseEdgeColor: edgeColor });
-        hexMeshInstances.push(baseInstance);
       });
-    });
 
-    // 6. Spawn Thread Player Entities (Dynamic Faction-Themed Models)
-    const threadMeshes = new Map<string, AbstractMesh>();
-    threads.forEach((t) => {
-      threadMeshes.set(t.id, createThreadMesh(t.id));
-    });
+      threads.forEach((t) => {
+        threadMeshes.set(t.id, createThreadMesh(t.id));
+      });
+    };
+
+    criticalLayer();
 
     // 6.5. Floating 3D HUD billboard for Ohmic Equation context (Layer 60)
     const formulaPlane = MeshBuilder.CreatePlane('formulaPlane', { width: 3.6, height: 1.2 }, scene);
@@ -812,12 +877,19 @@ export default function BabylonCanvasRenderer({
 
     // 7. Render Loop with active radial height animations
     scene.registerBeforeRender(() => {
+      // Throttle gridOverload uniform updates to maximum frequency of 10Hz (Rule 5)
+      const nowTime = Date.now();
+      if (nowTime - lastUniformUpdateRef.current >= 100) {
+        lastUniformUpdateRef.current = nowTime;
+        throttledEntropy = entropyRef.current || 0.1;
+      }
+
       // Synchronize positions of threads and apply custom animations
       threads.forEach((t) => {
         const meta = t.position.meta;
         const hex = t.position.hex;
         const targetNode = hexNodes.find((n) => n.chunkId === meta && n.blockId === hex);
-        if (targetNode) {
+        if (targetNode && targetNode.mesh) {
           const targetMesh = threadMeshes.get(t.id);
           if (targetMesh) {
             const targetX = targetNode.mesh.position.x;
@@ -1061,35 +1133,40 @@ export default function BabylonCanvasRenderer({
         const srcThread = threads.find(t => t.id === (currentHudConfig.sourceId || myThreadId));
         if (srcThread && srcThread.position?.meta !== undefined) {
           const sourceNode = hexNodes.find(n => n.chunkId === srcThread.position.meta && n.blockId === srcThread.position.hex);
-          if (sourceNode) {
+          if (sourceNode && sourceNode.mesh) {
             const startP = sourceNode.mesh.position;
             const srcPos = SpatialGuidanceSystem.resolveCartesian(srcThread.position.meta, srcThread.position.hex);
             const projectedTarget = SpatialGuidanceSystem.resolveEightDirectionTarget(srcPos, currentHudConfig.eightDDir, currentHudConfig.eightDDist);
             
-            let closestNode = hexNodes[0];
+            let closestNode = null as any;
             let minDistance = Infinity;
             hexNodes.forEach(node => {
-              const dx = node.mesh.position.x - projectedTarget.x;
-              const dz = node.mesh.position.z - projectedTarget.z;
-              const d = dx*dx + dz*dz;
-              if (d < minDistance) {
-                minDistance = d;
-                closestNode = node;
+              if (node.mesh) {
+                const dx = node.mesh.position.x - projectedTarget.x;
+                const dz = node.mesh.position.z - projectedTarget.z;
+                const d = dx*dx + dz*dz;
+                if (d < minDistance) {
+                  minDistance = d;
+                  closestNode = node;
+                }
               }
             });
-            const endP = closestNode.mesh.position;
             
-            if (activeTrajLine) {
-              activeTrajLine.dispose();
+            if (closestNode && closestNode.mesh) {
+              const endP = closestNode.mesh.position;
+              
+              if (activeTrajLine) {
+                activeTrajLine.dispose();
+              }
+              
+              activeTrajLine = MeshBuilder.CreateLines('activeTrajLine', {
+                points: [
+                  new Vector3(startP.x, startP.y + 0.8, startP.z),
+                  new Vector3(endP.x, endP.y + 0.8, endP.z)
+                ]
+              }, scene);
+              activeTrajLine.color = new Color3(1, 0.84, 0); // Gold glow
             }
-            
-            activeTrajLine = MeshBuilder.CreateLines('activeTrajLine', {
-              points: [
-                new Vector3(startP.x, startP.y + 0.8, startP.z),
-                new Vector3(endP.x, endP.y + 0.8, endP.z)
-              ]
-            }, scene);
-            activeTrajLine.color = new Color3(1, 0.84, 0); // Gold glow
           }
         }
       } else {
@@ -1216,8 +1293,17 @@ export default function BabylonCanvasRenderer({
       });
     });
 
+    let lastRenderTime = Date.now();
     engine.runRenderLoop(() => {
-      scene.render();
+      const now = Date.now();
+      const currentEntropy = entropyRef.current || 0.1;
+      const targetFPS = currentEntropy > 0.7 ? 30 : 60;
+      const frameInterval = 1000 / targetFPS;
+      
+      if (now - lastRenderTime >= frameInterval - 1) {
+        lastRenderTime = now;
+        scene.render();
+      }
     });
 
     const handleKeyDown = (e: KeyboardEvent) => {
