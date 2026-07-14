@@ -330,6 +330,21 @@ export class SovereignEngine {
 
   turnCount: number = 1;
 
+  // --- Combo Tracker per turn (Goal 1a + 1b) ---
+  lastComboEvent: 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null = null;
+  lastComboPlayerId: string | null = null;
+  private _turnVoltage: number = 0;
+  private _turnLastResistance: number = 0;
+  private _turnCardsPlayed: number = 0;
+
+  private _resetComboTracker(): void {
+    this._turnVoltage = 0;
+    this._turnLastResistance = 0;
+    this._turnCardsPlayed = 0;
+    this.lastComboEvent = null;
+    this.lastComboPlayerId = null;
+  }
+
   pushInstructionToNetwork(node: ActionNode): void {
     this.actionNetwork.push(node);
   }
@@ -445,6 +460,42 @@ export class SovereignEngine {
 
       const costMultiplier = energyCostInfo.costMultiplier;
       const isVoidCard = VOID_CARDS_BASE.some(c => c.id === node.instruction.id);
+
+      // --- COMBO TRACKER (Goal 1a Voltage Surge + 1b Short Circuit) ---
+      const nodeVoltage = node.instruction.energyCost || 1;
+      const nodeResistance = Math.max(0.1, 1 / (node.instruction.energyCost || 1));
+      this._turnVoltage += nodeVoltage;
+      this._turnCardsPlayed++;
+
+      if (this._turnCardsPlayed >= 2) {
+        // Goal 1a: Voltage Surge
+        if (this._turnVoltage >= 8.0) {
+          this.lastComboEvent = 'VOLTAGE_SURGE';
+          this.lastComboPlayerId = source.id;
+          if (finalDamage > 0) {
+            const currentDmg = damageDiffMap.get(target.id) || 0;
+            damageDiffMap.set(target.id, currentDmg + 2); // +2 bonus damage
+          }
+          console.log(`[COMBO] VOLTAGE_SURGE! Player=${source.id}, V=${this._turnVoltage.toFixed(1)} → +2 bonus damage`);
+        }
+        // Goal 1b: Short Circuit — R1*R2 ≤ 1.0 → opponent discards random card
+        if (this._turnLastResistance > 0 &&
+            this._turnLastResistance * nodeResistance <= 1.0 &&
+            this.lastComboEvent !== 'VOLTAGE_SURGE') {
+          this.lastComboEvent = 'SHORT_CIRCUIT';
+          this.lastComboPlayerId = source.id;
+          const opponent = this.threads.find(t => t.id !== source.id && t.type === 'PLAYER');
+          if (opponent && opponent.currentBuffer && opponent.currentBuffer.length > 0) {
+            const discardIdx = Math.floor(Math.random() * opponent.currentBuffer.length);
+            const discarded = opponent.currentBuffer.splice(discardIdx, 1)[0];
+            opponent.discardPile.push(discarded);
+            console.log(`[COMBO] SHORT_CIRCUIT! Player=${source.id} → ${opponent.id} forced discard from hand`);
+          }
+        }
+      }
+      this._turnLastResistance = nodeResistance;
+      // --- END COMBO TRACKER ---
+
       if (isVoidCard) {
         // Void Walker casting rule (Rule 3 Environmental Scaling):
         // If globalEntropy > 0.7, card cost reduces to 0 (both accumulated energy and entropy delta become 0)
@@ -631,6 +682,38 @@ export class SovereignEngine {
 
     if (this.isIslandCampaign) {
       this.islandSystem.evaluateWaveProgress(this);
+    }
+
+    // Reset combo tracker on turn end
+    this._resetComboTracker();
+
+    // --- LOOT CHEST SPAWN (Goal 3 — 15% chance per turn) ---
+    if (Math.random() < 0.15) {
+      const eligibleBlocks: { chunk: any; block: any }[] = [];
+      for (const chunk of this.map.chunks) {
+        for (const block of chunk.blocks) {
+          if (block.walkable && !block.hasChest && !block.hasTrap) {
+            const occupied = this.threads.some(
+              t => t.position.meta === chunk.id && t.position.hex === block.id
+            );
+            if (!occupied && block.hazardIndex < 0.9) {
+              eligibleBlocks.push({ chunk, block });
+            }
+          }
+        }
+      }
+      if (eligibleBlocks.length > 0) {
+        const pick = eligibleBlocks[Math.floor(Math.random() * eligibleBlocks.length)];
+        pick.block.hasChest = true;
+        console.log(`[LOOT] Chest spawned at chunk ${pick.chunk.id}, block ${pick.block.id}`);
+        this.traceLog.push({
+          type: 'Spawn',
+          threadId: 'loot_chest',
+          chunkId: pick.chunk.id,
+          blockId: pick.block.id,
+          timestamp: Date.now()
+        });
+      }
     }
 
     this.turnCount++;

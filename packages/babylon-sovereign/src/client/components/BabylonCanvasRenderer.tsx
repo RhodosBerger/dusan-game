@@ -102,6 +102,7 @@ interface BabylonCanvasRendererProps {
   scorchedTiles?: string[];
   surgeTile?: any;
   entropy?: number;
+  lastComboEvent?: 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null;
 }
 
 export default function BabylonCanvasRenderer({
@@ -119,7 +120,8 @@ export default function BabylonCanvasRenderer({
   ultimateFlash = false,
   scorchedTiles = [],
   surgeTile = null,
-  entropy = 0.2
+  entropy = 0.2,
+  lastComboEvent = null
 }: BabylonCanvasRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shuffleTriggerRef = useRef<{ time: number }>({ time: 0 });
@@ -131,6 +133,8 @@ export default function BabylonCanvasRenderer({
   const entropyRef = useRef(entropy);
   const selectedCardRef = useRef(selectedCard);
   const hoveredNodeRef = useRef(hoveredNode);
+  const comboEventRef = useRef<'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null>(null);
+  const comboFlashFramesRef = useRef(0); // frames remaining for combo flash
 
   const [hudConfig, setHudConfig] = React.useState<any>(null);
   const hudConfigRef = useRef<any>(null);
@@ -150,6 +154,13 @@ export default function BabylonCanvasRenderer({
   useEffect(() => { scorchedTilesRef.current = scorchedTiles; }, [scorchedTiles]);
   useEffect(() => { surgeTileRef.current = surgeTile; }, [surgeTile]);
   useEffect(() => { entropyRef.current = entropy; }, [entropy]);
+  // Sync combo event — set flash frames when new combo arrives
+  useEffect(() => {
+    if (lastComboEvent) {
+      comboEventRef.current = lastComboEvent;
+      comboFlashFramesRef.current = lastComboEvent === 'VOLTAGE_SURGE' ? 30 : 20;
+    }
+  }, [lastComboEvent]);
 
   // Database-to-Shader Telemetry Bridge (Goal 5 & Rule 10)
   useEffect(() => {
@@ -209,6 +220,53 @@ export default function BabylonCanvasRenderer({
     return () => window.removeEventListener('grid_shuffle_pulse', handleShuffle);
   }, []);
 
+  // --- 8-Directional Neon Trajectory Lines (Goal 5) ---
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const scene = (canvas as any).__babylonScene__;
+    if (!scene) return;
+
+    const TAG = '__trajectoryLine__';
+    scene.meshes
+      .filter((m: any) => m.metadata === TAG)
+      .forEach((m: any) => m.dispose());
+
+    if (!selectedCard || !myThreadId) return;
+
+    const activeThread = threads.find((t: any) => t.id === myThreadId);
+    if (!activeThread || activeThread.position.meta === null) return;
+
+    const TILE_SIZE = 1.1;
+    const CHUNK_OFFSET_X = 3.3;
+    const meta = activeThread.position.meta as number;
+    const hex = activeThread.position.hex as number;
+    const originX = (meta % 3) * CHUNK_OFFSET_X + (hex % 3) * TILE_SIZE;
+    const originZ = Math.floor(meta / 3) * CHUNK_OFFSET_X + Math.floor(hex / 3) * TILE_SIZE;
+    const originY = 0.6;
+
+    const DIRS = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+    const LINE_LEN = ((selectedCard as any)?.cost || 1) * TILE_SIZE * 2.5;
+
+    
+    DIRS.forEach(([dx, dz]) => {
+      try {
+        const ln = MeshBuilder.CreateLines('trajectory_line', {
+          points: [new Vector3(originX, originY, originZ), new Vector3(originX + dx * LINE_LEN, originY, originZ + dz * LINE_LEN)],
+          updatable: false
+        }, scene);
+        ln.metadata = TAG;
+        ln.color = new Color3(0, 1, 0.95);
+        ln.alpha = 0.85;
+      } catch (_) { /* scene not ready */ }
+    });
+
+    return () => {
+      scene.meshes
+        .filter((m: any) => m.metadata === TAG)
+        .forEach((m: any) => m.dispose());
+    };
+  }, [selectedCard, myThreadId, threads]);
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -999,6 +1057,32 @@ export default function BabylonCanvasRenderer({
             node.mesh.edgesColor = node.baseEdgeColor;
           }
         });
+      }
+
+      // E. Combo Flash (Goal 1a VOLTAGE_SURGE = yellow flash, 1b SHORT_CIRCUIT = red jitter)
+      if (comboFlashFramesRef.current > 0) {
+        comboFlashFramesRef.current--;
+        const flashT = comboFlashFramesRef.current / (comboEventRef.current === 'VOLTAGE_SURGE' ? 30 : 20);
+        if (comboEventRef.current === 'VOLTAGE_SURGE') {
+          // Yellow screen flash: scale chromatic aberration strongly
+          if (chromaticAberration) {
+            chromaticAberration.aberrationAmount = flashT * 30.0;
+          }
+          // Push camera up for "impact" feel
+          camera.target.y += flashT * 0.15;
+        } else if (comboEventRef.current === 'SHORT_CIRCUIT') {
+          // Red jitter + strong aberration
+          const shockIntensity = flashT * 0.25;
+          camera.target.x += (Math.random() - 0.5) * shockIntensity;
+          camera.target.y += (Math.random() - 0.5) * shockIntensity;
+          camera.target.z += (Math.random() - 0.5) * shockIntensity;
+          if (chromaticAberration) {
+            chromaticAberration.aberrationAmount = flashT * 20.0;
+          }
+        }
+        if (comboFlashFramesRef.current === 0) {
+          comboEventRef.current = null;
+        }
       }
 
       // Synchronize positions of threads and apply custom animations

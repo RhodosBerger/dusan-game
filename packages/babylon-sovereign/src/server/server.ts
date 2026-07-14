@@ -47,12 +47,21 @@ const allBaseCards = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS
 
 // Initial game state
 let activeRealityPhase = 'STANDARD';
-let matchState = {
+// Per-turn combo accumulator — reset on end_turn
+let turnComboTracker = {
+  voltagePlayedThisTurn: 0,
+  lastResistancePlayed: 0,
+  cardsPlayedThisTurn: 0
+};
+
+let matchState: any = {
   state: 'MULLIGAN', // MULLIGAN, RUNNING, GAME_OVER
   turnsElapsed: 1,
   activePlayerId: 'thread_king_ai',
   systemEnergy: 50,
   entropy: 0.35,
+  lastComboEvent: null as 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null,
+  lastComboPlayerId: null as string | null,
   turnStateMachine: {
     currentPhase: 'MULLIGAN',
     mulliganComplete: {
@@ -214,10 +223,10 @@ app.get('/api/db/registers', (req, res) => {
 // Mulligan endpoint
 app.post('/api/match/mulligan', (req, res) => {
   const { playerId, cardIds } = req.body;
-  const thread = matchState.threads.find(t => t.id === playerId);
+  const thread = matchState.threads.find((t: any) => t.id === playerId);
   if (thread && thread.currentBuffer) {
     // Keep cards not selected for mulligan, and draw replacement base cards
-    const retained = thread.currentBuffer.filter(c => !cardIds.includes(c.id));
+    const retained = thread.currentBuffer.filter((c: any) => !cardIds.includes(c.id));
     const drawn: any[] = [];
     while (retained.length + drawn.length < thread.handLimit) {
       const idx = Math.floor(Math.random() * allBaseCards.length);
@@ -277,13 +286,16 @@ io.on('connection', (socket) => {
     matchState.turnsElapsed = 1;
     matchState.activePlayerId = 'thread_king_ai';
     matchState.systemEnergy = 50;
+    matchState.lastComboEvent = null;
+    matchState.lastComboPlayerId = null;
+    turnComboTracker = { voltagePlayedThisTurn: 0, lastResistancePlayed: 0, cardsPlayedThisTurn: 0 };
     
     // Reset mulligan states
     matchState.turnStateMachine.mulliganComplete.thread_king_ai = false;
     matchState.turnStateMachine.mulliganComplete.thread_hacker_root = (mode === 'AI'); // Auto-complete for AI!
     
     // Reset threads health/position
-    const p1 = matchState.threads.find(t => t.id === 'thread_king_ai')!;
+    const p1 = matchState.threads.find((t: any) => t.id === 'thread_king_ai')!;
     p1.health = 15;
     p1.position = { meta: 0, hex: 0 };
     p1.freeMovementUsed = false;
@@ -296,7 +308,7 @@ io.on('connection', (socket) => {
       { id: 'crystal_attack_01', type: 'ATTACK', cost: 2, name: 'Prism Sword', desc: 'Deals 3 physical DMG' }
     ];
     
-    const p2 = matchState.threads.find(t => t.id === 'thread_hacker_root')!;
+    const p2 = matchState.threads.find((t: any) => t.id === 'thread_hacker_root')!;
     p2.health = 15;
     p2.position = { meta: 2, hex: 2 };
     p2.freeMovementUsed = false;
@@ -311,11 +323,11 @@ io.on('connection', (socket) => {
 
   socket.on('execute_action', (data) => {
     const { playerId, cardId, targetMeta, targetHex } = data;
-    const player = matchState.threads.find(t => t.id === playerId);
+    const player = matchState.threads.find((t: any) => t.id === playerId);
     
     if (player && player.currentBuffer) {
       // Find card in hand
-      const cardIdx = player.currentBuffer.findIndex(c => c.id === cardId);
+      const cardIdx = player.currentBuffer.findIndex((c: any) => c.id === cardId);
       if (cardIdx !== -1) {
         const card = player.currentBuffer[cardIdx];
         
@@ -350,6 +362,34 @@ io.on('connection', (socket) => {
         }
         matchState.systemEnergy = Math.max(0, matchState.systemEnergy - cardCost);
 
+        // --- COMBO TRACKER (Goal 1a + 1b) ---
+        // Physics specs drive voltage (cost) and resistance (1/cost floor 0.1)
+        const cardVoltage = card.cost || 1;
+        const cardResistance = Math.max(0.1, 1 / (card.cost || 1));
+        turnComboTracker.voltagePlayedThisTurn += cardVoltage;
+        turnComboTracker.cardsPlayedThisTurn++;
+
+        // Reset combo event from previous card before evaluating new one
+        matchState.lastComboEvent = null;
+        matchState.lastComboPlayerId = null;
+
+        if (turnComboTracker.cardsPlayedThisTurn >= 2) {
+          // Goal 1a: Voltage Surge — combined voltage >= 8.0
+          if (turnComboTracker.voltagePlayedThisTurn >= 8.0) {
+            matchState.lastComboEvent = 'VOLTAGE_SURGE';
+            matchState.lastComboPlayerId = playerId;
+            console.log(`[COMBO] VOLTAGE_SURGE triggered by ${playerId}! Total V=${turnComboTracker.voltagePlayedThisTurn.toFixed(1)}`);
+          }
+          // Goal 1b: Short Circuit — R1 * R2 <= 1.0
+          if (turnComboTracker.lastResistancePlayed > 0 &&
+              turnComboTracker.lastResistancePlayed * cardResistance <= 1.0) {
+            matchState.lastComboEvent = 'SHORT_CIRCUIT';
+            matchState.lastComboPlayerId = playerId;
+            console.log(`[COMBO] SHORT_CIRCUIT triggered by ${playerId}! R product=${(turnComboTracker.lastResistancePlayed * cardResistance).toFixed(2)}`);
+          }
+        }
+        turnComboTracker.lastResistancePlayed = cardResistance;
+
         let cardDamage = 3;
         let isSnakeOrStealth = false;
         try {
@@ -366,8 +406,21 @@ io.on('connection', (socket) => {
           console.warn('[SERVER] Failed to retrieve physics specs for card:', baseCardId, e);
         }
 
+        // Voltage Surge bonus damage (+2) — Goal 1a
+        if (matchState.lastComboEvent === 'VOLTAGE_SURGE') {
+          cardDamage += 2;
+          console.log(`[COMBO] Voltage Surge bonus: +2 damage applied (total: ${cardDamage})`);
+        }
+
+        // Short Circuit — opponent discards 1 random card — Goal 1b
+        const opponent = matchState.threads.find((t: any) => t.id !== playerId);
+        if (matchState.lastComboEvent === 'SHORT_CIRCUIT' && opponent && opponent.currentBuffer && opponent.currentBuffer.length > 0) {
+          const discardIdx = Math.floor(Math.random() * opponent.currentBuffer.length);
+          const discarded = opponent.currentBuffer.splice(discardIdx, 1)[0];
+          console.log(`[COMBO] SHORT_CIRCUIT: ${opponent.id} forced to discard '${discarded.name}'`);
+        }
+
         // Solve combat damage via Go Core (Rule 6 boundary routing with local TS fallback)
-        const opponent = matchState.threads.find(t => t.id !== playerId);
         if (opponent) {
           const defenderArmor = opponent.items.length * 2;
           goMediator.resolveCombatDamage({
@@ -404,14 +457,47 @@ io.on('connection', (socket) => {
 
   socket.on('move_hero', (data) => {
     const { playerId, targetMeta, targetHex } = data;
-    const player = matchState.threads.find(t => t.id === playerId);
+    const player = matchState.threads.find((t: any) => t.id === playerId);
 
     if (player && !player.freeMovementUsed) {
       player.position = { meta: targetMeta, hex: targetHex };
       player.freeMovementUsed = true;
       matchState.systemEnergy = Math.max(0, matchState.systemEnergy - 5);
+
+      // --- TRAP TRIGGER CHECK (Goal 2 server-side) ---
+      const chunk = matchState.map.find((c: any) => c.id === targetMeta);
+      if (chunk) {
+        const block = chunk.blocks.find((b: any) => b.id === targetHex);
+        if (block && block.hasTrap && block.trapOwnerId !== playerId) {
+          if (block.hasTrap === 'ROOT_TRAP') {
+            player.isRooted = true;
+            console.log(`[TRAP] ROOT_TRAP triggered on ${playerId} at (${targetMeta},${targetHex})`);
+          } else if (block.hasTrap === 'EMP_MINE') {
+            player.health = Math.max(0, player.health - 3);
+            console.log(`[TRAP] EMP_MINE triggered on ${playerId}: -3 HP`);
+          }
+          // Consume trap after trigger
+          block.hasTrap = null;
+          block.trapOwnerId = null;
+        }
+      }
       
       io.emit('match_state_updated', { gameState: matchState });
+    }
+  });
+
+  // Place trap (Goal 2 — card-triggered placement)
+  socket.on('place_trap', (data) => {
+    const { playerId, trapType, targetMeta, targetHex } = data;
+    const chunk = matchState.map.find((c: any) => c.id === targetMeta);
+    if (chunk) {
+      const block = chunk.blocks.find((b: any) => b.id === targetHex);
+      if (block && block.walkable && !block.hasTrap) {
+        block.hasTrap = trapType || 'ROOT_TRAP';
+        block.trapOwnerId = playerId;
+        console.log(`[TRAP] ${trapType || 'ROOT_TRAP'} placed by ${playerId} at (${targetMeta},${targetHex})`);
+        io.emit('match_state_updated', { gameState: matchState });
+      }
     }
   });
 
@@ -423,12 +509,38 @@ io.on('connection', (socket) => {
       matchState.turnsElapsed += 1;
 
       // Reset movement
-      matchState.threads.forEach(t => {
+      matchState.threads.forEach((t: any) => {
         t.freeMovementUsed = false;
       });
 
+      // Reset combo tracker for new turn
+      turnComboTracker = { voltagePlayedThisTurn: 0, lastResistancePlayed: 0, cardsPlayedThisTurn: 0 };
+      matchState.lastComboEvent = null;
+      matchState.lastComboPlayerId = null;
+
       // Increase energy slightly
       matchState.systemEnergy = Math.min(100, matchState.systemEnergy + 15);
+
+      // --- LOOT CHEST SPAWN (Goal 3 — 15% chance per turn) ---
+      if (Math.random() < 0.15) {
+        const eligibleBlocks: { chunk: any; block: any }[] = [];
+        matchState.map.forEach((chunk: any) => {
+          chunk.blocks.forEach((block: any) => {
+            if (block.walkable && !block.hasChest && !block.hasTrap) {
+              // Verify no thread is standing on this block
+              const occupied = matchState.threads.some(
+                (t: any) => t.position.meta === chunk.id && t.position.hex === block.id
+              );
+              if (!occupied) eligibleBlocks.push({ chunk, block });
+            }
+          });
+        });
+        if (eligibleBlocks.length > 0) {
+          const pick = eligibleBlocks[Math.floor(Math.random() * eligibleBlocks.length)];
+          pick.block.hasChest = true;
+          console.log(`[LOOT] Chest spawned at chunk ${pick.chunk.id}, block ${pick.block.id}`);
+        }
+      }
 
       io.emit('match_state_updated', { gameState: matchState });
     }

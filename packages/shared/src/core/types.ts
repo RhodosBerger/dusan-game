@@ -159,4 +159,6 @@ export interface NetworkEngineState {
     turnStateMachine: NetworkTurnStateMachineState;
     dungeonState: any;
     map: NetworkChunkState[];
+    lastComboEvent: 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null;
+    lastComboPlayerId?: string | null;
 }
