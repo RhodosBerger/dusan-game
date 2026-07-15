@@ -28,7 +28,7 @@ if command -v go >/dev/null 2>&1; then
         echo "[GO CORE] Port 8081 je obsadený iným programom — hra pobeží bez Go Core (má fallback)."
     else
         echo "[GO CORE] Spúšťam Go Core (port 8081)..."
-        (cd packages/go-core && go run main.go) > go-core.log 2>&1 &
+        (cd packages/go-core && go run main.go pathfinder.go) > go-core.log 2>&1 &
         GO_PID=$!
     fi
 else

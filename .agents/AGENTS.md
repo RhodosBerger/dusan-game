@@ -85,5 +85,10 @@
 *   **Semantic RAG Shape Library & Layer Coherence**: Any procedural mesh generated from semantic text descriptors (words/phrases) must resolve its geometry parameters (scale, vertex offsets, bevel) through a mapped shape dictionary (RAG library). The sampled geometries must be structured into independent but aligned rendering layers (Critical colliders, Structural base, Cosmetic overlays) sharing common top-face height bounds and snap-to offsets to ensure topological cohesion.
 *   **Procedural Timeline Keyframing**: Actions and card plays mapped to RAG tag-pairs must translate their deterministic hashes into animation sequences (squash/stretch ratios, Bezier control tangents) played in-place without mesh re-instantiation, utilizing cached templates to maintain balanced thermal and TDP profiles.
 
-
-
+## 13. Monorepo Port Conflict & Dependency Debugging
+*   **Docker Port Release**: Before starting local development servers via `./start-dev.sh` or `./start-babylon-dev.sh`, verify if docker containers are already bound to ports `3001` or `8081`. If they are, release them first using:
+    ```bash
+    docker-compose down
+    ```
+*   **React Hook Imports**: Always verify that all React hooks (`useRef`, `useMemo`, `useEffect`, `useState`) are explicitly imported from the `'react'` library in the file header. Unimported hooks cause silent runtime crashes in the browser.
+*   **Fused Card Parity**: When defining or updating gameplay-specific objects (like card fusions or instructions), ensure that all properties (such as `cost`, `desc`, `parentTypes`, `helperStats`) are declared as optional on the base model class (`Instruction.ts`) to maintain TypeScript compatibility during runtime assignments.

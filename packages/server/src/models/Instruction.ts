@@ -17,7 +17,10 @@ export class Instruction {
   isUltimate: boolean;
 
   effects: InstructionEffects;
-  helperStats: any | null; // Placeholder for Helper stats
+  helperStats?: any | null; // Placeholder for Helper stats
+  cost?: number;
+  desc?: string;
+  parentTypes?: string[];
 
   constructor(id: string, name: string, type: 'ACTION' | 'HELPER') {
     this.id = id;

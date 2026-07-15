@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { io } from 'socket.io-client';
 import CanvasRenderer3D from './components/CanvasRenderer3D';
 import ArenaUIOverlay from './components/ArenaUIOverlay';
@@ -40,10 +40,10 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [shakeIntensity, setShakeIntensity] = useState(0);
   
-  // Audio state trackers
-  const [lastActivePlayerId, setLastActivePlayerId] = useState(null);
-  const [lastHandCount, setLastHandCount] = useState(0);
-  const [gameEnded, setGameEnded] = useState(false);
+  // Audio state trackers using refs to prevent infinite loop (Goal 9)
+  const lastActivePlayerIdRef = useRef(null);
+  const lastHandCountRef = useRef(0);
+  const gameEndedRef = useRef(false);
   const [ultimateFlash, setUltimateFlash] = useState(false);
   const [weatherOverride, setWeatherOverride] = useState(null);
   const [isManualWeather, setIsManualWeather] = useState(false);
@@ -263,24 +263,24 @@ function App() {
     if (!gameState) return;
 
     // 1. Turn Start Chime
-    if (gameState.activePlayerId && gameState.activePlayerId !== lastActivePlayerId) {
+    if (gameState.activePlayerId && gameState.activePlayerId !== lastActivePlayerIdRef.current) {
       const faction = gameState.activePlayerId === 'thread_king_ai' 
         ? 'crystal' 
         : gameState.activePlayerId === 'thread_hacker_root' 
         ? 'toxic' 
         : 'void';
       arenaAudio.playTurnStart(faction);
-      setLastActivePlayerId(gameState.activePlayerId);
+      lastActivePlayerIdRef.current = gameState.activePlayerId;
     }
 
     // 2. Card Draw Sound
     const myThreadId = socket.id || gameState.threads?.[0]?.id;
     const localThread = gameState.threads?.find(t => t.id === myThreadId) || gameState.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
     const localHandCount = localThread?.currentBuffer?.length || 0;
-    if (localHandCount > lastHandCount) {
+    if (localHandCount > lastHandCountRef.current) {
       arenaAudio.playCardDraw();
     }
-    setLastHandCount(localHandCount);
+    lastHandCountRef.current = localHandCount;
 
     // 3. Collapse Warning Drone
     if (gameState.turnsElapsed >= 8) {
@@ -301,15 +301,15 @@ function App() {
     // 4. End Game Fanfare
     const kingHp = gameState.threads?.find(t => t.id === 'thread_king_ai')?.health ?? 15;
     const hackerHp = gameState.threads?.find(t => t.id === 'thread_hacker_root')?.health ?? 15;
-    if ((kingHp <= 0 || hackerHp <= 0) && !gameEnded) {
+    if ((kingHp <= 0 || hackerHp <= 0) && !gameEndedRef.current) {
       const winner = kingHp <= 0 ? 'thread_hacker_root' : 'thread_king_ai';
       arenaAudio.playEndGame(winner);
-      setGameEnded(true);
-    } else if (kingHp > 0 && hackerHp > 0 && gameEnded) {
-      setGameEnded(false);
+      gameEndedRef.current = true;
+    } else if (kingHp > 0 && hackerHp > 0 && gameEndedRef.current) {
+      gameEndedRef.current = false;
     }
 
-  }, [gameState, lastActivePlayerId, lastHandCount, gameEnded]);
+  }, [gameState]);
 
   // Biome Transition VFX triggers on local player movement
   useEffect(() => {
