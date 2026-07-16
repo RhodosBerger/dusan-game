@@ -45,6 +45,8 @@ QuestTriggerManager.onInteractiveTrigger = (engine: any, player: any, quest: any
   }
 };
 
+const GO_CORE_URL = (typeof process !== 'undefined' && process.env && process.env.GO_CORE_URL) || 'http://localhost:8081';
+
 function syncPost(url: string, payload: any): any {
   try {
     const payloadStr = JSON.stringify(payload).replace(/'/g, "'\\''");
@@ -137,7 +139,7 @@ export class SovereignEngine {
         
         if (!AethericDiceEngine.bypassDice) {
           try {
-            const resp = syncPost('http://localhost:8081/api/physics/energy-cost', { baseCost, chunkId, blockId });
+            const resp = syncPost(`${GO_CORE_URL}/api/physics/energy-cost`, { baseCost, chunkId, blockId });
             if (resp && typeof resp.cost === 'number') {
               return { cost: resp.cost, costMultiplier: resp.costMultiplier };
             }
@@ -181,7 +183,7 @@ export class SovereignEngine {
 
         if (!AethericDiceEngine.bypassDice) {
           try {
-            const resp = syncPost('http://localhost:8081/api/combat/resolve', {
+            const resp = syncPost(`${GO_CORE_URL}/api/combat/resolve`, {
               damage: dmg,
               attackerHeroId: source.id,
               defenderHeroId: target.id,

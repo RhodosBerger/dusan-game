@@ -52,3 +52,11 @@
 ## 9. Advanced Topological Grid Animation & Shared Geometry Rules
 *   **Radial Ripple Waves (Pillar 1 Extension)**: Card plays or high-energy actions must dispatch topological radial waves that deform the height map. Hexagon nodes must dynamically calculate their local elevation displacement using cartesian distance from the action epicentre, staggered by propagation delays (`delay = distance * speed_coefficient`) using simple sines for smooth rise-and-sink ripples.
 *   **Decoupled Dual-Tiered Hex Structures**: Hexagon map tiles must render as double-layered structures (an outer extruded base and a nested inner tech-plate overlay) to maximize visual depth and cybernetic aesthetic. Base shapes, bevel outlines, and cylinder stalactites must be cached at the module level and shared across all 63 nodes via scale modifiers to avoid redundant object instantiation.
+
+## 10. React Hook & Lifecycle Constraints
+*   **Hook Placement**: Never declare hook functions (like `useState`, `useMemo`, `useEffect`) below early conditional returns. All hook declarations must reside at the very top of React functional components.
+*   **Initialization Sequence**: State variables must be declared physically above any other hooks or expressions that access them to avoid temporal dead-zone exceptions.
+*   **State Effect Change-Guards**: Any `useEffect` hook that performs state updates (e.g., `setLastPosition`) must wrap the state mutation in a strict value/identity check (e.g., comparing old value to new value) to prevent infinite render loops ("Maximum update depth exceeded").
+
+## 11. Automated Match State Completion
+*   **AI Phase Completion**: Any game phase that requires active confirmation from all players (e.g. Mulligan confirm) must automatically resolve and complete for any AI-controlled threads (`Sovereign AI`) in the match engine to prevent the match state from freezing.
