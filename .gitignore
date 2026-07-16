@@ -25,6 +25,7 @@ packages/go-core/go-core.exe
 **/*.db-wal
 **/generated_quests.json
 **/generated_dialogues.json
+:memory:
 
 # Log files
 **/*.log
