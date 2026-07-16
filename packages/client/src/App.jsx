@@ -19,7 +19,7 @@ import { arenaAudio } from './utils/ArenaAudio';
 import './App.css';
 
 // Socket.io klient
-const socket = io('http://localhost:3001', { autoConnect: false });
+const socket = io({ autoConnect: false });
 
 function App() {
   const [activeLayoutView, setActiveLayoutView] = useState('LOBBY');
@@ -65,7 +65,12 @@ function App() {
   }, [gameState?.state]);
 
   const myThreadId = useMemo(() => {
-    return socket.id || gameState?.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI')?.id || gameState?.threads?.[0]?.id;
+    const hasSocketThread = gameState?.threads?.some(t => t.id === socket.id);
+    if (hasSocketThread) {
+      return socket.id;
+    }
+    const playerThread = gameState?.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
+    return playerThread?.id || gameState?.threads?.[0]?.id || socket.id;
   }, [gameState, socket.id]);
   const [activeTransitions, setActiveTransitions] = useState([]);
   const [lastPosition, setLastPosition] = useState({ meta: null, hex: null });
@@ -253,12 +258,12 @@ function App() {
     const fetchTelemetry = () => {
       // res.ok guard: 404/500 vracia JSON s chybou — uložený ako dáta by zhodil
       // renderovanie (napr. terrainTelemetry.difficulty je undefined)
-      fetch(`http://localhost:3001/api/scenarios/semantic-sector/${activePlayerId}`)
+      fetch(`/api/scenarios/semantic-sector/${activePlayerId}`)
         .then(res => (res.ok ? res.json() : null))
         .then(data => { if (data) setSemanticSector(data); })
         .catch(err => console.warn('[TELEMETRY] Semantic Sector offline'));
 
-      fetch(`http://localhost:3001/api/scenarios/terrain-telemetry/${activePlayerId}`)
+      fetch(`/api/scenarios/terrain-telemetry/${activePlayerId}`)
         .then(res => (res.ok ? res.json() : null))
         .then(data => { if (data && data.difficulty) setTerrainTelemetry(data); })
         .catch(err => console.warn('[TELEMETRY] Terrain Telemetry offline'));

@@ -647,7 +647,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
     useEffect(() => {
         const fetchRegs = () => {
-            fetch('http://localhost:3001/api/backoffice/regulators')
+            fetch('/api/backoffice/regulators')
                 .then(res => res.ok ? res.json() : null)
                 .then(data => {
                     if (data) setBackofficeRegs(data);
