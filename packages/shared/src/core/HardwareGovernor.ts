@@ -9,7 +9,7 @@ export interface PerformanceLimits {
 
 export class HardwareGovernor {
   private static frameTimes: number[] = [];
-  public static currentTier: HardwareProfileTier = 'NOMINAL';
+  public static currentTier: HardwareProfileTier = 'HIGH_END';
 
   /**
    * Zmeria delta čas snímku a prepočíta profil záťaže
@@ -57,6 +57,6 @@ export class HardwareGovernor {
    */
   public static reset(): void {
     this.frameTimes = [];
-    this.currentTier = 'NOMINAL';
+    this.currentTier = 'HIGH_END';
   }
 }

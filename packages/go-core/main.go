@@ -840,11 +840,41 @@ func handleEnvironmentFlux(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+type PositionTelemetryRequest struct {
+	Log     engine.TelemetryLog `json:"log"`
+	Terrain string              `json:"terrain"`
+}
+
+func handlePositionTelemetry(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req PositionTelemetryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	req.Log.Timestamp = time.Now()
+	questResp := engine.GenerateProceduralQuest(req.Log, req.Terrain)
+
+	fmt.Printf("[TELEMETRY] Logged player position at %s (HP: %d, Lvl: %d)\n", req.Log.HexCoord, req.Log.HP, req.Log.Level)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(questResp)
+}
+
 func main() {
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/api/physics/energy-cost", handlePhysicsCost)
 	http.HandleFunc("/api/combat/resolve", handleCombatResolve)
 	http.HandleFunc("/api/physics/solve", handleSolve)
+	http.HandleFunc("/api/telemetry/position", handlePositionTelemetry)
 	http.HandleFunc("/api/tensor/infer-unknown", handleInfer)
 	http.HandleFunc("/api/physics/kcl-grid", handleKCLGrid)
 	http.HandleFunc("/api/synthesize", handleSynthesize)

@@ -2027,6 +2027,113 @@ app.post('/api/admin/logic/evaluate', (req, res) => {
   res.json(evaluation);
 });
 
+app.post('/api/admin/spawn-predicted-items', (req, res) => {
+  try {
+    const { username } = req.body;
+    const targetUser = username || 'thread_king_ai';
+    
+    // Clear previous items using the new DatabaseSyncManager helper
+    dbSync.clearPlayerItems(targetUser);
+
+    // Spawn every item defined in ITEMS_CATALOG
+    const keys = Object.keys(ITEMS_CATALOG);
+    for (const key of keys) {
+      const item = ITEMS_CATALOG[key];
+      dbSync.addPlayerItem(targetUser, item.key, item.category);
+    }
+    
+    res.json({ success: true, message: `Successfully spawned all ${keys.length} items for player ${targetUser}.` });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+interface SimulatedMatch {
+  playerHP: number;
+  bossHP: number;
+  turn: 'PLAYER' | 'NPC';
+  logs: string[];
+  hand: any[];
+}
+
+let activeSimulatedMatch: SimulatedMatch = {
+  playerHP: 15,
+  bossHP: 30,
+  turn: 'PLAYER',
+  logs: ['[Start] Battle initialized: Player Crystal Faction vs Sentinel Boss (30 HP).'],
+  hand: [
+    { id: 'c1', name: 'Crystal Blast', voltage: 4, cost: 1, type: 'ACTION', description: 'Deals 4 damage to boss.' },
+    { id: 'c2', name: 'Aether Shield', resistance: 3, cost: 2, type: 'ACTION', description: 'Blocks incoming damage.' },
+    { id: 'c3', name: 'Mana Recharge', voltage: 0, cost: 0, type: 'ACTION', description: 'Restores HP.' }
+  ]
+};
+
+app.post('/api/admin/ai-match/start', (req, res) => {
+  activeSimulatedMatch = {
+    playerHP: 15,
+    bossHP: 30,
+    turn: 'PLAYER',
+    logs: ['[Start] Battle initialized: Player Crystal Faction vs Sentinel Boss (30 HP).'],
+    hand: [
+      { id: 'c1', name: 'Crystal Blast', voltage: 4, cost: 1, type: 'ACTION', description: 'Deals 4 damage to boss.' },
+      { id: 'c2', name: 'Aether Shield', resistance: 3, cost: 2, type: 'ACTION', description: 'Blocks incoming damage.' },
+      { id: 'c3', name: 'Mana Recharge', voltage: 0, cost: 0, type: 'ACTION', description: 'Restores HP.' }
+    ]
+  };
+  res.json({ success: true, match: activeSimulatedMatch });
+});
+
+app.post('/api/admin/ai-match/play-card', (req, res) => {
+  try {
+    const { cardId } = req.body;
+    const cardIndex = activeSimulatedMatch.hand.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) {
+      return res.status(400).json({ error: 'Card not found in hand' });
+    }
+
+    const card = activeSimulatedMatch.hand[cardIndex];
+    
+    // Process player turn
+    let logMsg = `[Turn Player] Played ${card.name}. `;
+    if (card.voltage > 0) {
+      activeSimulatedMatch.bossHP = Math.max(0, activeSimulatedMatch.bossHP - card.voltage);
+      logMsg += `Dealt ${card.voltage} damage to Sentinel Boss.`;
+    } else if (card.resistance > 0) {
+      activeSimulatedMatch.playerHP = Math.min(25, activeSimulatedMatch.playerHP + card.resistance);
+      logMsg += `Healed player for +${card.resistance} HP.`;
+    } else {
+      activeSimulatedMatch.playerHP = Math.min(25, activeSimulatedMatch.playerHP + 5);
+      logMsg += `Recharged energy. Healed +5 HP.`;
+    }
+    activeSimulatedMatch.logs.push(logMsg);
+
+    // Consume card
+    activeSimulatedMatch.hand.splice(cardIndex, 1);
+    
+    // Draw replacement card
+    const randomCard = [
+      { id: 'c' + Date.now(), name: 'Crystal Burst', voltage: 5, cost: 2, type: 'ACTION', description: 'Deals 5 damage.' },
+      { id: 'c' + (Date.now() + 1), name: 'Aether Barrier', resistance: 4, cost: 3, type: 'ACTION', description: 'Heals +4 HP.' }
+    ][Math.floor(Math.random() * 2)];
+    activeSimulatedMatch.hand.push(randomCard);
+
+    // Execute NPC counter-turn if boss still alive
+    if (activeSimulatedMatch.bossHP > 0) {
+      activeSimulatedMatch.turn = 'NPC';
+      const npcDmg = Math.floor(Math.random() * 3) + 2;
+      activeSimulatedMatch.playerHP = Math.max(0, activeSimulatedMatch.playerHP - npcDmg);
+      activeSimulatedMatch.logs.push(`[Turn NPC] Sentinel Boss strikes back. Dealt ${npcDmg} damage to Player.`);
+      activeSimulatedMatch.turn = 'PLAYER';
+    } else {
+      activeSimulatedMatch.logs.push(`[Victory] Sentinel Boss has been defeated!`);
+    }
+
+    res.json({ success: true, match: activeSimulatedMatch });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/phase/override', (req, res) => {
   try {
     const { phase, activePlayerId } = req.body;
@@ -2546,10 +2653,25 @@ app.post('/api/end-turn', (req, res) => {
 
 app.post('/api/match/mulligan', (req, res) => {
   try {
-    const { playerId, cardIds } = req.body;
-    defaultEngine.turnStateMachine.executeMulligan(playerId, cardIds || []);
-    io.emit('state_resolved', defaultEngine.getState());
-    res.status(200).json({ success: true, state: defaultEngine.getState() });
+    const { playerId, cardIds, matchId } = req.body;
+    let targetEngine = defaultEngine;
+    if (matchId && activeMatches.has(matchId)) {
+      const matchObj = activeMatches.get(matchId);
+      if (matchObj && matchObj.engine) {
+        targetEngine = matchObj.engine;
+      }
+    }
+    targetEngine.turnStateMachine.executeMulligan(playerId, cardIds || []);
+    
+    // Automatically complete mulligan for AI opponent if present
+    const aiThreads = targetEngine.threads.filter(t => t.type === 'PLAYER' && t.id !== playerId && t.name === "Sovereign AI");
+    aiThreads.forEach(ai => {
+      targetEngine.turnStateMachine.executeMulligan(ai.id, []);
+    });
+
+    const roomName = matchId ? `room_${matchId}` : 'default_match';
+    ServerDeltaManager.emitState(io.to(roomName), roomName, targetEngine.getState());
+    res.status(200).json({ success: true, state: targetEngine.getState() });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -2898,6 +3020,84 @@ app.get('/goal', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.status(200).send('Server is healthy');
+});
+
+app.post('/api/quests/procedural', async (req, res) => {
+  try {
+    const { username, hexCoord, hp, level, terrain } = req.body;
+    
+    const goResponse = await fetch(`${GO_CORE_URL}/api/telemetry/position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        log: {
+          playerId: username || 'player_default',
+          hexCoord: hexCoord || '0x00',
+          hp: Number(hp) || 10,
+          level: Number(level) || 1
+        },
+        terrain: terrain || 'WOODEN'
+      })
+    });
+    
+    if (!goResponse.ok) {
+      throw new Error(`Go Core returned error: ${await goResponse.text()}`);
+    }
+    
+    const questResp = await goResponse.json();
+    
+    const db = (dbSync as any).db;
+    db.prepare(`
+      INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
+      VALUES (?, ?, ?, ?)
+    `).run(
+      Date.now(),
+      hexCoord || '0x00',
+      JSON.stringify(questResp),
+      `AI Quest Generated: ${questResp.title}`
+    );
+    
+    dbSync.logTelemetry(username || 'player_default', 'QUEST_GEN', questResp);
+    
+    const player = dbSync.getOrCreatePlayer(username || 'player_default', 'crystal');
+    let activeQuests: any[] = [];
+    try {
+      const parsed = JSON.parse(player.quests);
+      activeQuests = parsed.activeList || [];
+    } catch (_) {
+      activeQuests = [];
+    }
+    
+    const newQuest = {
+      id: questResp.questId,
+      title: questResp.title,
+      description: questResp.story,
+      objectiveType: questResp.objectives[0]?.type || 'REACH_TILE',
+      targetValue: questResp.objectives[0]?.value || 1,
+      targetName: questResp.objectives[0]?.targetTile || '0x00',
+      progress: 0,
+      completed: false,
+      xpReward: questResp.xpReward,
+      materialReward: { type: 'CrystalShard', amount: 5 }
+    };
+    
+    activeQuests.push(newQuest);
+    
+    const updatedQuestsJson = JSON.stringify({
+      lastRefresh: Date.now(),
+      activeList: activeQuests
+    });
+    
+    db.prepare('UPDATE players SET quests = ? WHERE username = ?').run(updatedQuestsJson, username || 'player_default');
+    
+    res.json({
+      success: true,
+      quest: questResp,
+      databaseLogged: true
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/trades/offer', async (req, res) => {

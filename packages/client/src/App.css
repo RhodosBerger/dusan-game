@@ -435,5 +435,118 @@ body {
   100% { border-color: #eab308; box-shadow: 0 0 10px #eab308, inset 0 0 8px rgba(234, 179, 8, 0.2); }
 }
 
+/* Glassmorphism Dota 2 HUD Panels */
+.dota-hud-glass {
+  background: rgba(8, 8, 16, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Hearthstone Card Layout Inner Elements */
+.hs-card-cost-badge {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 26px;
+  height: 26px;
+  background: radial-gradient(circle, #2dd3f1 0%, #0066cc 100%);
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: 11px;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(45, 211, 241, 0.6);
+  z-index: 10;
+}
+
+.hs-card-art-frame {
+  width: 100%;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid #b2944b;
+  overflow: hidden;
+  position: relative;
+  background: #0d0e14;
+  margin-top: 4px;
+}
+
+.hs-card-name-banner {
+  width: 110%;
+  margin-left: -5%;
+  height: 18px;
+  background: linear-gradient(90deg, #3a2e1d 0%, #5d482d 50%, #3a2e1d 100%);
+  border-top: 1px solid #7c613e;
+  border-bottom: 1px solid #7c613e;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 8px;
+  font-weight: 800;
+  color: #fffde0;
+  text-shadow: 1px 1px 1px #000;
+  z-index: 2;
+  margin-top: 4px;
+}
+
+.hs-card-desc-box {
+  flex-grow: 1;
+  margin-top: 4px;
+  background: #ece3d3;
+  border: 1px solid #7c613e;
+  border-radius: 4px;
+  padding: 4px;
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: 7.5px;
+  color: #2b1f14;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.hs-card-stat-star {
+  position: absolute;
+  bottom: -8px;
+  left: -8px;
+  width: 24px;
+  height: 24px;
+  background: #ef4444;
+  border: 1.5px solid #ffffff;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 900;
+  font-size: 9px;
+  color: #ffffff;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+  z-index: 10;
+}
+
+.hs-card-stat-shield {
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  background: #3b82f6;
+  border: 1.5px solid #ffffff;
+  border-radius: 4px 4px 12px 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 900;
+  font-size: 9px;
+  color: #ffffff;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+  z-index: 10;
+}
+
 
 

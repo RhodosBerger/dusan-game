@@ -48,3 +48,6 @@ export * from './core/HardwareGovernor';
 export * from './core/RenderPriorityBalancer';
 
 export * from './core/SovereignTaskScheduler';
+export * from './core/EvolutionaryDeckGenerator';
+export * from './core/questEvolution';
+export * from './core/DusanAdaptedMassacreModel';

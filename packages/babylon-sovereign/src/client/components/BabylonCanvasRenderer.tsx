@@ -82,6 +82,15 @@ const WORLD_PROFILES = {
     fogColor: new Color3(0.02, 0.04, 0.06),
     fogNear: 30.0,
     fogFar: 140.0
+  },
+  DAYLIGHT: {
+    ambientColor: new Color3(0.92, 0.70, 0.28),
+    ambientIntensity: 0.65,
+    keyColor: new Color3(1.0, 0.94, 0.68),
+    keyIntensity: 1.8,
+    fogColor: new Color3(0.05, 0.18, 0.29),
+    fogNear: 45.0,
+    fogFar: 220.0
   }
 };
 
@@ -1041,13 +1050,16 @@ export default function BabylonCanvasRenderer({
         }
         baseInstance.instancedBuffers.color = biomeColor;
 
-        const innerInstance = innerHex.createInstance(`inner_${node.chunkId}_${node.blockId}`);
+        const innerInstance = innerHex.clone(`inner_${node.chunkId}_${node.blockId}`);
         innerInstance.position = new Vector3(node.posX, 0.1 + heightOffset, node.posZ);
         innerInstance.parent = baseInstance;
         innerInstance.setEnabled(true);
-        innerInstance.material = isScorched
+        
+        const baseMat = isScorched
           ? scorchedMaterial
           : (biomeMaterials.get(block.biome) || innerPlateMat);
+        const uniqueInnerMat = baseMat.clone(`mat_inner_${node.chunkId}_${node.blockId}`);
+        innerInstance.material = uniqueInnerMat;
 
         // Apply RAG Tech-Plate parameters (Rule 9 & 10)
         const combinedHash = Math.abs((node.chunkId << 5) ^ node.blockId);
@@ -1517,6 +1529,10 @@ export default function BabylonCanvasRenderer({
           targetRoughness = 0.35;
           targetSpecular = new Color3(0.6, 0.6, 0.6);
           targetEmissive = new Color3(0.05, 0.15, 0.2);
+        } else if (weatherOverrideRef.current === 'DAYLIGHT') {
+          targetRoughness = 0.25;
+          targetSpecular = new Color3(0.5, 0.45, 0.3);
+          targetEmissive = new Color3(0.12, 0.08, 0.02); // Warm sun glow
         }
 
         mat.roughness = lerp(mat.roughness, targetRoughness, 0.05);
@@ -1813,11 +1829,29 @@ export default function BabylonCanvasRenderer({
           }
         }
 
-        // Float Tech-Plates slightly to feel hover/alive (Rule 9)
+        // Float Tech-Plates slightly to feel hover/alive (Rule 9) and elevate on hover!
         if (nodeWrapper.innerPlate) {
           const combinedHash = Math.abs((nodeWrapper.chunkId << 5) ^ nodeWrapper.blockId);
           const floatOffset = Math.sin(Date.now() * 0.0035 + combinedHash) * 0.035;
-          nodeWrapper.innerPlate.position.y = 0.1 + floatOffset;
+          let targetPlateY = 0.1 + floatOffset;
+          if (isHov) {
+            targetPlateY += 0.35; // Elevate tech-plate on hover!
+          }
+          nodeWrapper.innerPlate.position.y = Scalar.Lerp(nodeWrapper.innerPlate.position.y, targetPlateY, 0.15);
+
+          // Update emissive color based on state (emission control nodes)
+          const targetEmissive = isHov 
+            ? new Color3(0.0, 1.0, 0.8).scale(1.8) // High cyan glow on hover
+            : isSel 
+              ? new Color3(0.0, 0.8, 1.0)          // Cyan blue on select
+              : isSurge 
+                ? new Color3(0.8, 0.1, 0.0)        // Red glow on surge
+                : new Color3(0.0, 0.0, 0.0);       // Nominal
+
+          const mat = nodeWrapper.innerPlate.material as StandardMaterial;
+          if (mat) {
+            mat.emissiveColor = Color3.Lerp(mat.emissiveColor, targetEmissive, 0.15);
+          }
         }
 
         // Phase-Modulated Viewport Layering (Rule 10 addition)

@@ -14,6 +14,9 @@ if [ ! -d packages/shared/dist ]; then
     yarn workspace @dusan-game/shared build || exit 1
 fi
 
+# Zaisti, že Python prostredie má nainštalované závislosti
+./packages/server/scripts/bootstrap-python.sh || exit 1
+
 cleanup() {
     echo ""
     echo "[STOP] Ukončujem všetky služby..."

@@ -1,21 +1,32 @@
-pipelineId: orchestration_pipeline
-description: TODO - describe your pipeline
-runner: 'airflow'
-owner: 'data-eng-team'
-modelVersion: '1.0'
+modelVersion: 1.0
+pipelineId: game_telemetry_orchestrator
+description: Orchestrates game telemetry pipelines, OpenVINO focus tracking, and build verification tests
+runner: airflow
+owner: devops-team
+tags:
+  - "job:datacloud:antigravity"
+
 defaults:
-  projectId: {{ project }}
-  location: {{ region }}
+  projectId: tactical-airena
+  location: us-central1
   executionConfig:
     retries: 1
 
 triggers:
   - schedule:
-      interval: '0 2 * * *'  # 2 AM daily
-      startTime: '2025-11-01T00:00:00'
-      endTime: '2026-12-01T00:00:00'
+      interval: "0 2 * * *"  # 2 AM daily
+      startTime: "2026-07-16T00:00:00"
+      endTime: "2027-07-16T00:00:00"
       catchup: false
-      timezone: 'UTC'
+      timezone: UTC
 
-# Add your jobs here
-actions: []
+actions:
+  - pyspark:
+      name: vision_telemetry_job
+      engine:
+        dataprocOnGce:
+          existingCluster:
+            clusterName: telemetry-cluster
+            location: us-central1
+            projectId: tactical-airena
+      mainFilePath: packages/server/src/ml/pc_vision_telemetry.py

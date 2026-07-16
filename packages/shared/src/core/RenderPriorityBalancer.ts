@@ -175,6 +175,13 @@ export class RenderPriorityBalancer {
       }
     });
 
+    priorities.sort((a, b) => {
+      if (b.priorityScore !== a.priorityScore) {
+        return b.priorityScore - a.priorityScore;
+      }
+      return a.distance - b.distance;
+    });
+
     return {
       playerLocation: { meta: playerMeta, hex: playerHex },
       priorities,

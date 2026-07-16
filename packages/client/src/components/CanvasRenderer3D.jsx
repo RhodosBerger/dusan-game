@@ -357,33 +357,135 @@ function HardwareGovernorController({ onLimitsChange, globalEntropyStress }) {
     return null;
 }
 
+const VolumetricRayShader = {
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        uniform float uTime;
+        uniform float uOffset;
+        varying vec2 vUv;
+        void main() {
+            // Smooth vertical fade to eliminate sharp top/bottom cylinder vertices
+            float verticalFade = sin(vUv.y * 3.14159265);
+            // Non-linear glow boost
+            verticalFade = pow(verticalFade, 1.6);
+            
+            // Dynamic multi-frequency shimmer for volumetric turbulence (inspired by Bioshock)
+            float shimmer = 0.75 + 0.25 * sin(uTime * 1.8 + vUv.y * 6.0 + uOffset) 
+                                 + 0.1 * cos(uTime * 3.2 - vUv.x * 4.0);
+            
+            gl_FragColor = vec4(uColor, uOpacity * verticalFade * shimmer);
+        }
+    `
+};
+
 function GodRays3D({ activeProfile }) {
     const groupRef = useRef();
+    const pointsRef = useRef();
     
+    // Generate dust particles inside the light shafts area
+    const moteCount = 120;
+    const [positions, velocities, sizes] = useMemo(() => {
+        const pos = new Float32Array(moteCount * 3);
+        const vel = new Float32Array(moteCount * 3);
+        const sz = new Float32Array(moteCount);
+        for (let i = 0; i < moteCount; i++) {
+            // Cylindrical coordinates around center
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * 8.5;
+            pos[i * 3] = radius * Math.cos(angle);
+            pos[i * 3 + 1] = (Math.random() - 0.5) * 45; // Spanning height from bottom to top
+            pos[i * 3 + 2] = radius * Math.sin(angle);
+            
+            // Tiny drift speeds
+            vel[i * 3] = (Math.random() - 0.5) * 0.05;
+            vel[i * 3 + 1] = Math.random() * 0.08 + 0.03; // Slowly floating upwards
+            vel[i * 3 + 2] = (Math.random() - 0.5) * 0.05;
+            
+            sz[i] = Math.random() * 0.15 + 0.05;
+        }
+        return [pos, vel, sz];
+    }, []);
+
     useFrame((state) => {
-        if (!groupRef.current) return;
         const time = state.clock.elapsedTime;
-        // Gently rotate the light shafts to give an organic volumetric atmospheric feel
-        groupRef.current.rotation.y = time * 0.03;
-        
-        // Pulse the opacity of individual rays to look like shifting atmospheric dust
-        groupRef.current.children.forEach((child, idx) => {
-            if (child.material) {
-                const offset = idx * 1.5;
-                child.material.opacity = (0.08 + Math.sin(time * 0.7 + offset) * 0.04) * (activeProfile.key.intensity / 1.3);
+        if (groupRef.current) {
+            // Gently sway the whole light shafts group
+            groupRef.current.rotation.y = time * 0.02;
+            groupRef.current.rotation.z = Math.sin(time * 0.15) * 0.02;
+
+            // Pulse the opacity of individual rays to look like shifting atmospheric dust
+            groupRef.current.children.forEach((child, idx) => {
+                if (child.material && child.material.uniforms) {
+                    const offset = idx * 1.5;
+                    child.material.uniforms.uTime.value = time;
+                    child.material.uniforms.uOpacity.value = (0.22 + Math.sin(time * 0.6 + offset) * 0.08) * (activeProfile.key.intensity / 1.3);
+                    child.material.uniforms.uColor.value.set(activeProfile.key.color);
+                }
+            });
+        }
+
+        if (pointsRef.current) {
+            const geo = pointsRef.current.geometry;
+            const posArr = geo.attributes.position.array;
+            for (let i = 0; i < moteCount; i++) {
+                // Drift motes upwards
+                posArr[i * 3 + 1] += velocities[i * 3 + 1] * 0.15;
+                posArr[i * 3] += Math.sin(time * 0.3 + i) * 0.008;
+                posArr[i * 3 + 2] += Math.cos(time * 0.3 + i) * 0.008;
+
+                // Reset if they float too high
+                if (posArr[i * 3 + 1] > 25) {
+                    posArr[i * 3 + 1] = -25;
+                }
             }
-        });
+            geo.attributes.position.needsUpdate = true;
+        }
     });
 
     const rayColor = activeProfile.key.color;
 
+    // Bioshock-inspired warm bokeh light texture with blurred outer halo
+    const bokehTexture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        // Create radial gradient for a soft, out-of-focus circular orb
+        const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+        grad.addColorStop(0.15, 'rgba(254, 240, 138, 0.85)'); // Warm glow center
+        grad.addColorStop(0.45, 'rgba(251, 191, 36, 0.35)');  // Soft amber transition
+        grad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');      // Smooth fade-out edge
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 64);
+        return new THREE.CanvasTexture(canvas);
+    }, []);
+
+    const rayUniforms = useMemo(() => {
+        return [
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 0 } },
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 1.5 } },
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 3.0 } },
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 4.5 } }
+        ];
+    }, [rayColor]);
+
     return (
-        <group ref={groupRef} position={[0, 12, 0]}>
-            {/* Volumetric light ray shafts casting through open space of the arena */}
+        <group ref={groupRef} position={[0, 15, 0]}>
+            {/* Volumetric light ray shafts casting through open space of the arena from top to bottom */}
             {[
-                { pos: [-4, 0, -3], rot: [0.35, 0, 0.45], scale: [1, 28, 1], radius: 0.9 },
-                { pos: [6, 0, 4], rot: [-0.25, 0, -0.35], scale: [1.25, 32, 1.25], radius: 1.2 },
-                { pos: [-2, 0, 6], rot: [0.15, 0, -0.45], scale: [0.85, 25, 0.85], radius: 0.7 }
+                { pos: [-4, 0, -3], rot: [0.35, 0, 0.45], scale: [1, 50, 1], radius: 1.5 },
+                { pos: [6, 0, 4], rot: [-0.25, 0, -0.35], scale: [1.25, 55, 1.25], radius: 2.0 },
+                { pos: [-2, 0, 6], rot: [0.15, 0, -0.45], scale: [0.85, 48, 0.85], radius: 1.2 },
+                { pos: [2, 0, -5], rot: [-0.1, 0, 0.25], scale: [1.1, 52, 1.1], radius: 1.7 }
             ].map((ray, idx) => (
                 <mesh 
                     key={idx} 
@@ -392,16 +494,36 @@ function GodRays3D({ activeProfile }) {
                     scale={ray.scale}
                 >
                     <cylinderGeometry args={[ray.radius * 0.15, ray.radius, 1.0, 16, 1, true]} />
-                    <meshBasicMaterial 
-                        color={rayColor} 
-                        transparent 
-                        opacity={0.12} 
+                    <shaderMaterial
+                        vertexShader={VolumetricRayShader.vertexShader}
+                        fragmentShader={VolumetricRayShader.fragmentShader}
+                        uniforms={rayUniforms[idx]}
+                        transparent={true}
+                        depthWrite={false}
                         blending={THREE.AdditiveBlending}
                         side={THREE.DoubleSide}
-                        depthWrite={false}
                     />
                 </mesh>
             ))}
+
+            {/* Shimmering dust motes floating inside the shafts */}
+            <points ref={pointsRef}>
+                <bufferGeometry>
+                    <bufferAttribute
+                        attach="attributes-position"
+                        args={[positions, 3]}
+                    />
+                </bufferGeometry>
+                <pointsMaterial
+                    size={1.5}
+                    map={bokehTexture}
+                    transparent={true}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                    color={rayColor}
+                    opacity={0.7}
+                />
+            </points>
         </group>
     );
 }
@@ -481,6 +603,17 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const [isLowPower, setIsLowPower] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
     const gridData = useMemo(() => generate3DGrid(), []);
+
+    const visibleChunksCount = useMemo(() => {
+        const myThread = threads.find(t => t.id === myThreadId);
+        if (!myThread || !myThread.quests) return 4;
+        const completedCount = myThread.quests.filter(q => q.completed).length;
+        return Math.min(9, 4 + completedCount);
+    }, [threads, myThreadId]);
+
+    const visibleGridData = useMemo(() => {
+        return gridData.filter(node => node.macroIndex < visibleChunksCount);
+    }, [gridData, visibleChunksCount]);
     const [limits, setLimits] = useState({
         kclIterations: 24,
         uniformThrottleHz: 10,
@@ -564,9 +697,9 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     // Zoskupenie uzlov podľa metapozícií kvôli efektívnemu vykresleniu hraníc
     const metapositions = useMemo(() => {
         const groups = Array.from({ length: 9 }, () => []);
-        gridData.forEach(node => groups[node.macroIndex].push(node));
-        return groups;
-    }, [gridData]);
+        visibleGridData.forEach(node => groups[node.macroIndex].push(node));
+        return groups.filter(g => g.length > 0);
+    }, [visibleGridData]);
 
     const matrixSource = useMemo(() => {
         if (hudConfig) {
@@ -694,7 +827,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                 {/* 3D Scéna - Vykreslenie 63 Hexov */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>
-                    {gridData.map((node) => {
+                    {visibleGridData.map((node) => {
                         const isCollapsing = collapsingNodeIds.includes(node.id);
                         const serverChunk = map?.find(c => c.id === node.macroIndex);
                         const serverBlock = serverChunk?.blocks?.find(b => b.id === node.subIndex);
@@ -967,7 +1100,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                     {/* Rekvizity biómov — Optimalizované vykresľovanie cez Instanced Rendering a zdieľané materiály */}
                     <InstancedWorldProps 
-                        gridData={gridData} 
+                        gridData={visibleGridData} 
                         collapsingNodeIds={collapsingNodeIds} 
                         maxInstancedProps={limits.maxInstancedProps}
                     />
@@ -979,7 +1112,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     />
 
                     {/* Centrálny magický vír — srdce ostrova */}
-                    {portalNode && (
+                    {portalNode && portalNode.macroIndex < visibleChunksCount && (
                         <PortalVortex3D position={[portalNode.position[0], 0.55, portalNode.position[2]]} />
                     )}
 
@@ -993,14 +1126,14 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         <HeroAura
                             key={`aura_${thread.id}`}
                             thread={thread}
-                            gridData={gridData}
+                            gridData={visibleGridData}
                         />
                     ))}
 
                     {/* Vykreslenie plynule Lerp-ovaných figúrok postáv */}
                     {threads.map((thread) => {
                         const associatedNode = thread.position && thread.position.meta !== null && thread.position.hex !== null
-                            ? gridData.find(n => n.macroIndex === thread.position.meta && n.subIndex === thread.position.hex)
+                            ? visibleGridData.find(n => n.macroIndex === thread.position.meta && n.subIndex === thread.position.hex)
                             : null;
 
                         const handleMiniatureClick = () => {
@@ -1034,7 +1167,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             <ThreadMiniature 
                                 key={thread.id}
                                 thread={thread}
-                                gridData={gridData}
+                                gridData={visibleGridData}
                                 onClick={handleMiniatureClick}
                                 onDoubleClick={handleMiniatureDoubleClick}
                                 isLocalPlayer={thread.id === myThreadId}
@@ -1047,12 +1180,12 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         <HeroImpactVFX
                             key={`vfx_${thread.id}`}
                             thread={thread}
-                            gridData={gridData}
+                            gridData={visibleGridData}
                         />
                     ))}
 
                     {/* Vykreslenie projektilov kúziel */}
-                    <SpellProjectile3D threads={threads} gridData={gridData} />
+                    <SpellProjectile3D threads={threads} gridData={visibleGridData} />
 
                     {/* expanding 3D golden sphere mesh for Ultimate actions */}
                     <UltimateOrbVFX active={ultimateFlash} />

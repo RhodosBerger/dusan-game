@@ -7,7 +7,7 @@ import { DatabaseSyncManager } from './DatabaseSyncManager';
 import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
 import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
 import { SovereignIslandSystem } from './SovereignIslandSystem';
-import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator, ITEMS_CATALOG, getPhysicsSpecs, SpatialGuidanceSystem } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator, ITEMS_CATALOG, getPhysicsSpecs, SpatialGuidanceSystem, DusanAdaptedMassacreModel } from '@dusan-game/shared';
 import { SovereignLayerLogger } from '../utils/SovereignLayerLogger';
 
 // Register Server-Side Interactive Quest Triggers (Rule 6 decoupling)
@@ -78,8 +78,10 @@ export class SovereignEngine {
   spawningPlanner: SovereignSpawningPlanner;
   isIslandCampaign: boolean;
   islandSystem: SovereignIslandSystem;
+  ddaModel: DusanAdaptedMassacreModel;
 
   constructor() {
+    this.ddaModel = new DusanAdaptedMassacreModel();
     this.map = new GameMap();
     this.threads = [];
     this.traceLog = [];

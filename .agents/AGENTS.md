@@ -93,6 +93,8 @@
     docker-compose down
     ```
 *   **React Hook Imports**: Always verify that all React hooks (`useRef`, `useMemo`, `useEffect`, `useState`) are explicitly imported from the `'react'` library in the file header. Unimported hooks cause silent runtime crashes in the browser.
+*   **React Hook Placement and Early Returns**: Always declare all React Hooks (`useState`, `useEffect`, `useMemo`, `useRef`) at the absolute top level of your component body. Never place Hook declarations after early return blocks (e.g. `if (!matchId) return ...`) as it violates the Rules of Hooks and causes immediate runtime crashes when changing layout views.
+*   **React Hook Dependency Order**: Avoid referencing component state variables (like `gameState`) inside Hook declarations before those state variables have been fully declared and initialized in the file.
 *   **Fused Card Parity**: When defining or updating gameplay-specific objects (like card fusions or instructions), ensure that all properties (such as `cost`, `desc`, `parentTypes`, `helperStats`) are declared as optional on the base model class (`Instruction.ts`) to maintain TypeScript compatibility during runtime assignments.
 
 ## 14. SQLite Schema Synchronization & Decoupled Integrations
@@ -119,6 +121,88 @@
 *   **Tactile Cast Delays**: Card plays from drag-and-drop must trigger a client-side visual cast/dissolution animation (e.g. `card-cast-lift` flying animation) and delay the WebSocket event transmission to the server by exactly `300ms` using `setTimeout`. This allows the card to animate and float away before the server resolves action results.
 *   **Interactive Button Scaling**: Key HUD buttons (e.g. `Town Shop`, `End Turn`, `Execute`) must scale up (`scale(1.06)`) and glow on hover, and scale down (`scale(0.95)`) on click/active states.
 
-## 18. Full-Screen 3D Viewport & Overlay Coexistence
-*   **Full-Screen 3D Viewport Layout**: The WebGL Canvas must occupy the absolute full screen (`absolute inset-0 w-full h-full z-0` or equivalent) rather than being split horizontally (e.g., `70vh`/`30vh` layouts) with solid background divs. All UI overlays, status dashboards, and hand cards must float transparently on top of this full-screen canvas.
-*   **WebGL Overlay Label Suppression**: Any 3D spatial HTML overlays (such as `@react-three/drei`'s `<Html>` labels or 2D FlatBillboards displaying memory registers, target predictors, distance metrics, and vector trajectories) must be conditionally hidden (`!isOverlayActive` or similar props) whenever a full-screen overlay (like `MULLIGAN` phase selection or `GAME_OVER` screen) is active to prevent visual overlapping and glitches.
+## 19. BabylonJS Material Instancing & Hover Modifiers
+*   **Per-Tile Emissive Control**: Since BabylonJS `InstancedMesh` restricts instance-specific materials, clone the mesh templates (using `clone()`) and their materials during setup to allocate individual, customizable material states per tile (like `emissiveColor` modifications). Avoid cloning inside the frame render loop to prevent garbage collection spikes.
+*   **Plate Elevation Lerps**: Elevate the nested tech-plate mesh (`innerPlate`) smoothly during hover events by adding a delta offset (e.g., `+0.35`) and interpolating coordinates using `Scalar.Lerp(current, target, alpha)` inside the scene animation loop to prevent physical clipping or sudden jitter.
+
+## 20. GCP Orchestration Pipeline Structure
+*   **CamelCase Mapping**: Always ensure top-level keys in orchestration pipeline definitions are `camelCase` (e.g. `pipelineId`, `projectId`, `mainFilePath`) while internal system structs (like `existingCluster` configuration parameters) follow the respective provider casing.
+*   **Environment Declarations**: Maintain a matching `deployment.yaml` alongside `orchestration_pipeline.yaml` in the workspace root, declaring environment properties (`project`, `region`, `composer_environment`, `artifact_storage`, and environment `variables`).
+*   **Active Project Discovery**: In unset environments, query active configurations via `gcloud projects list` to discover active targets (like `tactical-airena`) rather than keeping default placeholders.
+
+## 21. Complete Debugging & Compilation Factory
+*   **Monorepo Compilation Order**: Build dependencies sequentially before launching servers or testing:
+  1. Build shared packages: `yarn workspace @dusan-game/shared build`
+  2. Build viewport clients: `yarn workspace client build` or `yarn workspace @dusan-game/babylon-sovereign build`
+*   **Health and Telemetry Checks**: Verify that the Go Core microservice (port `8081`) is online and responding before running game engine tests. Running server files in isolated Docker environments must pass target bridge networks or `--network=host` parameters to avoid false connection drops on the localhost interface.
+
+## 22. Monorepo Package Dependency Tree & Build Pipeline
+*   **Dependency Hierarchy**:
+    ```mermaid
+    graph TD
+        Server[packages/server] -->|depends on| Shared[packages/shared]
+        Client[packages/client] -->|depends on| Shared
+        BabylonClient[packages/babylon-sovereign] -->|depends on| Shared
+        GoCore[packages/go-core] -->|decoupled microservice| Server
+    ```
+*   **Shared Compilation**: Because the backend, the default client, and the alternate BabylonJS client all import typings and mathematical solvers directly from `packages/shared`, you must ALWAYS run compilation on `packages/shared` first before compiling any of the other client or server sub-packages.
+
+## 23. Go Core Simulation Bridge & WASM Build Constraints
+*   **WASM Build Constraints**: Any package inside `packages/go-core/` designed to be compiled to WebAssembly (importing `syscall/js` or using browser APIs) must declare the standard Go build constraint `//go:build js && wasm` at the very first line of all its Go files. This prevents native host builders and tests (like `go build ./...` or `go test ./...`) from failing.
+*   **Parity Verification Tests**: Ensure that mathematical and physical formulas implemented in Go packages have corresponding unit tests inside `packages/go-core/engine/*_test.go` to verify correct behavior before deployment.
+
+## 24. Docker Build Context & Pipeline Parity
+*   **Context Alignment**: Docker build configurations (such as Docker Compose and GitHub Actions workflows) must share a unified build context (normally the monorepo root `.`) when utilizing relative sub-package target definitions.
+*   **Compile Step Completion**: Avoid partial file copy operations in Docker stage builds (e.g. copying only `main.go` when the main package depends on other sibling source files). Ensure target sub-package directories are copied in full (`COPY packages/go-core/ ./packages/go-core/`) to avoid native compile failures.
+
+## 25. Decoupled Go Core AI Telemetry & TS Quest Integration
+*   **Decoupled Telemetry Logging**: Player position telemetry coordinates (`hexCoord`) must be logged to the Go Core microservice at `/api/telemetry/position`. The Go Core engine determines the quest storyline and objective coordinates procedurally.
+*   **Database Synchronization**: The Express server must intercept the quest JSON from Go Core, log the raw payload to SQLite tables (`system_memory_registers` and `game_events_telemetry`), and append the newly generated Quest object directly to the player's JSON quests profile in the database.
+*   **Open Llama API Format Wrappers**: Telmetry logs mapping player coordinates and game metrics must be formatted via `LLMTelemetryFineTuner.formatLlamacpPayload` to structure Go/TS metadata properties into target prompt segments ready for Llama LLM consumption.
+
+## 26. Hardware-Adaptive Governor & Instance Culling (Procedural Expansion)
+*   **Procedural Map Expansion**: The rendering viewport must query completed quest counts from active thread profiles. The visible grid data (`visibleGridData`) must dynamically scale from a base visibility of 4 chunks up to 9 chunks, dynamically spawning nodes and their associated instanced props (trees, stones) and miniatures as quests are completed.
+
+## 27. Evolutionary Scenario Algorithms & Stateless Narrative Strategy
+*   **Evolutionary Generation Boundaries**: Evolutionary algorithms (such as tactical start positioning solvers) must perform calculations on isolated chromosome records. Fitness calculations must remain pure and free from direct global state updates.
+*   **Stateless Scenario Generation**: Narrative and dialogue scenarios must generate quest flow storylines procedurally as transient JSON descriptors, without executing database updates or committing state mutations until the player actively accepts the quest.
+*   **Decoupled Strategy Patterns**: Cognitive AI decisions and pathfinding archetypes must be implemented via the Strategy Pattern, accepting state snapshots and returning command recommendations rather than mutating character contexts directly.
+*   **Evolutionary Shuffling**: Card distribution shuffling and narrative quest sequences must utilize the `EvolutionaryDeckGenerator` to map candidate card pools to target biomes while enforcing history checks to guarantee quest sequences never repeat in the same order.
+*   **Cognitive Narrative RAG**: Telemetry logs and hex coords must map to inductive/deductive narrative flows through `CognitiveNarrativeRAGService`, which compiles fine-tuning datasets matching game modes and biomes.
+*   **Proximity-Sorted Rendering**: The `RenderPriorityBalancer` must sort the returned priorities list by priority score descending and topology distance ascending, ensuring closest hex tiles are prioritized in order of proximity within the visible render distance.
+
+## 28. Modular Elementor Steelness Scripting
+*   **Modular Steelness Attributes**: The `GameWidgetAttributes` interface must declare a scriptable `steelness?: number` attribute representing the metalness/roughness factor of 3D layout plates.
+*   **Widget Catalog Parity**: All pre-registered templates in `WIDGET_CATALOG` must map default `steelness` ratings to ensure consistent rendering defaults across elementor sandboxes.
+
+## 29. Open World Sandbox Culling & Cache Eviction Heuristics
+*   **Open World Chessboard Generation**: The procedural sandbox grid must load in blocks up to the maximum visible culling distance (4 to 9 chunks).
+*   **Memory Cache Eviction**: To prevent RAM and GPU memory overload during continuous travel and quest execution, the culling engine must actively evict out-of-range hex tile nodes, geometries, and props from runtime cache matrices, purging references from local state objects.
+
+## 30. Game-Adapted Kubernetes Cluster Telemetry & Hex Logs
+*   **Kubernetes Adapted Coordinate Monitoring**: The game operations dashboard must provide a Kubernetes cluster view displaying active pods mapped to hexadecimal board coordinates instead of network IP addresses.
+*   **Hexadecimal Position Logging**: Telemetry logs and coordinates routing through the cluster nodes must record active player positions (hexadecimal format) to monitor load distribution and coordinate drift.
+
+## 31. Multiplayer Kubernetes Pods & Firebase Leaderboards
+*   **Kubernetes Multiplayer Routing**: Multiplayer session controls must route active user websocket connections across distributed Go Core simulation pods based on match IDs.
+*   **Anonymized Firebase Sync**: Tournament stats, leaderboards, and victory counts must be pushed to Firebase Firestore using secure cryptographic hashing algorithms to ensure compliance with player privacy standards.
+
+## 32. Vercel Serverless Emulator & DevOps Telemetry Introspection
+*   **DevOps Telemetry Emulation**: The local edge router daemon (`self-hosted-router.js`) must expose a `/api/devops/statistics` controller representing compile time, test success rates, and lines of code (LOC).
+*   **Speculative Modifier Stack**: Procedural geometry generators must apply Vercel DevOps telemetry parameters directly to non-destructive mesh stack modifiers (e.g. `HeightDeformModifier` and `GearTeethModifier`) on active grid nodes.
+*   **OS Governor Frequency Compatibility**: All speculative telemetry updates to rendering matrices must be throttled and debounced (maximum update frequency of 10Hz) to prevent CPU/GPU register spikes and thermal throttling.
+
+## 33. TypeScript Block-Scoped Test Variables & JSX Tag Alignment
+*   **Variable Name Collision Prevention**: Unit tests inside `testEngine.ts` must use unique block-scoped identifiers (e.g. `serializedWidget` instead of `serialized`) to prevent TS2451 duplicate declaration compile crashes.
+*   **Balanced JSX Container Verification**: Any conditional render blocks or tab menus in React must enforce strict tag balanced checks, ensuring every wrapping layout container `div` is fully closed before closing the statement.
+
+## 35. DDA Checkpoint Recovery & Dialogue Constraints
+*   **Checkpoint Respawn winChance**: When a player dies and respawns at a saved checkpoint, the DDA model must adapt variables to enforce exactly a 65% chance of success (`winChance = 0.65`).
+*   **Two-Sentence Dialogue Cap**: Any dialogue strings generated for NPC tactical interactions must be strictly capped to a maximum of two sentences.
+*   **Player & Target Light Tracking**: The 3D viewport canvas must feature a PointLight tracking the active player hex position, and a SpotLight pointing from the player towards the current target containing boss NPCs, alongside mouse-driven parallax PointLights.
+
+## 36. React Refs, Go Compilation, and Pathfinder Caching
+*   **React State Trackers in Refs**: To prevent infinite re-rendering loops in React/Vite client viewports, do NOT store state variables (such as active trackers or game-ended flags) in `useState` if they are updated inside `useEffect` blocks that monitor those same variables. Instead, use React references (`useRef`) and mutate `.current` directly.
+*   **Go Source Bundle Compilation**: When executing Go programs locally or in startup shell scripts, compile the primary `main.go` file together with all sibling Go source files (e.g., `go run main.go pathfinder.go`) to prevent undefined function crashes during compilation.
+*   **Pathfinder Line Geometry Caching**: Any visual path trajectory line component (e.g. `PathTrajectoryLine`) rendered inside R3F `<Canvas>` must cache its generated `THREE.BufferGeometry` using `useMemo` mapped to the underlying step coordinates array to prevent garbage collection spikes.
+

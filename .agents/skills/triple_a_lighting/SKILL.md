@@ -19,3 +19,17 @@ This document details the architectural rules and implementation patterns for re
 ## 3. High-Contrast Saturation Rules
 *   **Visual Hierarchy**: Maintain a sharp visual contrast between the lit game board (the hexagons) and the dark, atmospheric open space behind it.
 *   **Saturation Balance**: Environment colors should feature high saturation in neon-glowing regions and dark, low-saturation tones in empty spatial regions to match modern cinematic color-grading profiles.
+
+## 4. Soft Volumetric Blending (Vertex Fade Practices)
+*   **Vertex Softening**: To prevent visible sharp edges/vertices on volumetric mesh shapes (like God Ray cylinders):
+    *   Set `depthWrite: false` and `transparent: true` on the material.
+    *   Utilize `blending: THREE.AdditiveBlending` to merge overlapping light volumes smoothly.
+    *   Map a radial gradient texture (fading out towards the edges) to the cylinder material rather than using solid colors, or apply vertex color interpolation to fade the cylinder's top and bottom caps.
+    *   Keep cylinder geometries open-ended (`openEnded: true` in CylinderGeometry) so the top/bottom caps do not render sharp, flat circular shapes.
+
+## 5. Bioshock Infinite-Inspired Bokeh Atmospheric Shaders
+*   **Bokeh Circle Texture**: Create soft circular particle maps with a dense bright core and a wide, out-of-focus blurred halo.
+*   **Dreamy Floating Simulation**:
+    *   Set blending mode to `AdditiveBlending` with a warm amber or pastel turquoise tint.
+    *   Configure particles to rise with a non-linear velocity curve (using sinusoids to mimic floating thermal updrafts).
+    *   Modulate size over time (pulsing scale) and opacity (shimmering) to simulate light refraction through atmospheric moisture.

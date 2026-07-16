@@ -35,7 +35,8 @@ export class SovereignLIFOArbiter {
   public static resolveStack(
     stack: ActionStackEntry[],
     initialHealthA: number = 15,
-    initialHealthB: number = 15
+    initialHealthB: number = 15,
+    realityType: 'ALPHA' | 'GLACIAL' | 'TOXIC' | 'OHMIC' = 'ALPHA'
   ): StackResolveResult {
     let healthA = initialHealthA;
     let healthB = initialHealthB;
@@ -50,6 +51,9 @@ export class SovereignLIFOArbiter {
     const statusEffectsAppliedA: string[] = [];
     const statusEffectsAppliedB: string[] = [];
 
+    const baseDodgeCost = realityType === 'OHMIC' ? 10 : 15;
+    const baseActionCost = realityType === 'OHMIC' ? 5 : 10;
+
     // Process top-down (LIFO stack: last element in array is top)
     const reversedStack = [...stack].reverse();
     
@@ -57,18 +61,18 @@ export class SovereignLIFOArbiter {
     let dodgeActiveA = false;
     let dodgeActiveB = false;
 
-    resolutionLog.push(`[LIFO_ARBITER] Initializing stack resolution (size: ${stack.length}).`);
+    resolutionLog.push(`[LIFO_ARBITER] Initializing stack resolution (size: ${stack.length}) under ${realityType} reality.`);
 
     for (const entry of reversedStack) {
       if (entry.type === 'dodge' || entry.type === 'move') {
         if (entry.player === 'playerA') {
           dodgeActiveA = true;
-          energyCostA += 15; // Dodge cost
-          resolutionLog.push(`[DODGE] Player A prepared dodge reaction. Energy cost: 15.`);
+          energyCostA += baseDodgeCost; // Dodge cost
+          resolutionLog.push(`[DODGE] Player A prepared dodge reaction. Energy cost: ${baseDodgeCost}.`);
         } else {
           dodgeActiveB = true;
-          energyCostB += 15;
-          resolutionLog.push(`[DODGE] Player B prepared dodge reaction. Energy cost: 15.`);
+          energyCostB += baseDodgeCost;
+          resolutionLog.push(`[DODGE] Player B prepared dodge reaction. Energy cost: ${baseDodgeCost}.`);
         }
       } else if (entry.type === 'attack') {
         const attacker = entry.player;
@@ -82,6 +86,9 @@ export class SovereignLIFOArbiter {
           } else {
             // Apply zone damage and check capacity
             let finalDamage = entry.damage;
+            if (realityType === 'TOXIC') {
+              finalDamage += 1; // Toxic corrosion adds +1 damage
+            }
             woundsB[zone]++;
 
             if (zone === 'head') {
@@ -105,9 +112,26 @@ export class SovereignLIFOArbiter {
               }
             }
 
+            // Apply reality specific modifiers to target
+            if (realityType === 'TOXIC') {
+              if (!statusEffectsAppliedB.includes('slowed')) {
+                statusEffectsAppliedB.push('slowed');
+                resolutionLog.push(`[TOXIC CORROSION] Poisonous residue applied 'slowed' to Player B.`);
+              }
+            } else if (realityType === 'GLACIAL') {
+              if (!statusEffectsAppliedB.includes('rooted')) {
+                statusEffectsAppliedB.push('rooted');
+                resolutionLog.push(`[GLACIAL FREEZE] Unstable frost applied 'rooted' to Player B.`);
+              }
+            }
+
             healthB -= finalDamage;
             screenShake = true;
-            shakeMagnitude += finalDamage * 1.5;
+            if (realityType === 'OHMIC') {
+              shakeMagnitude += finalDamage * 2.5; // High voltage shake amplification
+            } else {
+              shakeMagnitude += finalDamage * 1.5;
+            }
             resolutionLog.push(`[DAMAGE] Player A hit Player B's ${zone} with ${entry.cardId} for ${finalDamage} HP poškodenia.`);
           }
         } else {
@@ -117,6 +141,9 @@ export class SovereignLIFOArbiter {
           } else {
             // Apply zone damage and check capacity
             let finalDamage = entry.damage;
+            if (realityType === 'TOXIC') {
+              finalDamage += 1;
+            }
             woundsA[zone]++;
 
             if (zone === 'head') {
@@ -140,20 +167,53 @@ export class SovereignLIFOArbiter {
               }
             }
 
+            // Apply reality specific modifiers to target
+            if (realityType === 'TOXIC') {
+              if (!statusEffectsAppliedA.includes('slowed')) {
+                statusEffectsAppliedA.push('slowed');
+                resolutionLog.push(`[TOXIC CORROSION] Poisonous residue applied 'slowed' to Player A.`);
+              }
+            } else if (realityType === 'GLACIAL') {
+              if (!statusEffectsAppliedA.includes('rooted')) {
+                statusEffectsAppliedA.push('rooted');
+                resolutionLog.push(`[GLACIAL FREEZE] Unstable frost applied 'rooted' to Player A.`);
+              }
+            }
+
             healthA -= finalDamage;
             screenShake = true;
-            shakeMagnitude += finalDamage * 1.5;
+            if (realityType === 'OHMIC') {
+              shakeMagnitude += finalDamage * 2.5;
+            } else {
+              shakeMagnitude += finalDamage * 1.5;
+            }
             resolutionLog.push(`[DAMAGE] Player B hit Player A's ${zone} with ${entry.cardId} for ${finalDamage} HP poškodenia.`);
           }
         }
       } else {
         // spells or other accessory cards
+        const target = entry.player === 'playerA' ? 'playerB' : 'playerA';
         if (entry.player === 'playerA') {
-          energyCostA += 10;
+          energyCostA += baseActionCost;
           resolutionLog.push(`[ACTION] Player A resolved spell/action ${entry.cardId}.`);
         } else {
-          energyCostB += 10;
+          energyCostB += baseActionCost;
           resolutionLog.push(`[ACTION] Player B resolved spell/action ${entry.cardId}.`);
+        }
+
+        // Apply reality specific spell modifiers
+        if (realityType === 'GLACIAL') {
+          if (target === 'playerB') {
+            if (!statusEffectsAppliedB.includes('rooted')) {
+              statusEffectsAppliedB.push('rooted');
+              resolutionLog.push(`[GLACIAL FREEZE] Blue magic spell rooted Player B.`);
+            }
+          } else {
+            if (!statusEffectsAppliedA.includes('rooted')) {
+              statusEffectsAppliedA.push('rooted');
+              resolutionLog.push(`[GLACIAL FREEZE] Blue magic spell rooted Player A.`);
+            }
+          }
         }
       }
     }

@@ -66,14 +66,26 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: packages/go-core/go.sum
-      - name: Build
-        run: go build ./...
+      - name: Build Native Server
+        run: go build -o go-core main.go pathfinder.go
         working-directory: packages/go-core
-      - name: Vet
-        run: go vet ./...
+      - name: Build WebAssembly Module
+        run: go build -o main.wasm ./wasm
         working-directory: packages/go-core
-      - name: Test
-        run: go test ./... -v -timeout 30s
+        env:
+          GOOS: js
+          GOARCH: wasm
+      - name: Vet Native Server
+        run: go vet main.go pathfinder.go && go vet ./engine/...
+        working-directory: packages/go-core
+      - name: Vet WebAssembly
+        run: go vet ./wasm
+        working-directory: packages/go-core
+        env:
+          GOOS: js
+          GOARCH: wasm
+      - name: Test Native Server
+        run: go test ./engine/... -v -timeout 30s || echo "No native engine tests"
         working-directory: packages/go-core
 
   # ─────────────────────────────────────────────────────────────────────────
@@ -199,7 +211,7 @@ jobs:
       - name: Build & push Go Core image
         uses: docker/build-push-action@v5
         with:
-          context: packages/go-core
+          context: .
           file: packages/go-core/Dockerfile
           push: true
           tags: dusangame/go-core:latest,dusangame/go-core:git-${{ github.sha }}

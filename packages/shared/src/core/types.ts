@@ -163,3 +163,36 @@ export interface NetworkEngineState {
     lastComboEvent: 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null;
     lastComboPlayerId?: string | null;
 }
+
+export type BiomeType = 'BARRENS' | 'LUSH_FOREST' | 'TOXIC_SWAMP' | 'GLACIER' | 'DESERT';
+
+export interface HexCoordinate {
+  q: number;
+  r: number;
+}
+
+export interface TelemetryData {
+  hp: number;
+  level: number;
+}
+
+export interface QuestChromosome {
+  path: HexCoordinate[];
+  fitness: number;
+}
+
+export interface QuestJSONPayload {
+  questId: string;
+  title: string;
+  steps: Array<{
+    stepIndex: number;
+    targetHex: string;
+    action: 'MOVE' | 'COMBAT' | 'INTERACT';
+    dialogue: string;
+    expectedHpImpact: number;
+  }>;
+  renderLayerModifications: {
+    intensity: number;
+    deformScaleZ: number;
+  };
+}

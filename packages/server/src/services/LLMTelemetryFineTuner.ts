@@ -52,4 +52,33 @@ export class LLMTelemetryFineTuner {
             console.error('[LLM_TUNER] Failed to log telemetry data:', e);
         }
     }
+
+    /**
+     * Formats Go Core telemetry logs and TypeScript quest state into Open Llama API prompt packages
+     */
+    public static formatLlamacpPayload(
+        goLog: { playerId: string; hexCoord: string; hp: number; level: number; timestamp: number },
+        tsQuest: { id: string; title: string; description: string; targetValue: number; targetName: string }
+    ): any {
+        const narrativeContext = `Hráč ${goLog.playerId} sa nachádza na hexagónovom políčku ${goLog.hexCoord} s životmi: ${goLog.hp} a úrovňou: ${goLog.level}.`;
+        const questContext = `Aktívny quest '${tsQuest.title}' vyžaduje navigáciu na cieľový uzol ${tsQuest.targetName}.`;
+
+        return {
+            model: "open-llama-ccp-v1",
+            temperature: 0.7,
+            prompt: `[NARRATIVE] ${narrativeContext} ${questContext} [TASK] Naplánuj nepriateľské kroky na hex-mriežke a generuj dobrodružstvo pre LLM.`,
+            meta: {
+                goSource: {
+                    hex: goLog.hexCoord,
+                    hp: goLog.hp,
+                    level: goLog.level,
+                    timestamp: goLog.timestamp
+                },
+                tsElements: {
+                    questId: tsQuest.id,
+                    target: tsQuest.targetName
+                }
+            }
+        };
+    }
 }

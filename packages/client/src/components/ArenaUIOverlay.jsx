@@ -133,7 +133,8 @@ export default function ArenaUIOverlay({
     setWeatherOverride,
     isManualWeather = false,
     setIsManualWeather,
-    hoveredNode = null
+    hoveredNode = null,
+    matchId = null
 }) {
     const activePlayer = gameState?.threads?.find(t => t.id === gameState?.activePlayerId) || gameState?.threads?.[0];
     const cards = activePlayer?.currentBuffer || [];
@@ -619,6 +620,15 @@ export default function ArenaUIOverlay({
                                 >
                                     AURORA STORM
                                 </button>
+                                <button
+                                    onClick={() => {
+                                        setWeatherOverride('DAYLIGHT');
+                                        setIsManualWeather(true);
+                                    }}
+                                    className={`text-[9px] font-mono py-1 px-1.5 rounded cursor-pointer transition-colors text-center border font-bold ${weatherOverride === 'DAYLIGHT' ? 'bg-amber-950 text-amber-300 border-amber-500/50' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'}`}
+                                >
+                                    DAYLIGHT
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1016,7 +1026,7 @@ export default function ArenaUIOverlay({
                                         fetch('http://localhost:3001/api/match/mulligan', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ playerId: activePlayer?.id, cardIds: selectedMulliganCardIds })
+                                            body: JSON.stringify({ playerId: activePlayer?.id, cardIds: selectedMulliganCardIds, matchId })
                                         })
                                         .then(res => res.json())
                                         .then(data => {

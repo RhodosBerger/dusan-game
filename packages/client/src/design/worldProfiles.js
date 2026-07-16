@@ -37,6 +37,15 @@ export const WORLD_PROFILES = {
     fog: { color: '#040a0f', near: 30, far: 140 },
     particleSpeed: 0.08,
     starGlow: 0.6
+  },
+  DAYLIGHT: {
+    name: 'Vibrant Medieval Daylights',
+    ambient: { color: '#eab308', intensity: 0.65 },
+    key: { color: '#fef08a', intensity: 2.0, position: [15, 25, 10] },
+    fill: { color: '#38bdf8', intensity: 0.55, position: [-15, 15, -10] },
+    fog: { color: '#082f49', near: 45, far: 220 },
+    particleSpeed: 0.04,
+    starGlow: 0.1
   }
 };
 

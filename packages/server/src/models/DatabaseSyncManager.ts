@@ -355,6 +355,13 @@ export class DatabaseSyncManager {
     });
   }
 
+  public clearPlayerItems(username: string): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare('DELETE FROM player_items WHERE player_username = ?');
+      stmt.run(username);
+    });
+  }
+
   public addPlayerItem(username: string, itemKey: string, category: string): void {
     DatabaseSyncManager.queueWrite(() => {
       const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');

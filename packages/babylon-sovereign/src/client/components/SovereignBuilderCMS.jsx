@@ -1655,6 +1655,8 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                                 disabled={isSyncing}
                             >
                                 {isSyncing ? 'Synchronizing...' : 'Sync Timeline with Canvas'}
+                            </button>
+                        </div>
                     </div>
                 )}
                 {activeRightTab === 'node_composer' && (
@@ -1734,7 +1736,7 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                                 {/* Middle Parser Node */}
                                 <div style={{ position: 'absolute', top: 38, left: 100, width: 80, height: 32, background: 'rgba(168, 85, 247, 0.2)', border: '1px solid #a855f7', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff' }}>
                                     <span style={{ fontWeight: 'bold' }}>Semantic Parser</span>
-                                    <span style={{ fontSize: 6, color: '#a855f7' }}>[Name -> Spec]</span>
+                                    <span style={{ fontSize: 6, color: '#a855f7' }}>{"[Name -> Spec]"}</span>
                                 </div>
                                 {/* Modifiers Node */}
                                 <div style={{ position: 'absolute', top: 38, left: 210, width: 60, height: 32, background: '#111319', border: '1px solid #00eeff', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff' }}>

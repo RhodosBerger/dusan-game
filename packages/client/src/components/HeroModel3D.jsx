@@ -51,11 +51,20 @@ const FACTION_EMISSIVE = {
     void:    new THREE.Color('#aa00ff'),
 };
 
+const ITEM_URLS = [
+    '/models/items/trap/model.glb',
+    '/models/items/repair_kit/model.glb',
+    '/models/items/surge_node/model.glb',
+    '/models/items/void_rift/model.glb',
+    '/models/items/chest/model.glb',
+];
+
 // ────────────────────────────────────────────────────────────────────────────
 // Pre-warm: call this from LobbyScreen so models start loading before the match
 // ────────────────────────────────────────────────────────────────────────────
 export function preloadAllHeroModels() {
     Object.values(MODEL_URLS).forEach(url => useGLTF.preload(url));
+    ITEM_URLS.forEach(url => useGLTF.preload(url));
 }
 
 // ────────────────────────────────────────────────────────────────────────────

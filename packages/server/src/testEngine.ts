@@ -5,11 +5,12 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { HexNode, ConnectionEngine, HardwareGovernor, RenderPriorityBalancer, StructuralStateParameters, SovereignRuleDrivenCompositionManager, CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignEffectSequencer, SovereignElementorRegistry, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignPhraseGenerator, SovereignTaskScheduler } from '@dusan-game/shared';
+import { HexNode, ConnectionEngine, HardwareGovernor, RenderPriorityBalancer, StructuralStateParameters, SovereignRuleDrivenCompositionManager, CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignEffectSequencer, SovereignElementorRegistry, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignPhraseGenerator, SovereignRuleDrivenCompositionManager as RuleCompositionManager, HardwareGovernor as Gov, RenderPriorityBalancer as Balancer, SovereignTaskScheduler, EvolutionaryDeckGenerator, EvolutionaryQuestPlanner, DusanAdaptedMassacreModel } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { TelemetryBigQueryService } from './services/TelemetryBigQueryService';
 import { GameState, resolveEngineState, EnginePipeline } from './models/EnginePipeline';
 import { LLMTelemetryFineTuner } from './services/LLMTelemetryFineTuner';
+import { LLMTelemetryFineTuner as LLMTelemetryFineTunerLocal } from './utils/llmTelemetryFineTuner';
 import { SovereignIntrospectionEngine } from './models/SovereignIntrospectionEngine';
 import { GameMap } from './models/Map';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
@@ -20,6 +21,7 @@ import { AestheticMarketCoordinator } from './models/AestheticMarketCoordinator'
 import { TacticalGenerativeCoordinator } from './models/TacticalGenerativeCoordinator';
 import { SovereignContentDistributor } from './models/SovereignContentDistributor';
 import { SovereignSoldierSimulator } from './models/SovereignSoldierSimulator';
+import { CognitiveNarrativeRAGService } from './services/CognitiveNarrativeRAGService';
 import { SovereignIslandSystem } from './models/SovereignIslandSystem';
 import { TradingSimulator } from './economy/TradingSimulator';
 import { PrismaClient } from '@prisma/client';
@@ -3808,7 +3810,247 @@ async function runTests() {
   console.log("  [PASS] Deep merged delta arrays correctly preserved array types.");
   console.log("  [PASS] Test 107 (State Delta Array Parity Verification) validated successfully.");
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator, Sovereign-Card-Fusion, Sovereign-Reality-Compositor, Go-Core-Simulation-Bridge, Go-Core-State-Engine, Go-Core-Pathfinder, Go-Core-Environmental-Flux, SQLite-Debounced-WAL-Introspection, Go-Core-Gauss-Seidel-KCL-Solver, Sovereign-Rule-Driven-Composition, Sovereign-Dynamic-Escape-Retention, Hardware-Adaptive-Governor, Decoupled-Balancer-Structural-State-Union, Card-Trading-Quest-Verification, Expanded-Traps-Randomized-Chests, Backoffice-SJF-Priority-Scheduler, Dynamic-Item-Durability-Calculations, Dynamic-Terrain-Resonator-Collapses, State-Delta-Array-Parity testy prebehli úspešne!");
+  console.log("\nTest 108: Go Core AI Telemetry Quest Integration");
+  const dbManager = new DatabaseSyncManager(':memory:');
+  const mockQuest = {
+    questId: "pq_test_12345",
+    title: "Dekontaminačná misia",
+    story: "AI Director: Vstúp na pole 0x2A",
+    objectives: [{ type: "REACH_TILE", targetTile: "0x2A", value: 1 }],
+    xpReward: 150
+  };
+
+  const rawDb = (dbManager as any).db;
+  rawDb.prepare(`
+    INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
+    VALUES (?, ?, ?, ?)
+  `).run(Date.now(), "0x1A", JSON.stringify(mockQuest), "Test AI Quest insert");
+
+  dbManager.logTelemetry("test_player", "QUEST_GEN", mockQuest);
+
+  const testQuestPlayer = dbManager.getOrCreatePlayer("test_player", "crystal");
+  let activeQuests: any[] = [];
+  try {
+    const parsed = JSON.parse(testQuestPlayer.quests);
+    activeQuests = parsed.activeList || [];
+  } catch (_) {}
+
+  const newQuest = {
+    id: mockQuest.questId,
+    title: mockQuest.title,
+    description: mockQuest.story,
+    objectiveType: mockQuest.objectives[0].type,
+    targetValue: mockQuest.objectives[0].value,
+    targetName: mockQuest.objectives[0].targetTile,
+    progress: 0,
+    completed: false,
+    xpReward: mockQuest.xpReward
+  };
+
+  activeQuests.push(newQuest);
+  const updatedQuestsJson = JSON.stringify({
+    lastRefresh: Date.now(),
+    activeList: activeQuests
+  });
+
+  rawDb.prepare('UPDATE players SET quests = ? WHERE username = ?').run(updatedQuestsJson, "test_player");
+
+  const finalQuestPlayer = dbManager.getOrCreatePlayer("test_player", "crystal");
+  const finalQuests = JSON.parse(finalQuestPlayer.quests);
+  assert(finalQuests.activeList.length > 0, "Expected at least one active quest in player profile");
+  assert(finalQuests.activeList[finalQuests.activeList.length - 1].id === "pq_test_12345", "Expected newly added quest ID to match");
+
+  const llamaPayload = LLMTelemetryFineTuner.formatLlamacpPayload(
+    { playerId: "test_player", hexCoord: "0x1A", hp: 10, level: 1, timestamp: Date.now() },
+    { id: newQuest.id, title: newQuest.title, description: newQuest.description, targetValue: newQuest.targetValue, targetName: newQuest.targetName }
+  );
+  assert(llamaPayload.model === "open-llama-ccp-v1", "Expected Open Llama model in payload");
+  assert(llamaPayload.prompt.includes("0x1A"), "Expected prompt text to contain hex coordinates");
+  assert(llamaPayload.meta.goSource.hex === "0x1A", "Expected Go source metadata coordinate match");
+
+  console.log("  [PASS] Telemetry log and procedural quest update verified successfully.");
+  console.log("  [PASS] Open Llama LLM payload formatting verified successfully.");
+  console.log("  [PASS] Test 108 (Go Core AI Telemetry Quest Integration) validated successfully.");
+
+  console.log("\nTest 109: Evolutionary Deck & Narrative Shuffling Generator");
+  const deckGen = new EvolutionaryDeckGenerator({ populationSize: 10, generations: 5 });
+  const mockCards = [
+    { id: "c1", name: "Glacier Strike", heroId: "crystal" as const, damage: 10 },
+    { id: "c2", name: "Toxic Spray", heroId: "toxic" as const, damage: 8 },
+    { id: "c3", name: "Desert Burn", heroId: "void" as const, damage: 12 }
+  ];
+  const evolved = deckGen.evolveDeckAndNarrative(mockCards, ["GLACIER", "TOXIC_SWAMP", "BARRENS"], ["OLD_SCENARIO"]);
+  assert(evolved.cards.length === 3, "Expected 3 evolved cards in optimized chromosome");
+  assert(evolved.hexCoordsSeq.length === 5, "Expected 5 target hex coordinates in narrative sequence");
+  assert(evolved.fitnessScore !== undefined && evolved.fitnessScore >= 0, "Expected a valid calculated fitness score");
+  console.log("  [PASS] Evolutionary deck shuffle and narrative sequence validated successfully.");
+  console.log("  [PASS] Test 109 (Evolutionary Deck & Narrative Shuffling Generator) validated successfully.");
+
+  console.log("\nTest 110: Cognitive Narrative RAG Dataset & Priority Sorting Balancer");
+  const ragService = CognitiveNarrativeRAGService.getInstance();
+  const context = ragService.retrieveNarrativeContext("GLACIER", "ACTION", ["0x0", "0x1"]);
+  if (!context) throw new Error("Expected RAG context to exist");
+  assert(context.biome === "GLACIER", "Expected GLACIER biome context in RAG response");
+  assert(context.narrativeFlow.includes("Indukcia"), "Expected narrative to align with inductive reasoning");
+
+  const datasetPath = ragService.generateFineTuningDataset();
+  assert(fs.existsSync(datasetPath), "Expected generated fine-tuning dataset JSONL file to exist on disk");
+
+  const mockEngine = {
+    map: {
+      chunks: [
+        {
+          id: 1,
+          blocks: [
+            { id: 0, walkable: true },
+            { id: 1, walkable: true }
+          ]
+        },
+        {
+          id: 0,
+          blocks: [
+            { id: 3, walkable: true }
+          ]
+        }
+      ]
+    },
+    threads: [
+      {
+        id: "test_thread",
+        position: { meta: 0, hex: 3 }
+      }
+    ]
+  };
+
+  const priorityPayload = RenderPriorityBalancer.getRenderPriorities(mockEngine, "test_thread");
+  if (!priorityPayload) throw new Error("Expected priority payload to be resolved");
+  
+  for (let i = 0; i < priorityPayload.priorities.length - 1; i++) {
+    const current = priorityPayload.priorities[i];
+    const next = priorityPayload.priorities[i + 1];
+    if (current.priorityScore === next.priorityScore) {
+      assert(current.distance <= next.distance, `Expected sorted distance ascending: ${current.distance} <= ${next.distance}`);
+    } else {
+      assert(current.priorityScore > next.priorityScore, "Expected priorityScore descending");
+    }
+  }
+
+  console.log("  [PASS] Cognitive Narrative RAG context and dataset generation verified successfully.");
+  console.log("  [PASS] Render Priorities topology sorting validation verified successfully.");
+  console.log("  [PASS] Test 110 (Cognitive Narrative RAG Dataset & Priority Sorting Balancer) validated successfully.");
+
+  console.log("\nTest 111: Modular Elementor Steelness Scripting");
+  const instantiated = SovereignElementorRegistry.instantiateWidget('w_accordion_hex', '0x1A', { steelness: 0.85 });
+  assert(instantiated.attributes.steelness === 0.85, "Expected instantiated custom steelness value to be mapped");
+  
+  const serializedWidget = SovereignElementorRegistry.serialize(instantiated);
+  assert(serializedWidget.includes('"steelness": 0.85'), "Expected serialized JSON structure to include steelness factor");
+
+  const deserializedWidget = SovereignElementorRegistry.deserialize(serializedWidget);
+  assert(deserializedWidget.attributes.steelness === 0.85, "Expected deserialized instance to preserve steelness factor");
+
+  console.log("  [PASS] Modular Elementor widget instantiation with steelness mapped successfully.");
+  console.log("  [PASS] Serialization and deserialization of steelness schema configuration verified successfully.");
+  console.log("  [PASS] Test 111 (Modular Elementor Steelness Scripting) validated successfully.");
+
+  console.log("\nTest 112: Evolutionary Quest Planner & LLaMA Prompt Formatting");
+  const mockNodes = [
+    { q: 0, r: 0 },
+    { q: 1, r: 0 },
+    { q: 1, r: -1 },
+    { q: 0, r: -1 },
+    { q: -1, r: 0 },
+    { q: -1, r: 1 },
+    { q: 0, r: 1 }
+  ];
+  const hazardMap = new Map<string, number>([
+    ['0,0', 0.1],
+    ['1,0', 0.2],
+    ['1,-1', 0.8],
+    ['0,-1', 0.3],
+    ['-1,0', 0.4]
+  ]);
+  const questPlanner = new EvolutionaryQuestPlanner(mockNodes, hazardMap);
+  const telemetry = { hp: 80, level: 3 };
+  
+  const questPath = questPlanner.planOptimalPath(telemetry, { q: 0, r: 0 });
+  assert(questPath.length > 0, "Expected evolutionary quest planner to resolve a path");
+  assert(questPath[0].q === 0 && questPath[0].r === 0, "Expected path to start from the startNode coordinate");
+  
+  const llmPayload = LLMTelemetryFineTunerLocal.formatLlamacpPayload(
+    telemetry,
+    questPath,
+    ["0x1A - Glacier Transformation Matrix", "0x2B - Swamp Water Matrix"]
+  );
+  
+  assert(llmPayload.includes("Player HP: 80"), "Expected telemetry HP value to be formatted inside instructions");
+  assert(llmPayload.includes("0x1A"), "Expected render matrices to be listed in the prompt instructions");
+
+  console.log("  [PASS] Evolutionary quest path planner resolved successfully.");
+  console.log("  [PASS] Open LLaMA prompt payload formatted successfully.");
+  console.log("  [PASS] Test 112 (Evolutionary Quest Planner & LLaMA Prompt Formatting) validated successfully.");
+
+  console.log("\nTest 113: Dušan's Adapted Massacre Model (DDA Checkpoint & Healing Stats)");
+  const ddaModel = new DusanAdaptedMassacreModel();
+  
+  ddaModel.saveCheckpoint("cp_glacier_flag", "0x4F", 60, ["REACH_BIOME", "COLLECT_CHEST"]);
+  const saved = ddaModel.getLastCheckpoint();
+  assert(saved !== null, "Expected checkpoint state to be persisted");
+  if (saved) {
+    assert(saved.flagNodeHex === "0x4F", "Expected saved flag coordinate match");
+    assert(saved.savedHP === 60, "Expected saved HP match");
+  }
+
+  const healingStats = ddaModel.generateHealingStatistics(70, 10);
+  assert(healingStats.turnsToHeal === 3, "Expected 3 turns to reach 100 HP from 70 HP with 10 healingRate");
+  assert(healingStats.description.includes("Dušanov prispôsobený masakov model"), "Expected description header match");
+
+  const deathResolution = ddaModel.handlePlayerDeath("player_test_113");
+  assert(deathResolution.respawnHex === "0x4F", "Expected player to wake up at glacier flag checkpoint");
+  assert(deathResolution.respawnHP === 60, "Expected player HP restored to saved checkpoint HP value");
+  assert(deathResolution.winChance === 0.65, "Expected DDA model to enforce exactly 65% success probability chance");
+
+  const rawLlmDialogue = "Ahoj bojovník. Void Walker sa blíži zo severu. Priprav svoj kryštál a zaútoč!";
+  const sentences = rawLlmDialogue.match(/[^.!?]+[.!?]+/g) || [rawLlmDialogue];
+  const twoSentences = sentences.slice(0, 2).join(" ").trim();
+  assert(twoSentences.includes("Void Walker sa blíži zo severu."), "Expected second sentence to be preserved");
+  assert(!twoSentences.includes("Priprav svoj kryštál a zaútoč!"), "Expected third sentence to be truncated");
+
+  console.log("  [PASS] Saved checkpoint coordinates, goals, and HP successfully.");
+  console.log("  [PASS] Evolved turn healing statistics resolved successfully.");
+  console.log("  [PASS] Player death resolved and DDA adapted to 65% success chance successfully.");
+  console.log("  [PASS] NPC Dialogue capped to max two sentences successfully.");
+  console.log("  [PASS] Test 113 (Dušan's Adapted Massacre Model) validated successfully.");
+
+  console.log("\nTest 114: Go Core Pathfinder & TS Pathfinder Step Cost Parity");
+  const pathfinderMediator = new GoCoreMediator("http://localhost:8081");
+  const testGrid = [
+    { macroIndex: 0, subIndex: 0, walkable: true, energyCostMultiplier: 1.0, posX: 0.0, posZ: 0.0, hazardIndex: 0.1 },
+    { macroIndex: 1, subIndex: 0, walkable: true, energyCostMultiplier: 1.5, posX: 2.5, posZ: 0.0, hazardIndex: 0.2 },
+    { macroIndex: 2, subIndex: 1, walkable: true, energyCostMultiplier: 2.0, posX: 5.0, posZ: 0.0, hazardIndex: 0.3 }
+  ];
+
+  const pathfinderPath = await pathfinderMediator.findPath(0, 0, 2, 1, testGrid);
+  assert(pathfinderPath !== null, "Expected pathfinder to resolve a path successfully");
+  if (pathfinderPath) {
+    assert(pathfinderPath.length === 3, "Expected path from 0x00 to 0x2B to contain 3 steps");
+    assert(pathfinderPath[0].chunkId === 0 && pathfinderPath[0].blockId === 0, "Expected path to start at Chunk 0 Block 0");
+    assert(pathfinderPath[2].chunkId === 2 && pathfinderPath[2].blockId === 1, "Expected path to terminate at Chunk 2 Block 1");
+  }
+
+  const collapsedGrid = [
+    { macroIndex: 0, subIndex: 0, walkable: true, energyCostMultiplier: 1.0, posX: 0.0, posZ: 0.0, hazardIndex: 0.1 },
+    { macroIndex: 1, subIndex: 0, walkable: false, energyCostMultiplier: 1.5, posX: 2.5, posZ: 0.0, hazardIndex: 0.2 },
+    { macroIndex: 2, subIndex: 1, walkable: true, energyCostMultiplier: 2.0, posX: 5.0, posZ: 0.0, hazardIndex: 0.3 }
+  ];
+  const blockedPath = await pathfinderMediator.findPath(0, 0, 2, 1, collapsedGrid);
+  assert(blockedPath === null || blockedPath.length < 3, "Expected collapsed pathing to return null or not find a valid 3-step route");
+
+  console.log("  [PASS] Pathfinder A* step cost parity resolved successfully.");
+  console.log("  [PASS] Collapsed node routing block handled correctly.");
+  console.log("  [PASS] Test 114 (Go Core Pathfinder & TS Pathfinder Step Cost Parity) validated successfully.");
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator, Sovereign-Card-Fusion, Sovereign-Reality-Compositor, Go-Core-Simulation-Bridge, Go-Core-State-Engine, Go-Core-Pathfinder, Go-Core-Environmental-Flux, SQLite-Debounced-WAL-Introspection, Go-Core-Gauss-Seidel-KCL-Solver, Sovereign-Rule-Driven-Composition, Sovereign-Dynamic-Escape-Retention, Hardware-Adaptive-Governor, Decoupled-Balancer-Structural-State-Union, Card-Trading-Quest-Verification, Expanded-Traps-Randomized-Chests, Backoffice-SJF-Priority-Scheduler, Dynamic-Item-Durability-Calculations, Dynamic-Terrain-Resonator-Collapses, State-Delta-Array-Parity, Go-Core-AI-Telemetry-Quest-Integration, Evolutionary-Deck-Narrative-Generator, Cognitive-Narrative-RAG-Priority-Sorting, Modular-Elementor-Steelness-Scripting, Evolutionary-Quest-Planner-LLaMA-Prompting, Dusan-Adapted-Massacre-Model-DDA, Go-Core-Pathfinder-Step-Parity testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

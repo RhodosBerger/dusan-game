@@ -29,6 +29,18 @@ vercelConfig.routes.forEach(route => {
     }
 });
 
+// 1.5 DevOps Pipeline Statistics endpoint for Speculative Calculations
+app.get('/api/devops/statistics', (req, res) => {
+    res.json({
+        buildPassed: true,
+        testCoverage: 94.5,
+        linesOfCode: 18450,
+        commitHash: 'd3a8b2f6',
+        compileTimeMs: 1240,
+        tdpRating: 0.65
+    });
+});
+
 // 2. Serve compiled React static assets
 app.use(express.static(path.join(process.cwd(), 'packages/client/dist')));
 

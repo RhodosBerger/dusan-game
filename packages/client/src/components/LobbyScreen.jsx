@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { preloadAllHeroModels } from './HeroModel3D';
 
 function CyberGridBackground() {
     const canvasRef = useRef(null);
@@ -165,6 +166,10 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
     const [name, setName] = useState('');
     const [selectedHero, setSelectedHero] = useState('thread_king_ai');
     const [mashupMode, setMashupMode] = useState('STANDARD');
+
+    useEffect(() => {
+        preloadAllHeroModels();
+    }, []);
 
     const handleSubmit = (e, isAI) => {
         e.preventDefault();

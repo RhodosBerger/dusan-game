@@ -17,7 +17,7 @@ const textures = {
     TOXIC_SWAMP: textureLoader.load('/textures/toxic_swamp_tile.png'),
     GLACIER: textureLoader.load('/textures/glacier_tile.png'),
     DESERT: textureLoader.load('/textures/desert_tile.png'),
-    BARRENS: textureLoader.load('/textures/barrens_tile.png'),
+    BARRENS: textureLoader.load('/textures/medieval_wood.png'), // Wood texture for wooden tile base
     SCORCHED: textureLoader.load('/textures/scorched_tile.png')
 };
 
@@ -27,6 +27,12 @@ Object.values(textures).forEach(tex => {
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(0.3, 0.3);
 });
+
+// Wood texture loader specifically formatted for borders
+const borderWoodTexture = textureLoader.load('/textures/medieval_wood.png');
+borderWoodTexture.wrapS = THREE.RepeatWrapping;
+borderWoodTexture.wrapT = THREE.RepeatWrapping;
+borderWoodTexture.repeat.set(1.5, 1.5);
 
 const radius = 2.0;
 
@@ -61,6 +67,40 @@ const innerHexShape = (() => {
     return shape;
 })();
 const sharedInnerHexGeometry = new THREE.ExtrudeGeometry(innerHexShape, { depth: 0.05, bevelEnabled: false });
+
+// 3D Extruded Border Frame Shape (Outer hex minus Inner hex as hole)
+const borderShape = (() => {
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + (Math.PI / 6);
+        const x = 2.02 * Math.cos(angle);
+        const z = 2.02 * Math.sin(angle);
+        if (i === 0) shape.moveTo(x, z);
+        else shape.lineTo(x, z);
+    }
+    shape.closePath();
+
+    const holePath = new THREE.Path();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + (Math.PI / 6);
+        const x = 1.78 * Math.cos(angle);
+        const z = 1.78 * Math.sin(angle);
+        if (i === 0) holePath.moveTo(x, z);
+        else holePath.lineTo(x, z);
+    }
+    holePath.closePath();
+    shape.holes.push(holePath);
+    return shape;
+})();
+
+const sharedBorderGeometry = new THREE.ExtrudeGeometry(borderShape, {
+    depth: 0.08,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.015,
+    bevelThickness: 0.015
+});
 
 const sharedStalactiteGeometry = new THREE.CylinderGeometry(radius * 0.92, 0.18, 1.0, 6, 1, false, Math.PI / 6);
 const sharedConeEdgeGeometry = new THREE.ConeGeometry(radius, 0, 6);
@@ -1283,6 +1323,71 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         return 1.6 + dist * 2.2 + jitter;
     }, [node.position, node.macroIndex, node.subIndex]);
 
+    const borderProps = useMemo(() => {
+        const biome = biomeInfo.biome;
+        
+        let emissiveInt = isSelected ? 2.0 : isHovered ? 1.4 : isTargetable ? 1.0 : 0.2;
+        let opacityVal = isSelected ? 1.0 : isHovered ? 0.95 : isTargetable ? 0.85 : 0.6;
+
+        if (biome === 'BARRENS') {
+            // Wooden hexagon -> Steel border
+            return {
+                color: isSelected ? '#a5f3fc' : isHovered ? '#ffffff' : '#e5e7eb',
+                metalness: 0.95,
+                roughness: 0.15,
+                emissive: new THREE.Color(isSelected ? '#22d3ee' : '#374151'),
+                emissiveIntensity: emissiveInt,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else if (biome === 'LUSH_FOREST') {
+            // Grass/Lush Forest -> Wooden border
+            return {
+                map: borderWoodTexture,
+                color: isSelected ? '#a5f3fc' : isHovered ? '#e2e8f0' : '#ffffff',
+                metalness: 0.1,
+                roughness: 0.85,
+                emissive: new THREE.Color(isSelected ? '#00ffff' : '#78350f'),
+                emissiveIntensity: emissiveInt,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else if (biome === 'TOXIC_SWAMP') {
+            // Toxic mud -> Glowing neon green border
+            return {
+                color: '#10b981',
+                emissive: new THREE.Color('#39ff14'),
+                emissiveIntensity: emissiveInt * 1.5,
+                roughness: 0.1,
+                metalness: 0.8,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else if (biome === 'GLACIER') {
+            // Glacier -> Icy frost blue border
+            return {
+                color: '#a5f3fc',
+                emissive: new THREE.Color('#06b6d4'),
+                emissiveIntensity: emissiveInt * 1.2,
+                roughness: 0.05,
+                metalness: 0.1,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else {
+            // Desert -> Golden/Bronze border
+            return {
+                color: isSelected ? '#ffffff' : '#d4af37',
+                emissive: new THREE.Color(isSelected ? '#00ffff' : '#b45309'),
+                emissiveIntensity: emissiveInt,
+                metalness: 0.9,
+                roughness: 0.2,
+                transparent: true,
+                opacity: opacityVal
+            };
+        }
+    }, [biomeInfo.biome, isSelected, isHovered, isTargetable]);
+
     return (
         <group
             position={node.position}
@@ -1312,10 +1417,9 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                     />
                 </mesh>
 
-                <lineSegments position={[0, 0, 0.403]}>
-                    <edgesGeometry args={[sharedInnerHexGeometry]} />
-                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : isTargetable ? 0.8 : 0.4} linewidth={2} />
-                </lineSegments>
+                <mesh geometry={sharedBorderGeometry} position={[0, 0, 0.403]} castShadow receiveShadow>
+                    <meshStandardMaterial {...borderProps} />
+                </mesh>
 
                 {/* Spell Casting VFX projected on the Hexagon */}
                 {flash && <SpellFlashBeam3D weatherOverride={weatherOverride} />}

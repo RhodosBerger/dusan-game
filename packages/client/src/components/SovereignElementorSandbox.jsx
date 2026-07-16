@@ -55,6 +55,7 @@ export default function SovereignElementorSandbox() {
     const [lifoResult, setLifoResult] = useState(null);
     const [renderPulseActive, setRenderPulseActive] = useState(false);
     const [newHitZone, setNewHitZone] = useState('chest');
+    const [resolutionReality, setResolutionReality] = useState('ALPHA');
 
     const simulatedPlayerA = useMemo(() => {
         const statuses = [];
@@ -166,7 +167,12 @@ export default function SovereignElementorSandbox() {
     };
 
     const handleResolveLIFO = () => {
-        const result = SovereignLIFOArbiter.resolveStack(actionStack, parseInt(simHealthA) || 15, parseInt(simHealthB) || 15);
+        const result = SovereignLIFOArbiter.resolveStack(
+            actionStack,
+            parseInt(simHealthA) || 15,
+            parseInt(simHealthB) || 15,
+            resolutionReality
+        );
         setLifoResult(result);
         if (result.screenShake) {
             setRenderPulseActive(true);
@@ -489,7 +495,21 @@ export default function SovereignElementorSandbox() {
                             )}
                         </div>
 
-                        <button onClick={handleResolveLIFO} disabled={actionStack.length === 0} className="bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50 font-bold text-xs py-2.5 rounded transition-all mt-auto">
+                        <div className="flex flex-col gap-1 mt-auto mb-2">
+                            <label className="text-[9px] text-slate-400 uppercase">Target Reality Timeline:</label>
+                            <select
+                                value={resolutionReality}
+                                onChange={(e) => setResolutionReality(e.target.value)}
+                                className="bg-slate-900 text-slate-200 text-xs px-2.5 py-1.5 rounded border border-slate-800 focus:outline-none"
+                            >
+                                <option value="ALPHA">Timeline Alpha (Standard)</option>
+                                <option value="GLACIAL">Glacial Fracture (Root Overload)</option>
+                                <option value="TOXIC">Toxic Contagion (+1 DMG, Slow)</option>
+                                <option value="OHMIC">Ohmic Overcharge (Low Cost, High Shake)</option>
+                            </select>
+                        </div>
+
+                        <button onClick={handleResolveLIFO} disabled={actionStack.length === 0} className="bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50 font-bold text-xs py-2.5 rounded transition-all">
                             ⚡ Resolve LIFO Stack
                         </button>
                     </div>

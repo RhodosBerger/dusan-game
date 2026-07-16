@@ -60,6 +60,10 @@ function App() {
   const [semanticSector, setSemanticSector] = useState(null);
   const [terrainTelemetry, setTerrainTelemetry] = useState(null);
 
+  const isOverlayActive = useMemo(() => {
+    return gameState?.state === 'MULLIGAN' || gameState?.state === 'GAME_OVER';
+  }, [gameState?.state]);
+
   const myThreadId = useMemo(() => {
     return socket.id || gameState?.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI')?.id || gameState?.threads?.[0]?.id;
   }, [gameState, socket.id]);
@@ -680,10 +684,6 @@ function App() {
     );
   }
 
-  const isOverlayActive = useMemo(() => {
-    return gameState?.state === 'MULLIGAN' || gameState?.state === 'GAME_OVER';
-  }, [gameState?.state]);
-
   return (
     <div 
       className="w-full h-screen relative bg-black overflow-hidden"
@@ -724,6 +724,7 @@ function App() {
         realityPhase={realityPhase}
         setRealityPhase={setRealityPhase}
         gameState={gameState} 
+        matchId={matchId}
         entropy={entropy}
         setEntropy={setEntropy}
         selectedCard={selectedCard}
