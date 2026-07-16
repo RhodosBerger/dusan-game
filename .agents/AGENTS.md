@@ -92,6 +92,7 @@
     ```bash
     docker-compose down
     ```
+*   **Relative Routing Constraints (Ports 3001 & 8080)**: React client files must NEVER hardcode domain origins or port mappings (e.g. `http://localhost:3001` or `http://localhost:8080`) when performing REST requests or establishing WebSocket connections. Always utilize relative paths (e.g. `/api/...` and `io({ autoConnect: false })`) to ensure all traffic goes through the Edge router emulator proxy (port 8080) and resolves correctly under remote/Docker environments.
 *   **React Hook Imports**: Always verify that all React hooks (`useRef`, `useMemo`, `useEffect`, `useState`) are explicitly imported from the `'react'` library in the file header. Unimported hooks cause silent runtime crashes in the browser.
 *   **React Hook Placement and Early Returns**: Always declare all React Hooks (`useState`, `useEffect`, `useMemo`, `useRef`) at the absolute top level of your component body. Never place Hook declarations after early return blocks (e.g. `if (!matchId) return ...`) as it violates the Rules of Hooks and causes immediate runtime crashes when changing layout views.
 *   **React Hook Dependency Order**: Avoid referencing component state variables (like `gameState`) inside Hook declarations before those state variables have been fully declared and initialized in the file.
