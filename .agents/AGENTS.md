@@ -23,6 +23,7 @@
 *   **Dynamic OS Governor Coexistence**: Avoid sudden execution peaks that trigger OS governor frequency spikes. Pathfinding requests and heavy physics loops must be throttled or distributed over consecutive frames (batching) when concurrent action queue density > 10. Frame pacing must be dynamically clamped to target balanced thermal profiles (65°C - 75°C) to coexist efficiently with CPU/GPU schedulers.
 *   **Procedural Render Layering**: Procedural mesh generation must be split into Critical (colliders/walkability), Structural (base terrain), and Cosmetic (props/effects) layers, staggered over a 3-frame initialization cycle.
 *   **Time-Sliced Pathfinder**: Pathfinding computations for concurrent NPC AI must be queued and limited to a 2ms time-slice budget per frame, deferring additional searches to subsequent frames to avoid CPU throttling.
+*   **Hardware-Adaptive Governor & Instance Culling**: The rendering environment must query `HardwareGovernor.updateProfile(deltaMs)` dynamically on frame updates to obtain active performance limits. On low-end systems, the renderer must enforce aggressive vertex and prop culling (clamping instanced props to 20 instead of 100), clamp solver complexity (KCL Gauss-Seidel iterations down to 16), throttle uniform writes to 5Hz, and disable volumetric fog passes to keep framerate above target levels without resetting the WebGL context.
 
 ## 6. Monorepo Architectural Cohesion & Layer Integrity
 *   **Layer Boundary Isolation**:
@@ -30,6 +31,7 @@
     *   **Go Core Simulation Bridge**: Any simulation algorithm ported to the Go Core microservice must maintain exact mathematical parity (character hashing, XOR math) with the local TypeScript fallback classes, allowing seamless, identical outputs regardless of the failover gateway state.
     *   **Shared Logic separation**: Do NOT write platform-specific imports (e.g., Node `fs`, `path`, or browser DOM references) inside `packages/shared`. Shared code must compile cleanly for both web browser and Node environments.
     *   **State Separation**: Keep database-persistent client profile/upgrading economy actions strictly separate from active in-match gameplay state loops.
+    *   **Decoupled Balancer & Evaluator Boundaries**: Core priority calculation utilities (like `RenderPriorityBalancer`) must reside in `packages/shared` and accept structural state parameters rather than direct imports of server/client specific classes. This ensures they compile cleanly in both web and Node runtimes without duplicate implementations or circular dependencies.
 
 ## 7. Dead Code Pruning & Clean Up Protocol
 *   **Dead File Identification**: Before implementing new features or resolving issues, identify and prune legacy/unused debug scripts, disconnected telemetry files, or redundant simulator duplicates (e.g., old combinatorics, duplicate model schemas) to prevent codebase bloat.
@@ -92,3 +94,31 @@
     ```
 *   **React Hook Imports**: Always verify that all React hooks (`useRef`, `useMemo`, `useEffect`, `useState`) are explicitly imported from the `'react'` library in the file header. Unimported hooks cause silent runtime crashes in the browser.
 *   **Fused Card Parity**: When defining or updating gameplay-specific objects (like card fusions or instructions), ensure that all properties (such as `cost`, `desc`, `parentTypes`, `helperStats`) are declared as optional on the base model class (`Instruction.ts`) to maintain TypeScript compatibility during runtime assignments.
+
+## 14. SQLite Schema Synchronization & Decoupled Integrations
+*   **Prisma SQLite Schema Sync**: For SQLite database model additions during development, avoid generating long migration histories if drift is detected. Use `npx prisma db push --accept-data-loss --schema=packages/server/prisma/schema.prisma` followed by `npx yarn workspace @dusan-game/server db:seed` to force-sync and populate test data.
+*   **Decoupled Quest Sync Pattern**: Database quest updates must construct wrapper interfaces (like `ServerQuestIntegration`) to translate Prisma models into shared `Quest` objects. Call the pure logic `QuestTriggerManager.updateQuestProgress` in memory, then compare and write only the diffed progress/completed statuses back to the database.
+
+## 15. High-Aesthetic WebGL & Procedural Mesh Code Structuring
+*   **Smooth Frame-Delta Animations (In-Loop Lerping)**: NEVER update React component state variables inside a React Three Fiber `useFrame` loop to animate rotations, scale pulses, or float animations. Instead, use mutable refs (e.g. `ref.current.position.y += Math.sin(state.clock.elapsedTime) * delta`) or linear interpolations (`THREE.MathUtils.lerp`) directly on the underlying `THREE.Mesh` instance. This prevents unnecessary React reconciliation cycles and garbage collection spikes.
+*   **Unified Lighting & Environmental Post-Processing**: Keep all scene lighting (ambient light, directional shadow-casting sun lights, volumetric fog nodes) contained in a single top-level environment container (e.g., `CanvasRenderer3D.jsx`) rather than instantiating local light objects inside individual tile components. This ensures a consistent lighting direction and color temperature across all game nodes.
+*   **Draco GLTF Asset Loading Pattern**: For high-quality 3D character and structural models (GLB files loaded via `useGLTF`), always configure the loader to use the Draco decoder:
+    ```ts
+    useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    ```
+    Models should be pre-loaded at the Lobby/Matchmaking screen using `preloadAllHeroModels()` to eliminate in-match asset-loading stutters.
+*   **Dynamic Visual Phase Modulations**: Modulate aesthetic properties (glow intensity, neon edge colors, structural heights) smoothly based on active game phases (`MULLIGAN`, `COMBAT`, `END`) using pre-cached geometric layers rather than reloading assets or meshes.
+
+## 16. Authoritative Weather Action Tensors & Environmental Flux
+*   **Server-Driven Weather Transitions**: Card plays containing semantic weather designations (e.g. `toxic`, `acid`, `void`, `collapse`, `crystal`, `laser`) must evaluate and trigger weather changes authoritatively on the server.
+*   **Grid Parameter Modification**: Retrieve all active grid blocks, calculate new physical parameters (friction, conductivity, hazardIndex) using `GoCoreMediator.calculateEnvironmentFlux`, and update the database/memory grid state before broadcasting.
+*   **Broadcast Event Pattern**: Emit a `weather_change` WebSocket event containing the new weather state to all connected clients in the match rather than having the client compute weather overrides independently.
+
+## 17. Springy UI/UX Transitions & Micro-Delays
+*   **Elastic Easing Curves**: All hover, selection, and translate transitions for cards and critical HUD buttons must use an elastic overshoot Bezier curve (`cubic-bezier(0.34, 1.56, 0.64, 1)`) to create a springy, premium feel.
+*   **Tactile Cast Delays**: Card plays from drag-and-drop must trigger a client-side visual cast/dissolution animation (e.g. `card-cast-lift` flying animation) and delay the WebSocket event transmission to the server by exactly `300ms` using `setTimeout`. This allows the card to animate and float away before the server resolves action results.
+*   **Interactive Button Scaling**: Key HUD buttons (e.g. `Town Shop`, `End Turn`, `Execute`) must scale up (`scale(1.06)`) and glow on hover, and scale down (`scale(0.95)`) on click/active states.
+
+## 18. Full-Screen 3D Viewport & Overlay Coexistence
+*   **Full-Screen 3D Viewport Layout**: The WebGL Canvas must occupy the absolute full screen (`absolute inset-0 w-full h-full z-0` or equivalent) rather than being split horizontally (e.g., `70vh`/`30vh` layouts) with solid background divs. All UI overlays, status dashboards, and hand cards must float transparently on top of this full-screen canvas.
+*   **WebGL Overlay Label Suppression**: Any 3D spatial HTML overlays (such as `@react-three/drei`'s `<Html>` labels or 2D FlatBillboards displaying memory registers, target predictors, distance metrics, and vector trajectories) must be conditionally hidden (`!isOverlayActive` or similar props) whenever a full-screen overlay (like `MULLIGAN` phase selection or `GAME_OVER` screen) is active to prevent visual overlapping and glitches.

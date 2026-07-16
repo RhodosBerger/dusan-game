@@ -3,30 +3,30 @@
 @import "tailwindcss";
 
 :root {
-  /* Painted Realm — tokeny zrkadlia packages/client/src/design/worldDesign.js */
-  --space-bg: #08090e;
-  --panel-bg: rgba(17, 21, 33, 0.85);      /* rock.underside + alpha */
-  --panel-border: rgba(45, 211, 241, 0.25); /* accent.magic + alpha */
-  --accent-magic: #2dd3f1;
-  --accent-enemy: #c46884;
-  --accent-danger: #7b2e8d;
-  --accent-loot: #acf227;
+  /* Medieval Military Style — warm wood, copper, gold and parchment */
+  --space-bg: #120e0a;
+  --panel-bg: rgba(28, 20, 13, 0.96);       /* Dark Oak Wood color */
+  --panel-border: #a05a2c;                  /* Antique copper/wood trim */
+  --accent-magic: #d4af37;                  /* Polished Gold */
+  --accent-enemy: #8b0000;                  /* Military Crimson Red */
+  --accent-danger: #800000;                 /* Deep Maroon */
+  --accent-loot: #3b5998;                   /* Steel Shield Blue */
 
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
+  --text: #c5bba8;                          /* Soft bone-white parchment text */
+  --text-h: #f5f2eb;                        /* Bright bone white */
+  --bg: #18130e;
+  --border: #3d2f23;
+  --code-bg: #221a12;
+  --accent: #d4af37;                        /* Gold */
+  --accent-bg: rgba(212, 175, 55, 0.15);
+  --accent-border: rgba(212, 175, 55, 0.5);
+  --social-bg: rgba(28, 20, 13, 0.5);
   --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+    rgba(0, 0, 0, 0.7) 0 12px 20px -3px, rgba(0, 0, 0, 0.5) 0 4px 8px -2px;
 
-  --sans: 'Rajdhani', system-ui, sans-serif;
-  --heading: 'Oxanium', system-ui, sans-serif;
-  --mono: 'Oxanium', ui-monospace, Consolas, monospace;
+  --sans: 'Lora', 'Georgia', serif;
+  --heading: 'Cinzel', 'MedievalSharp', serif;
+  --mono: 'Courier New', monospace;
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.5px;
@@ -45,17 +45,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
+    --text: #c5bba8;
+    --text-h: #f5f2eb;
+    --bg: #18130e;
+    --border: #3d2f23;
+    --code-bg: #221a12;
+    --accent: #d4af37;
+    --accent-bg: rgba(212, 175, 55, 0.15);
+    --accent-border: rgba(212, 175, 55, 0.5);
+    --social-bg: rgba(28, 20, 13, 0.5);
     --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+      rgba(0, 0, 0, 0.8) 0 12px 24px -3px, rgba(0, 0, 0, 0.6) 0 4px 8px -2px;
   }
 
   #social .button-icon {
@@ -150,11 +150,22 @@ code {
 }
 
 .glass-panel-heavy {
-  background: rgba(8, 10, 18, 0.85);
-  border: 1px solid rgba(45, 211, 241, 0.2);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(45, 211, 241, 0.05);
+  background: linear-gradient(135deg, #111116 0%, #08080c 50%, #050508 100%);
+  border: 1.5px solid #1f2229;
+  border-top: 3.5px solid #3c424e; /* Dota 2 metallic top bar border */
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.glass-panel-heavy::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, #3c424e, #c0c0c0, #3c424e); /* Specular metal reflections */
+  pointer-events: none;
 }
 
 .cyber-btn {
@@ -184,5 +195,59 @@ code {
 
 .glow-text-lime {
   text-shadow: 0 0 10px rgba(132, 204, 22, 0.6), 0 0 20px rgba(132, 204, 22, 0.3);
+}
+
+/* ==========================================
+   DOTA 2-INSPIRED HUD DASHBOARD PROGRESS BARS
+   ========================================== */
+
+/* Dota 2 progress bar container */
+.dota-progress-bar-container {
+  width: 100%;
+  height: 10px;
+  background: #09090b;
+  border: 1px solid #1a1b23;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.dota-progress-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.3s ease-out;
+}
+
+/* Vibrant neon gradients */
+.dota-bg-health {
+  background: linear-gradient(90deg, #15803d 0%, #22c55e 100%);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+.dota-bg-energy {
+  background: linear-gradient(90deg, #0369a1 0%, #0ea5e9 100%);
+  box-shadow: 0 0 6px rgba(14, 165, 233, 0.5);
+}
+
+.dota-bg-entropy {
+  background: linear-gradient(90deg, #7c3aed 0%, #ec4899 100%);
+  box-shadow: 0 0 6px rgba(236, 72, 153, 0.5);
+}
+
+/* Overlay absolute values */
+.dota-progress-text {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  font-family: monospace;
+  font-size: 8px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 1px 1px 1px #000;
+  pointer-events: none;
+  z-index: 5;
 }
 

@@ -110,8 +110,11 @@ class HeroSpawnerPredictor:
 
     def load_model(self, file_path):
         if os.path.exists(file_path):
-            with open(file_path, 'rb') as f:
-                self.model, self.is_trained = pickle.load(f)
+            try:
+                with open(file_path, 'rb') as f:
+                    self.model, self.is_trained = pickle.load(f)
+            except Exception:
+                self.is_trained = False
         else:
             self.is_trained = False
 
@@ -123,14 +126,14 @@ class SpawnerInferenceService:
         
         predictor = HeroSpawnerPredictor()
         
-        # Train and save the model if not already cached
-        if not os.path.exists(model_path):
+        predictor.load_model(model_path)
+        
+        # Train and save the model if not successfully loaded
+        if not predictor.is_trained:
             processor = SpawnerDataProcessor(model_path)
             df = processor.generate_synthetic_training_data()
             predictor.train(df)
             predictor.save_model(model_path)
-        else:
-            predictor.load_model(model_path)
             
         # Parse CLI input
         if len(sys.argv) < 2:

@@ -43,5 +43,8 @@ export * from './core/SovereignLIFOArbiter';
 export * from './core/SovereignPredictiveGenerator';
 export * from './core/SovereignFailoverGateway';
 export * from './core/SovereignPhraseGenerator';
+export * from './core/SovereignRuleDrivenCompositionManager';
+export * from './core/HardwareGovernor';
+export * from './core/RenderPriorityBalancer';
 
-
+export * from './core/SovereignTaskScheduler';

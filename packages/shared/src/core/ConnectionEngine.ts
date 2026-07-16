@@ -112,6 +112,17 @@ export class ConnectionEngine {
       this.log('INFO', `Stav hry synchronizovaný zo servera. Aktívny hráč: ${serverState.activePlayerId}`, 'SERVER');
     });
 
+    this.socket.on('state_delta', (delta: Partial<GameState>) => {
+      this.setConnectionState('CONNECTED');
+      if (this.gameState) {
+        this.gameState = this.applyStateDelta(this.gameState, delta);
+        this.notifyState();
+        this.log('INFO', 'Stav hry synchronizovaný cez WS delta kompresiu (šetrenie šírky pásma AWS).', 'SERVER');
+      } else {
+        this.socket?.emit('request_full_sync');
+      }
+    });
+
     this.socket.on('instruction_compiling', (data: { node: ActionNode; timeLeft: number }) => {
       this.log('PHYSICS', `Akcia ${data.node.id} je v kompilácii. Okno na reakciu: ${(data.timeLeft / 1000).toFixed(1)}s.`);
     });
@@ -366,5 +377,37 @@ export class ConnectionEngine {
     this.logs.push(event);
     this.logSubscribers.forEach(cb => cb(event));
     console.log(`[${event.source}][${event.type}] ${event.message}`);
+  }
+
+  /**
+   * Aplikuje sieťovú deltu na lokálny stav hry za účelom šetrenia prenosu dát (AWS WS bandwidth optimization)
+   */
+  private applyStateDelta(current: any, delta: any): any {
+    if (!current) return delta;
+    if (!delta) return current;
+    
+    if (Array.isArray(current)) {
+      if (Array.isArray(delta)) {
+        return delta;
+      }
+      const result = [ ...current ];
+      for (const key of Object.keys(delta)) {
+        const idx = parseInt(key, 10);
+        if (!isNaN(idx)) {
+          result[idx] = this.applyStateDelta(current[idx], delta[key]);
+        }
+      }
+      return result;
+    }
+    
+    const result = { ...current };
+    for (const key of Object.keys(delta)) {
+      if (delta[key] && typeof delta[key] === 'object' && !Array.isArray(delta[key])) {
+        result[key] = this.applyStateDelta(current[key], delta[key]);
+      } else {
+        result[key] = delta[key];
+      }
+    }
+    return result;
   }
 }

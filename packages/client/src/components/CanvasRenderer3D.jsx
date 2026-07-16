@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { MapControls, PerspectiveCamera, Html } from '@react-three/drei';
 import { EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, Pathfinder, SpatialGuidanceSystem } from '../../../shared/src/index';
+import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, Pathfinder, SpatialGuidanceSystem, HardwareGovernor } from '../../../shared/src/index';
 import { generate3DGrid } from '../utils/HexMath3D';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
@@ -66,44 +66,48 @@ function ArenaGroup({ children, shakeIntensity }) {
 
 function UltimateOrbVFX({ active }) {
     const meshRef = useRef();
-    const [scale, setScale] = useState(0.01);
-    const [visible, setVisible] = useState(false);
+    const materialRef = useRef();
 
     useEffect(() => {
-        if (active) {
-            setVisible(true);
-            setScale(0.01);
+        if (active && meshRef.current) {
+            meshRef.current.visible = true;
+            meshRef.current.scale.setScalar(0.01);
+            if (materialRef.current) {
+                materialRef.current.opacity = 0.85;
+            }
         }
     }, [active]);
 
     useFrame((state, delta) => {
-        if (visible && meshRef.current) {
+        if (meshRef.current && meshRef.current.visible) {
             meshRef.current.rotation.y += delta * 3.5;
             meshRef.current.rotation.x += delta * 1.5;
             const nextScale = meshRef.current.scale.x + delta * 28;
             if (nextScale > 18) {
-                setVisible(false);
-                setScale(0.01);
+                meshRef.current.visible = false;
             } else {
-                setScale(nextScale);
+                meshRef.current.scale.setScalar(nextScale);
+                if (materialRef.current) {
+                    materialRef.current.opacity = 0.85 * (1.0 - nextScale / 18);
+                }
             }
         }
     });
 
-    if (!visible) return null;
-
     return (
-        <mesh ref={meshRef} position={[0, 1.2, 0]} scale={scale}>
+        <mesh ref={meshRef} position={[0, 1.2, 0]} scale={0.01} visible={false}>
             <sphereGeometry args={[1, 14, 14]} />
             <meshBasicMaterial 
+                ref={materialRef}
                 color="#ffd700" 
                 wireframe={true} 
                 transparent={true} 
-                opacity={0.85 * (1.0 - scale / 18)} 
+                opacity={0.85} 
             />
         </mesh>
     );
 }
+
 
 function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate, activeBiome, selectedNode, hoveredNode }) {
     const { camera, controls } = useThree();
@@ -197,6 +201,17 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     }, []);
 
     useEffect(() => {
+        if (!controls) return;
+        const handleStart = () => {
+            isLockedToUnit.current = false;
+        };
+        controls.addEventListener('start', handleStart);
+        return () => {
+            controls.removeEventListener('start', handleStart);
+        };
+    }, [controls]);
+
+    useEffect(() => {
         if (!isLockedToUnit.current) return;
 
         if (gameMode === 'SANDBOX') {
@@ -251,12 +266,20 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
 
         // 1. Plynulý LERP stredu záujmu a rotačných obmedzení MapControls
         if (controls) {
-            // Apply dynamic tile-specific camera slant limits in-place (Rule 5 safety)
-            controls.minPolarAngle = THREE.MathUtils.lerp(controls.minPolarAngle, cameraProfile.pitch, delta * 3.0);
-            controls.maxPolarAngle = controls.minPolarAngle;
+            if (isLockedToUnit.current) {
+                // Apply dynamic tile-specific camera slant limits in-place (Rule 5 safety)
+                controls.minPolarAngle = THREE.MathUtils.lerp(controls.minPolarAngle, cameraProfile.pitch, delta * 3.0);
+                controls.maxPolarAngle = controls.minPolarAngle;
 
-            controls.minAzimuthAngle = THREE.MathUtils.lerp(controls.minAzimuthAngle, cameraProfile.yaw, delta * 3.0);
-            controls.maxAzimuthAngle = controls.minAzimuthAngle;
+                controls.minAzimuthAngle = THREE.MathUtils.lerp(controls.minAzimuthAngle, cameraProfile.yaw, delta * 3.0);
+                controls.maxAzimuthAngle = controls.minAzimuthAngle;
+            } else {
+                // Free 3D perspective rotation limits when unlocked
+                controls.minPolarAngle = 0.1;
+                controls.maxPolarAngle = Math.PI / 2 - 0.05;
+                controls.minAzimuthAngle = -Infinity;
+                controls.maxAzimuthAngle = Infinity;
+            }
 
             // If dragging the map, copy controls target to desiredTarget to avoid fighting
             if (!isLockedToUnit.current && state.pointer.down) {
@@ -289,6 +312,98 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     });
 
     return null;
+}
+
+function HardwareGovernorController({ onLimitsChange, globalEntropyStress }) {
+    const { scene } = useThree();
+    const lastUniformUpdateRef = useRef(0);
+    const prevTier = useRef(HardwareGovernor.currentTier);
+
+    useFrame((state, delta) => {
+        const deltaMs = delta * 1000;
+        
+        // 1. Update profile based on real frame time
+        const newLimits = HardwareGovernor.updateProfile(deltaMs);
+
+        // Notify parent of limits change if Tier changes
+        if (HardwareGovernor.currentTier !== prevTier.current) {
+            prevTier.current = HardwareGovernor.currentTier;
+            onLimitsChange(newLimits);
+            console.log(`[GOVERNOR] Performance Tier changed to: ${HardwareGovernor.currentTier}`);
+        }
+
+        // 2. Uniform throttling (TDP safety)
+        const interval = 1000 / newLimits.uniformThrottleHz;
+        const now = state.clock.getElapsedTime() * 1000;
+        if (now - lastUniformUpdateRef.current > interval) {
+            scene.traverse((object) => {
+                if (object instanceof THREE.Mesh && object.material) {
+                    // Check standard three material uniforms as fallback, or userData shader
+                    const uniforms = object.material.uniforms || object.material.userData?.shader?.uniforms;
+                    if (uniforms) {
+                        if (uniforms.uGravityPulse) {
+                            uniforms.uGravityPulse.value = newLimits.enableVolumetricFog ? state.clock.getElapsedTime() : 0;
+                        }
+                        if (uniforms.uEntropyStress) {
+                            uniforms.uEntropyStress.value = globalEntropyStress || 0;
+                        }
+                    }
+                }
+            });
+            lastUniformUpdateRef.current = now;
+        }
+    });
+
+    return null;
+}
+
+function GodRays3D({ activeProfile }) {
+    const groupRef = useRef();
+    
+    useFrame((state) => {
+        if (!groupRef.current) return;
+        const time = state.clock.elapsedTime;
+        // Gently rotate the light shafts to give an organic volumetric atmospheric feel
+        groupRef.current.rotation.y = time * 0.03;
+        
+        // Pulse the opacity of individual rays to look like shifting atmospheric dust
+        groupRef.current.children.forEach((child, idx) => {
+            if (child.material) {
+                const offset = idx * 1.5;
+                child.material.opacity = (0.08 + Math.sin(time * 0.7 + offset) * 0.04) * (activeProfile.key.intensity / 1.3);
+            }
+        });
+    });
+
+    const rayColor = activeProfile.key.color;
+
+    return (
+        <group ref={groupRef} position={[0, 12, 0]}>
+            {/* Volumetric light ray shafts casting through open space of the arena */}
+            {[
+                { pos: [-4, 0, -3], rot: [0.35, 0, 0.45], scale: [1, 28, 1], radius: 0.9 },
+                { pos: [6, 0, 4], rot: [-0.25, 0, -0.35], scale: [1.25, 32, 1.25], radius: 1.2 },
+                { pos: [-2, 0, 6], rot: [0.15, 0, -0.45], scale: [0.85, 25, 0.85], radius: 0.7 }
+            ].map((ray, idx) => (
+                <mesh 
+                    key={idx} 
+                    position={ray.pos} 
+                    rotation={ray.rot} 
+                    scale={ray.scale}
+                >
+                    <cylinderGeometry args={[ray.radius * 0.15, ray.radius, 1.0, 16, 1, true]} />
+                    <meshBasicMaterial 
+                        color={rayColor} 
+                        transparent 
+                        opacity={0.12} 
+                        blending={THREE.AdditiveBlending}
+                        side={THREE.DoubleSide}
+                        depthWrite={false}
+                    />
+                </mesh>
+            ))}
+        </group>
+    );
 }
 
 function EnvironmentController({ activeBiome, entropy, weatherOverride }) {
@@ -347,6 +462,7 @@ function EnvironmentController({ activeBiome, entropy, weatherOverride }) {
                 intensity={activeProfile.fill.intensity}
                 color={activeProfile.fill.color}
             />
+            <GodRays3D activeProfile={activeProfile} />
         </>
     );
 }
@@ -360,11 +476,17 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode, realityPhase = 'STANDARD', onCollectFlag = () => {} }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode, realityPhase = 'STANDARD', onCollectFlag = () => {}, isOverlayActive = false }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
     const gridData = useMemo(() => generate3DGrid(), []);
+    const [limits, setLimits] = useState({
+        kclIterations: 24,
+        uniformThrottleHz: 10,
+        maxInstancedProps: 50,
+        enableVolumetricFog: true
+    });
     
     // Calculate which node IDs are collapsing this turn (including locked/collapsed campaign islands)
     const collapsingNodeIds = useMemo(() => {
@@ -388,6 +510,21 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const setHoveredNode = externalSetHoveredNode !== undefined ? externalSetHoveredNode : localSetHoveredNode;
 
     const [hudConfig, setHudConfig] = useState(null);
+    const [backofficeRegs, setBackofficeRegs] = useState(null);
+
+    useEffect(() => {
+        const fetchRegs = () => {
+            fetch('http://localhost:3001/api/backoffice/regulators')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) setBackofficeRegs(data);
+                })
+                .catch(() => {});
+        };
+        fetchRegs();
+        const interval = setInterval(fetchRegs, 3000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         const handleUpdate = (e) => {
@@ -514,7 +651,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
     return (
         <div className="w-full h-full relative bg-[color:var(--space-bg)]">
-            <Canvas shadows>
+            <Canvas shadows={{ type: THREE.PCFShadowMap }}>
                 <color attach="background" args={[PALETTE.space.background]} />
                 <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
                 <StarfieldBackground />
@@ -525,12 +662,16 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     scorchedTilesCount={scorchedTiles?.length || 0}
                 />
                 <FloatingShards3D />
+                <HardwareGovernorController 
+                    onLimitsChange={setLimits} 
+                    globalEntropyStress={entropy} 
+                />
 
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
                 <PerspectiveCamera makeDefault position={cameraPosition} fov={cameraFov} near={0.1} far={1000} />
                 <MapControls 
                     enableDamping 
-                    enableRotate={false} // Zamedzí otáčaniu pre čistú taktickú izometriu
+                    enableRotate={true} // Povolí otáčanie pre plný 3D zážitok z bojišťa
                     minDistance={10} 
                     maxDistance={120} 
                 />
@@ -616,6 +757,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             <HexagonNode3D
                                 key={node.id}
                                 node={node}
+                                turnsElapsed={turnsElapsed}
                                 isHovered={hoveredNode?.id === node.id || hoveredNode?.macroIndex === node.macroIndex}
                                 isSelected={selectedNode?.id === node.id}
                                 isTargetable={isTargetable}
@@ -640,6 +782,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 matrixSource={matrixSource}
                                 threads={threads}
                                 onCollectFlag={onCollectFlag}
+                                backofficeRegs={backofficeRegs}
+                                isOverlayActive={isOverlayActive}
                             />
                         );
                     })}
@@ -805,16 +949,18 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                         </mesh>
                                     </group>
                                 )}
-                                <Html distanceFactor={14} position={[points[points.length - 1].x, points[points.length - 1].y + 1.2, points[points.length - 1].z]} center>
-                                    <div className="glass-panel-heavy p-2 text-[8px] text-white border border-red-500 rounded bg-slate-950/90 w-44 backdrop-blur font-mono">
-                                        <div className="font-bold text-red-400 uppercase tracking-wider mb-1 text-[9px]">EXPERIMENTAL_V2 GUIDANCE</div>
-                                        <div>Src Cartesian: [{startPos.x.toFixed(1)}, {startPos.y.toFixed(1)}, {startPos.z.toFixed(1)}]</div>
-                                        <div>Tgt Cartesian: [{endPos.x.toFixed(1)}, {endPos.y.toFixed(1)}, {endPos.z.toFixed(1)}]</div>
-                                        <div className="text-yellow-400">Euclidean Dist: {eucDistance.toFixed(2)}m</div>
-                                        <div className="text-cyan-400 font-bold border-t border-slate-800 mt-1 pt-1">Est. Trajectory Cost: {trajectoryCost.toFixed(1)}W</div>
-                                        <div className="text-[7px] text-slate-500 italic mt-0.5">Calculated by SpatialGuidanceSystem</div>
-                                    </div>
-                                </Html>
+                                {!isOverlayActive && (
+                                    <Html distanceFactor={14} position={[points[points.length - 1].x, points[points.length - 1].y + 1.2, points[points.length - 1].z]} center>
+                                        <div className="glass-panel-heavy p-2 text-[8px] text-white border border-red-500 rounded bg-slate-950/90 w-44 backdrop-blur font-mono">
+                                            <div className="font-bold text-red-400 uppercase tracking-wider mb-1 text-[9px]">EXPERIMENTAL_V2 GUIDANCE</div>
+                                            <div>Src Cartesian: [{startPos.x.toFixed(1)}, {startPos.y.toFixed(1)}, {startPos.z.toFixed(1)}]</div>
+                                            <div>Tgt Cartesian: [{endPos.x.toFixed(1)}, {endPos.y.toFixed(1)}, {endPos.z.toFixed(1)}]</div>
+                                            <div className="text-yellow-400">Euclidean Dist: {eucDistance.toFixed(2)}m</div>
+                                            <div className="text-cyan-400 font-bold border-t border-slate-800 mt-1 pt-1">Est. Trajectory Cost: {trajectoryCost.toFixed(1)}W</div>
+                                            <div className="text-[7px] text-slate-500 italic mt-0.5">Calculated by SpatialGuidanceSystem</div>
+                                        </div>
+                                    </Html>
+                                )}
                             </group>
                         );
                     })()}
@@ -823,6 +969,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     <InstancedWorldProps 
                         gridData={gridData} 
                         collapsingNodeIds={collapsingNodeIds} 
+                        maxInstancedProps={limits.maxInstancedProps}
                     />
 
                     {/* Floating mana particles across the whole arena */}
@@ -836,7 +983,10 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         <PortalVortex3D position={[portalNode.position[0], 0.55, portalNode.position[2]]} />
                     )}
 
-                    {/* Volumetric Fog Layer disabled for sharp visual focus */}
+                    {/* Volumetric Fog Layer controlled by HardwareGovernor */}
+                    {limits.enableVolumetricFog && (
+                        <VolumetricFog3D entropy={entropy} />
+                    )}
 
                     {/* Hero Aura rings + ground glow — mounted per thread, LERP-tracked */}
                     {threads.map((thread) => (
@@ -928,7 +1078,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 </ArenaGroup>
 
                 {/* Kognitívna Termodynamika - Dynamický Post-processing podľa Entropy */}
-                <EffectComposer disableNormalPass>
+                <EffectComposer>
                     <AestheticCompositor entropy={entropy} isLowPower={isLowPower} realityPhase={realityPhase} />
                 </EffectComposer>
             </Canvas>

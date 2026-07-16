@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BiomeEngine, AethericDiceEngine } from '../../../shared/src/index';
 import { KeyframeAnimationExtension } from '../utils/KeyframeAnimationExtension';
+import HeroModel3D from './HeroModel3D';
 
 const textureLoader = new THREE.TextureLoader();
 
@@ -958,35 +959,8 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
                     )
                 ) : (
                     <>
-                        {/* 3D Hierarchical Low-Poly Stylized Robot */}
-                        <group ref={torsoRef} position={[0, 0.6, 0]}>
-                            <mesh geometry={geometries.torso} material={materials.torso} castShadow receiveShadow />
-                            
-                            <group ref={headRef} position={[0, 0.38, 0]}>
-                                <mesh geometry={geometries.head} material={materials.torso} castShadow />
-                                <mesh geometry={geometries.eyes} material={materials.eyes} position={[0, 0.05, 0.14]} />
-                            </group>
-                            
-                            <group ref={leftArmRef} position={[-0.28, 0.15, 0]}>
-                                <mesh geometry={geometries.limbUpper} material={materials.armor} position={[0, -0.14, 0]} castShadow />
-                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
-                            </group>
-                            
-                            <group ref={rightArmRef} position={[0.28, 0.15, 0]}>
-                                <mesh geometry={geometries.limbUpper} material={materials.armor} position={[0, -0.14, 0]} castShadow />
-                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
-                            </group>
-                            
-                            <group ref={leftLegRef} position={[-0.14, -0.25, 0]}>
-                                <mesh geometry={geometries.limbLower} material={materials.torso} position={[0, -0.125, 0]} castShadow />
-                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
-                            </group>
-                            
-                            <group ref={rightLegRef} position={[0.14, -0.25, 0]}>
-                                <mesh geometry={geometries.limbLower} material={materials.torso} position={[0, -0.125, 0]} castShadow />
-                                <mesh geometry={geometries.joint} material={materials.glow} position={[0, 0, 0]} />
-                            </group>
-                        </group>
+                        {/* 3D GLTF model with CDN/fallback support */}
+                        <HeroModel3D faction={faction} position={[0, 0.1, 0]} scale={0.7} lowHp={isLowHp} />
 
                         {/* Floating Aetheric Dice representation based on class */}
                         <FloatingDice3D categoryKey={AethericDiceEngine.getCategoryByHero(thread.id)} tintColor={tint} isLocalPlayer={isLocalPlayer} />

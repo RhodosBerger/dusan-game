@@ -1,6 +1,7 @@
 import { ActionNode } from './ActionNode';
 import { SovereignEngine } from './SovereignEngine';
 import { CombinatoricProbabilityEngine, getPhysicsSpecs } from '@dusan-game/shared';
+import { DeterministicTurnBalancer } from './DeterministicTurnBalancer';
 
 export type TurnPhase = 'MULLIGAN' | 'PREPARATION' | 'ACTION' | 'INTERRUPT_WINDOW' | 'RESOLVE_NETWORK' | 'END_TURN';
 
@@ -11,6 +12,7 @@ export class TurnStateMachine {
   timerLeft: number; // Zostávajúci čas v sekundách
   currentAction: ActionNode | null;
   turnNumber: number;
+  balancer: DeterministicTurnBalancer;
 
   lastPlayedSpecs: Record<string, { voltage: number; resistance: number }> = {};
   mulliganComplete: Record<string, boolean> = {};
@@ -18,6 +20,7 @@ export class TurnStateMachine {
   constructor(private engine: SovereignEngine) {
     this.activePlayerId = '';
     this.baseActivePlayerId = '';
+    this.balancer = new DeterministicTurnBalancer([]);
     this.currentPhase = 'PREPARATION';
     this.timerLeft = 0;
     this.currentAction = null;
@@ -80,6 +83,11 @@ export class TurnStateMachine {
    * Spustí nové kolo pre daného hráča
    */
   startTurn(playerId: string): void {
+    // Ensure balancer is initialized with the correct players once they are added
+    if (this.engine.playerIds.length > 0 && (!this.balancer || !this.balancer.getPlayerState(this.engine.playerIds[0]))) {
+      this.balancer = new DeterministicTurnBalancer(this.engine.playerIds);
+    }
+
     this.activePlayerId = playerId;
     this.baseActivePlayerId = playerId;
     this.currentPhase = 'PREPARATION';
@@ -106,6 +114,23 @@ export class TurnStateMachine {
     if (this.currentPhase !== 'ACTION') {
       console.log(`[STATE_MACHINE] Varovanie: Akciu nie je možné vykonať mimo fázy ACTION (aktuálna: ${this.currentPhase}).`);
       return;
+    }
+
+    const cardId = node.instruction.id;
+    let baseCost = 2;
+    try {
+      const specs = getPhysicsSpecs(cardId);
+      baseCost = Math.max(1, Math.round(specs.voltage + specs.resistance));
+    } catch (e) {}
+
+    const playerThread = this.engine.threads.find(t => t.id === node.sourceId);
+    if (playerThread && playerThread.type === 'PLAYER') {
+      const health = playerThread.health;
+      const maxHealth = playerThread.maxHealth || 15;
+      const isLow = (health / maxHealth) < 0.4;
+      
+      const costResult = this.balancer.registerActionCost(node.sourceId, baseCost, isLow);
+      console.log(`[INITIATIVE_BALANCER] Cost registered for ${node.sourceId}: base=${baseCost}, final=${costResult.finalCost} (Fatigue: ${costResult.fatigueApplied}, CatchUp: ${costResult.catchUpApplied})`);
     }
 
     const isAttackOrMagic = node.instruction.damage > 0;
@@ -309,6 +334,27 @@ export class TurnStateMachine {
   endTurn(): void {
     this.currentPhase = 'END_TURN';
     
+    // Decrement tile collapse timers and execute collapses (Dynamic Terrain Resonator)
+    this.engine.map.chunks.forEach(chunk => {
+      chunk.blocks.forEach(block => {
+        if (block.collapseInTurns !== undefined && block.collapseInTurns !== null) {
+          block.collapseInTurns--;
+          if (block.collapseInTurns <= 0) {
+            block.walkable = false;
+            block.hazardIndex = 1.0;
+            block.collapseInTurns = undefined;
+            console.log(`[TILE_COLLAPSE] Chunk ${chunk.id} Block ${block.id} has collapsed into the void!`);
+            this.engine.traceLog.push({
+              type: 'TileCollapse',
+              threadId: 'system',
+              message: `Chunk ${chunk.id} Block ${block.id} collapsed into the void!`,
+              timestamp: Date.now()
+            } as any);
+          }
+        }
+      });
+    });
+    
     // 1. Pravdepodobnostný drop suroviny pre aktívneho hráča na konci ťahu
     const activeThread = this.engine.threads.find(t => t.id === this.activePlayerId);
     if (activeThread && activeThread.type === 'PLAYER') {
@@ -397,8 +443,18 @@ export class TurnStateMachine {
       }
     });
 
-    // Zmena aktívneho hráča
-    const nextPlayerId = this.baseActivePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
+    // Zmena aktívneho hráča na základe deterministického turn balancera
+    const playerHealths: Record<string, number> = {};
+    this.engine.threads.forEach(t => {
+      if (t.type === 'PLAYER') {
+        playerHealths[t.id] = t.health;
+      }
+    });
+    let nextPlayerId = this.balancer ? this.balancer.getNextPlayerId(playerHealths) : '';
+    if (!nextPlayerId) {
+      nextPlayerId = this.baseActivePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
+    }
+    
     if (nextPlayerId === 'thread_king_ai') {
       this.turnNumber++;
     }

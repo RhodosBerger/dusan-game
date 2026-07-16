@@ -105,3 +105,19 @@ model PlayerArtifact {
 
   @@index([playerId])
 }
+
+// ── Card Trading (Transactions & Swaps) ──────────────────────────────────────
+model CardTrade {
+  id               String   @id @default(uuid())
+  senderId         String
+  receiverId       String?  // Optional: null for public offers
+  offeredCardId    String   // References PlayerCard.id
+  requestedCardDef String   // References cardDefinitionId they want in return (e.g. "crystal_laser_burst")
+  status           String   // "PENDING" | "COMPLETED" | "CANCELLED"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([receiverId])
+}
+

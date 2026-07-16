@@ -4,6 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { SpatialGuidanceSystem } from '../../../shared/src/index';
+import * as THREE from 'three';
 export default function GameplayCompositorTemplate({ activeThreadId = 'thread_king_ai', realityPhase = 'STANDARD', setRealityPhase }) {
     const [heroDataset, setHeroDataset] = useState(null);
     const [marketData, setMarketData] = useState(null);
@@ -1081,7 +1082,7 @@ SYNC_CARTEZIAN_COORDINATES();`;
 
             {/* Right Panel: Interactive 3D Canvas Preview */}
             <div className="flex-1 relative bg-[#06060c]">
-                <Canvas shadows camera={{ position: [0, 2, 4], fov: 45 }}>
+                <Canvas shadows={{ type: THREE.PCFShadowMap }} camera={{ position: [0, 2, 4], fov: 45 }}>
                     <ambientLight intensity={0.4} />
                     <directionalLight position={[5, 10, 5]} intensity={1.5} />
                     <pointLight position={[-5, 5, -5]} intensity={0.5} color="#8800ff" />

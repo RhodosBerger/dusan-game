@@ -2,6 +2,7 @@ import { Thread } from './Thread';
 import { GameMap, Block } from './Map';
 import { SovereignLayerLogger } from '../utils/SovereignLayerLogger';
 import { SafeMath } from '../utils/SafeMath';
+import { DatabaseSyncManager } from './DatabaseSyncManager';
 
 export interface IntrospectionMetrics {
   anomaliesDetected: number;
@@ -128,4 +129,156 @@ export class SovereignIntrospectionEngine {
       }
     });
   }
+
+  /**
+   * Analyzes trace logs in LIFO order (latest first) to reconstruct anomalies, overloads, and LIFO resolution accuracy.
+   */
+  public static async analyzeLogs(
+    traceLogs: any[],
+    dbSync?: DatabaseSyncManager
+  ): Promise<IntrospectionAnalysis> {
+    let allLogs = [...traceLogs];
+    if (dbSync) {
+      try {
+        const dbTelemetry = (dbSync as any).db.prepare(
+          'SELECT telemetry_theory FROM game_events_telemetry ORDER BY id DESC LIMIT 50'
+        ).all() as any[];
+        
+        for (const row of dbTelemetry) {
+          try {
+            const theory = JSON.parse(row.telemetry_theory);
+            if (theory && theory.traceLog) {
+              allLogs.push(...theory.traceLog);
+            } else if (theory && theory.message) {
+              allLogs.push(theory);
+            }
+          } catch (e) {
+            // ignore malformed JSON
+          }
+        }
+      } catch (err) {
+        console.warn('[INTROSPECTION] Failed to fetch db logs:', err);
+      }
+    }
+
+    // Filter valid logs and sort by timestamp descending (LIFO order: newest first)
+    allLogs = allLogs.filter(l => l && (l.timestamp || l.created_at));
+    allLogs.sort((a, b) => {
+      const tsA = a.timestamp || a.created_at || 0;
+      const tsB = b.timestamp || b.created_at || 0;
+      return tsB - tsA;
+    });
+
+    const anomaliesDetected: any[] = [];
+    const overloadsDetected: any[] = [];
+    
+    let totalResolutions = 0;
+    let successfulMitigations = 0;
+    let criticalHitsCount = 0;
+    let stackDepthPeak = 0;
+    const arbiterAnomalies: string[] = [];
+
+    for (const log of allLogs) {
+      const msg = log.message || '';
+      const type = log.type || '';
+      const ts = log.timestamp || log.created_at || Date.now();
+
+      // Detect anomalies
+      if (type === 'Error' || msg.toLowerCase().includes('failed') || msg.toLowerCase().includes('error') || msg.toLowerCase().includes('invalid')) {
+        anomaliesDetected.push({
+          type: 'SYSTEM_ERROR',
+          severity: 'HIGH',
+          message: msg || `An error event of type ${type} was recorded.`,
+          timestamp: ts
+        });
+      }
+      
+      if (msg.includes('Low HP') || msg.includes('HP critical') || (log.health !== undefined && log.health <= 3)) {
+        anomaliesDetected.push({
+          type: 'PLAYER_LOW_VITALITY',
+          severity: 'MEDIUM',
+          message: msg || `Player health dropped to critical level.`,
+          timestamp: ts
+        });
+      }
+
+      // Detect overloads
+      if (msg.includes('VOLTAGE_SURGE') || msg.includes('voltage surge') || msg.includes('consecutive') || (log.voltage !== undefined && log.voltage > 4)) {
+        overloadsDetected.push({
+          type: 'GRID_VOLTAGE_OVERLOAD',
+          loadFactor: log.voltage ? log.voltage / 5 : 0.8,
+          message: msg || `High grid voltage surge detected.`,
+          timestamp: ts
+        });
+      }
+      
+      if (msg.includes('SHORT_CIRCUIT') || msg.includes('short circuit') || log.entropy > 0.8) {
+        overloadsDetected.push({
+          type: 'THERMAL_ENTROPY_OVERLOAD',
+          loadFactor: log.entropy || 0.9,
+          message: msg || `Grid short circuit or high entropy state detected.`,
+          timestamp: ts
+        });
+      }
+
+      // Reconstruct LIFO Arbiter metrics
+      if (msg.includes('[LIFO_ARBITER]') || msg.includes('dodge reaction') || msg.includes('successfully dodged') || msg.includes('critical headshot') || msg.includes('wounded twice') || msg.includes('mitigated') || msg.includes('[MITIGATED]')) {
+        totalResolutions++;
+        
+        if (msg.includes('successfully dodged') || msg.includes('mitigated') || msg.includes('[MITIGATED]')) {
+          successfulMitigations++;
+        }
+        
+        if (msg.includes('critical') || msg.includes('headshot') || msg.includes('CRITICAL')) {
+          criticalHitsCount++;
+        }
+        
+        // Reconstruct stack depth
+        const depthMatch = msg.match(/size:\s*(\d+)/i) || msg.match(/depth:\s*(\d+)/i);
+        if (depthMatch && depthMatch[1]) {
+          const depth = parseInt(depthMatch[1], 10);
+          if (depth > stackDepthPeak) {
+            stackDepthPeak = depth;
+          }
+        }
+
+        // Verify LIFO sequence accuracy
+        if (msg.includes('out of order') || msg.includes('invalid stack') || msg.includes('resolution failed')) {
+          arbiterAnomalies.push(msg);
+        }
+      }
+    }
+
+    const mitigationAccuracy = totalResolutions > 0 
+      ? Number(((successfulMitigations / totalResolutions) * 100).toFixed(1))
+      : 100.0;
+
+    return {
+      timestamp: new Date().toISOString(),
+      totalLogsAnalyzed: allLogs.length,
+      anomaliesDetected,
+      overloadsDetected,
+      lifoArbiterMetrics: {
+        totalResolutions,
+        mitigationAccuracy,
+        criticalHitsCount,
+        stackDepthPeak: stackDepthPeak || (totalResolutions > 0 ? 3 : 0),
+        anomalies: arbiterAnomalies
+      }
+    };
+  }
+}
+
+export interface IntrospectionAnalysis {
+  timestamp: string;
+  totalLogsAnalyzed: number;
+  anomaliesDetected: { type: string; severity: 'LOW' | 'MEDIUM' | 'HIGH'; message: string; timestamp: number }[];
+  overloadsDetected: { type: string; loadFactor: number; message: string; timestamp: number }[];
+  lifoArbiterMetrics: {
+    totalResolutions: number;
+    mitigationAccuracy: number;
+    criticalHitsCount: number;
+    stackDepthPeak: number;
+    anomalies: string[];
+  };
 }

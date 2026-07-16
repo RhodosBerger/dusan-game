@@ -106,7 +106,32 @@ export class SovereignTelemetrySpawner {
     } catch (e: any) {
       console.warn('[OPENVINO SPAWNER] Failed to query vision telemetry endpoint:', e.message);
     }
- 
+    // 0.1. Emotional Adaptation: if player is fatigued or stressed, spawn helpful items (Telemetry Loot Chest) nearby to assist them
+    const lastFatigue = (engine as any).lastFatigueIndex || 0;
+    const lastFocus = (engine as any).lastFocusIndex || 1.0;
+    const lastEmotion = (engine as any).lastEmotion || 'CALM';
+    
+    if (lastFatigue > 0.6 || lastFocus < 0.3 || lastEmotion === 'STRESSED') {
+      const safeHex = getSafeHexInChunk(8, 2);
+      const scheduledTurn = getScheduledTurn('TELEMETRY_LOOT_CHEST');
+      const eventUuid = engine.spawningPlanner.scheduleSpawn({
+        type: 'TELEMETRY_LOOT_CHEST',
+        name: 'Aetheric Recovery Kit',
+        meta: 8,
+        hex: safeHex,
+        scheduledTurn,
+        description: 'Aetheric Recovery Kit spawned dynamically to assist fatigued/stressed player.'
+      });
+
+      this.activeEvents.push({
+        id: eventUuid,
+        type: 'TELEMETRY_LOOT_CHEST',
+        name: 'Aetheric Recovery Kit',
+        meta: 8,
+        hex: safeHex,
+        description: 'Aetheric Recovery Kit spawned dynamically to assist fatigued/stressed player.'
+      });
+    }
     // ML Archetype Counter Spawner Adaptation
     const archetype = (engine as any).activeArchetype;
     if (archetype === 'BURST_DAMAGE') {

@@ -514,6 +514,34 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
     const [selectedVariant, setSelectedVariant] = useState(1); // 1 to 30
     const [selectedElementType, setSelectedElementType] = useState('PLAYER');
 
+    // Placement Editor states
+    const [placedHelpers, setPlacedHelpers] = useState([
+        { id: 'helper_1', type: 'TOWER', chunkId: 0, blockId: 3, altitude: 'STANDARD_HEX', yPos: 0.0 },
+        { id: 'helper_2', type: 'FLAG', chunkId: 1, blockId: 5, altitude: 'HIGH_OVERCLOCK', yPos: 2.0 }
+    ]);
+    const [selectedHelperType, setSelectedHelperType] = useState('TOWER');
+    const [selectedAltitude, setSelectedAltitude] = useState('STANDARD_HEX');
+    const [isStaggeredLoading, setIsStaggeredLoading] = useState(false);
+
+    // Engine regulators state (Goal 6/Handoff)
+    const [enabledDraco, setEnabledDraco] = useState(true);
+    const [enabledTurnBalancer, setEnabledTurnBalancer] = useState(true);
+    const [enabledTransparency, setEnabledTransparency] = useState(true);
+    const [enabledGodRays, setEnabledGodRays] = useState(true);
+    const [enabledItemLoaders, setEnabledItemLoaders] = useState(true);
+    const [enabledOpenVINO, setEnabledOpenVINO] = useState(true);
+    const [enabledDeltaCompression, setEnabledDeltaCompression] = useState(true);
+
+    // Timeline Cutting Strip states
+    const [selectedFrame, setSelectedFrame] = useState(0); // 0 to 11 (12 keyframes)
+
+    // Node Composer & Texture Department Simulation states (Department Simulation)
+    const [selectedDept, setSelectedDept] = useState('ART_ASSETS');
+    const [selectedTexture, setSelectedTexture] = useState('moss_base');
+    const [textureBoost, setTextureBoost] = useState(true);
+    const [textureBevel, setTextureBevel] = useState(false);
+    const [textureSpecular, setTextureSpecular] = useState(true);
+
     React.useEffect(() => {
         if (typeof window !== 'undefined') {
             window.activeSovereignFormulas = window.activeSovereignFormulas || {};
@@ -984,37 +1012,85 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                         onClick={() => setActiveRightTab('files')}
                         style={{
                             flex: 1,
-                            padding: '12px 6px',
+                            padding: '12px 4px',
                             background: activeRightTab === 'files' ? 'transparent' : '#15171e',
                             color: activeRightTab === 'files' ? '#00eeff' : '#888',
                             border: 'none',
                             borderBottom: activeRightTab === 'files' ? '2px solid #00eeff' : 'none',
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: 'bold',
                             cursor: 'pointer'
                         }}
                     >
-                        📂 FILE EXPLORER
+                        📂 FILES
                     </button>
                     <button 
                         onClick={() => setActiveRightTab('keyframes')}
                         style={{
                             flex: 1,
-                            padding: '12px 6px',
+                            padding: '12px 4px',
                             background: activeRightTab === 'keyframes' ? 'transparent' : '#15171e',
                             color: activeRightTab === 'keyframes' ? '#ffd700' : '#888',
                             border: 'none',
                             borderBottom: activeRightTab === 'keyframes' ? '2px solid #ffd700' : 'none',
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: 'bold',
                             cursor: 'pointer'
                         }}
                     >
-                        🎬 KEYFRAMES BACKOFFICE
+                        🎬 KEYFRAMES
+                    </button>
+                    <button 
+                        onClick={() => setActiveRightTab('placement')}
+                        style={{
+                            flex: 1,
+                            padding: '12px 4px',
+                            background: activeRightTab === 'placement' ? 'transparent' : '#15171e',
+                            color: activeRightTab === 'placement' ? '#ff4757' : '#888',
+                            border: 'none',
+                            borderBottom: activeRightTab === 'placement' ? '2px solid #ff4757' : 'none',
+                            fontSize: 10,
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        🏗️ PLACEMENT
+                    </button>
+                    <button 
+                        onClick={() => setActiveRightTab('timeline_strip')}
+                        style={{
+                            flex: 1,
+                            padding: '12px 4px',
+                            background: activeRightTab === 'timeline_strip' ? 'transparent' : '#15171e',
+                            color: activeRightTab === 'timeline_strip' ? '#ffa500' : '#888',
+                            border: 'none',
+                            borderBottom: activeRightTab === 'timeline_strip' ? '2px solid #ffa500' : 'none',
+                            fontSize: 10,
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        🎞️ TIMELINE
+                    </button>
+                    <button 
+                        onClick={() => setActiveRightTab('node_composer')}
+                        style={{
+                            flex: 1,
+                            padding: '12px 4px',
+                            background: activeRightTab === 'node_composer' ? 'transparent' : '#15171e',
+                            color: activeRightTab === 'node_composer' ? '#a855f7' : '#888',
+                            border: 'none',
+                            borderBottom: activeRightTab === 'node_composer' ? '2px solid #a855f7' : 'none',
+                            fontSize: 10,
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        🎨 NODES
                     </button>
                 </div>
 
-                {activeRightTab === 'files' ? (
+                {activeRightTab === 'files' && (
                     <>
                         <div style={{ padding: '16px 20px', borderBottom: '1px solid #232733' }}>
                             <h2 style={{ margin: 0, fontSize: 16, color: '#00eeff', letterSpacing: 0.5 }}>📂 GAME CONTENT MANAGER</h2>
@@ -1156,7 +1232,8 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                             </button>
                         </div>
                     </>
-                ) : (
+                )}
+                {activeRightTab === 'keyframes' && (
                     /* Keyframes Backoffice dashboard */
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px', overflowY: 'auto' }}>
                         <div style={{ marginBottom: 16 }}>
@@ -1305,6 +1382,543 @@ export default function SovereignBuilderCMS({ gridData, onSave }) {
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    </div>
+                )}
+                {activeRightTab === 'placement' && (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px', overflowY: 'auto' }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: 14, color: '#ff4757' }}>🏗️ HELPER PLACEMENT & VPC SNAP</h3>
+                            <span style={{ fontSize: 10, opacity: 0.6 }}>Low-Poly Snapping & Staggered Initialization</span>
+                        </div>
+
+                        {/* Helper Configuration */}
+                        <div style={{ marginBottom: 12 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4 }}>HELPER TYPE</label>
+                            <select 
+                                value={selectedHelperType}
+                                onChange={(e) => setSelectedHelperType(e.target.value)}
+                                style={{ width: '100%', padding: '6px', background: '#0d0e12', color: '#fff', border: '1px solid #333', borderRadius: 4, fontSize: 11 }}
+                            >
+                                <option value="TOWER">Low-Poly Defense Tower</option>
+                                <option value="FLAG">Tactical Flag Indicator</option>
+                            </select>
+                        </div>
+
+                        <div style={{ marginBottom: 12 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4 }}>VPC ALTITUDE SNAP PROFILE</label>
+                            <select 
+                                value={selectedAltitude}
+                                onChange={(e) => setSelectedAltitude(e.target.value)}
+                                style={{ width: '100%', padding: '6px', background: '#0d0e12', color: '#fff', border: '1px solid #333', borderRadius: 4, fontSize: 11 }}
+                            >
+                                <option value="LOW_GROUND">LOW_GROUND (y = -2.0)</option>
+                                <option value="STANDARD_HEX">STANDARD_HEX (y = 0.0)</option>
+                                <option value="HIGH_OVERCLOCK">HIGH_OVERCLOCK (y = +2.0)</option>
+                            </select>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ marginBottom: 16 }}>
+                            <button
+                                onClick={() => {
+                                    if (!selectedNode) {
+                                        setLogMessages(prev => ['[CMS ERROR] Select a hex node first to snap place.', ...prev]);
+                                        return;
+                                    }
+                                    const yVal = selectedAltitude === 'LOW_GROUND' ? -2.0 : (selectedAltitude === 'HIGH_OVERCLOCK' ? 2.0 : 0.0);
+                                    const newHelper = {
+                                        id: `helper_${Date.now()}`,
+                                        type: selectedHelperType,
+                                        chunkId: selectedNode.macroIndex,
+                                        blockId: selectedNode.subIndex,
+                                        altitude: selectedAltitude,
+                                        yPos: yVal
+                                    };
+                                    setPlacedHelpers(prev => [...prev, newHelper]);
+                                    setLogMessages(prev => [`[CMS] Placed ${selectedHelperType} at M${selectedNode.macroIndex}_S${selectedNode.subIndex} snapped to ${selectedAltitude} (${yVal.toFixed(1)}).`, ...prev]);
+                                    
+                                    // Trigger staggered 3-frame initialization cycle simulation
+                                    setIsStaggeredLoading(true);
+                                    setLogMessages(prev => ['[RENDER] Frame 1: Initializing Hero mesh...', ...prev]);
+                                    requestAnimationFrame(() => {
+                                        setLogMessages(prev => ['[RENDER] Frame 2: Initializing Grid base mesh...', ...prev]);
+                                        requestAnimationFrame(() => {
+                                            setLogMessages(prev => ['[RENDER] Frame 3: Initializing Props & Helpers (Towers/Flags)... Render complete.', ...prev]);
+                                            setIsStaggeredLoading(false);
+                                        });
+                                    });
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    background: '#ff4757',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    fontSize: 11
+                                }}
+                            >
+                                Place & Snap to Altitudes
+                            </button>
+                        </div>
+
+                        {/* Placed helpers list */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4 }}>PLACED PROPS ({placedHelpers.length})</label>
+                            <div style={{ background: '#0d0e12', borderRadius: 4, padding: '8px', maxHeight: 200, overflowY: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                                    <thead>
+                                        <tr style={{ color: '#888', borderBottom: '1px solid #333' }}>
+                                            <th style={{ textAlign: 'left', padding: '4px' }}>TYPE</th>
+                                            <th style={{ textAlign: 'left', padding: '4px' }}>COORD</th>
+                                            <th style={{ textAlign: 'right', padding: '4px' }}>ALTITUDE (Y)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {placedHelpers.map((h, i) => (
+                                            <tr key={h.id} style={{ borderBottom: '1px solid #222' }}>
+                                                <td style={{ padding: '4px', color: '#ff4757', fontWeight: 'bold' }}>{h.type}</td>
+                                                <td style={{ padding: '4px', color: '#fff' }}>M{h.chunkId}_S{h.blockId}</td>
+                                                <td style={{ padding: '4px', textAlign: 'right', color: '#00ff00' }}>{h.yPos.toFixed(1)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {activeRightTab === 'timeline_strip' && (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px', overflowY: 'auto' }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: 14, color: '#ffa500' }}>🎞️ SOVEREIGN TIMELINE CMS</h3>
+                            <span style={{ fontSize: 10, opacity: 0.6 }}>Synchronized Canvas & Cutting Strip Regulator</span>
+                        </div>
+
+                        {/* Feature Regulators List (Selectable/Clickable) */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 6 }}>AUTOMATED ENGINE REGULATORS</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {[
+                                    { label: 'Draco 3D Character Models', val: enabledDraco, set: setEnabledDraco },
+                                    { label: 'Strategic Turn Balancer', val: enabledTurnBalancer, set: setEnabledTurnBalancer },
+                                    { label: 'Hexagon Transparency & Reflections', val: enabledTransparency, set: setEnabledTransparency },
+                                    { label: 'Volumetric Atmosphere (God Rays)', val: enabledGodRays, set: setEnabledGodRays },
+                                    { label: '3D Item Loaders (Chests/Traps/Nodes)', val: enabledItemLoaders, set: setEnabledItemLoaders },
+                                    { label: 'OpenVINO Fatigue & Blink Analytics', val: enabledOpenVINO, set: setEnabledOpenVINO },
+                                    { label: 'AWS WS Delta Compression', val: enabledDeltaCompression, set: setEnabledDeltaCompression }
+                                ].map((item, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        onClick={() => item.set(!item.val)}
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            background: '#0d0e12',
+                                            border: item.val ? '1px solid #ffa500' : '1px solid #232733',
+                                            borderRadius: 6,
+                                            padding: '8px 10px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 10, color: item.val ? '#fff' : '#888' }}>{item.label}</span>
+                                        <span style={{ 
+                                            fontSize: 9, 
+                                            fontWeight: 'bold', 
+                                            color: item.val ? '#ffa500' : '#888',
+                                            background: item.val ? 'rgba(255, 165, 0, 0.15)' : '#1a1d26',
+                                            padding: '2px 6px',
+                                            borderRadius: 4
+                                        }}>
+                                            {item.val ? 'ACTIVE' : 'STANDBY'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Interactive Film Timeline Cutting Strip */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 6 }}>INTERACTIVE CUTTING STRIP TIMELINE</label>
+                            
+                            {/* sprocket holes container */}
+                            <div style={{ background: '#07070a', borderRadius: 8, padding: '12px 6px', border: '1px solid #232733', overflow: 'hidden' }}>
+                                {/* Top Sprockets */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px', marginBottom: 8 }}>
+                                    {Array.from({ length: 12 }).map((_, i) => (
+                                        <div key={i} style={{ width: 6, height: 6, background: '#1a1d26', borderRadius: 1 }} />
+                                    ))}
+                                </div>
+
+                                {/* Film Frames */}
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                    {Array.from({ length: 12 }).map((_, i) => {
+                                        const isActive = selectedFrame === i;
+                                        return (
+                                            <div 
+                                                key={i}
+                                                onClick={() => {
+                                                    setSelectedFrame(i);
+                                                    setLogMessages(prev => [`[CMS] Jumped to Timeline Frame #${i} (${(i / 11 * 100).toFixed(0)}%).`, ...prev]);
+                                                }}
+                                                style={{
+                                                    flex: 1,
+                                                    height: 36,
+                                                    background: isActive ? '#ffa500' : '#111319',
+                                                    border: '1px solid #333',
+                                                    borderRadius: 3,
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    cursor: 'pointer',
+                                                    color: isActive ? '#000' : '#ffd700',
+                                                    fontSize: 9,
+                                                    fontWeight: 'bold',
+                                                    boxShadow: isActive ? '0 0 8px rgba(255, 165, 0, 0.4)' : 'none',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                            >
+                                                <span>F{i}</span>
+                                                <span style={{ fontSize: 7, opacity: 0.7 }}>{((i / 11) * 100).toFixed(0)}%</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Bottom Sprockets */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px', marginTop: 8 }}>
+                                    {Array.from({ length: 12 }).map((_, i) => (
+                                        <div key={i} style={{ width: 6, height: 6, background: '#1a1d26', borderRadius: 1 }} />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Selected Keyframe Inspector & Equation Sync */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ background: '#0d0e12', border: '1px solid #232733', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                                <div style={{ fontSize: 10, color: '#ffa500', textTransform: 'uppercase', marginBottom: 8, fontWeight: 'bold' }}>
+                                    Frame #{selectedFrame} Keyframe Parameters
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 10, color: '#888' }}>
+                                    <div>Time: <span style={{ color: '#fff' }}>{(selectedFrame / 11).toFixed(2)}s ({(selectedFrame / 11 * 100).toFixed(0)}%)</span></div>
+                                    <div>Active Formula: <span style={{ color: '#fff' }}>{selectedFormula}</span></div>
+                                    <div>Multiplier: <span style={{ color: '#ffd700' }}>{(selectedVariant * 0.5).toFixed(1)}x</span></div>
+                                    <div>Type: <span style={{ color: '#00eeff' }}>{selectedElementType}</span></div>
+                                </div>
+                            </div>
+
+                            {/* Sync to Canvas trigger button */}
+                            <button
+                                onClick={() => {
+                                    setIsSyncing(true);
+                                    setTimeout(() => {
+                                        setIsSyncing(false);
+                                        const newConfig = {
+                                            enabledDraco,
+                                            enabledTurnBalancer,
+                                            enabledTransparency,
+                                            enabledGodRays,
+                                            enabledItemLoaders,
+                                            enabledOpenVINO,
+                                            enabledDeltaCompression,
+                                            lastSyncTime: Date.now()
+                                        };
+                                        setVirtualFiles(prev => ({
+                                            ...prev,
+                                            "game_content/configs/gameplay_rules.json": JSON.stringify(newConfig, null, 2)
+                                        }));
+                                        setLogMessages(prev => [
+                                            `[CMS] Synchronized all ${placedHelpers.length + 1} elements (Canvas + Cutting Strip) with active gameplay loop config!`,
+                                            ...prev
+                                        ]);
+                                    }, 600);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    background: isSyncing ? '#333' : '#ffa500',
+                                    color: '#000',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 0 12px rgba(255, 165, 0, 0.3)',
+                                    fontSize: 11
+                                }}
+                                disabled={isSyncing}
+                            >
+                                {isSyncing ? 'Synchronizing...' : 'Sync Timeline with Canvas'}
+                    </div>
+                )}
+                {activeRightTab === 'node_composer' && (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px', overflowY: 'auto' }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: 14, color: '#a855f7' }}>🎨 DEPARTMENTS & NODE COMPOSER</h3>
+                            <span style={{ fontSize: 10, opacity: 0.6 }}>Industrial Standard Texture & Surface Simulation</span>
+                        </div>
+
+                        {/* 1. Department Simulation Selector */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 6 }}>CREATIVE DEPARTMENTS</label>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                {[
+                                    { id: 'ART_ASSETS', label: '🎨 Art & Assets', tool: 'Substance Designer', standard: '4K Tex / 2.0 PBR' },
+                                    { id: 'VFX_ENVIRONMENT', label: '⚡ VFX & Env', tool: 'R3F / ShaderLab', standard: 'Volumetric God Rays' },
+                                    { id: 'DESIGN_SYSTEMS', label: '⚙️ Design & Sys', tool: 'Ohmic Engine / SJF', standard: 'Turn initiative costs' },
+                                    { id: 'QA_TELEMETRY', label: '📊 QA & Telemetry', tool: 'OpenVINO / Gaze SDK', standard: '60fps GPU ceiling' }
+                                ].map(dept => {
+                                    const isSel = selectedDept === dept.id;
+                                    return (
+                                        <div 
+                                            key={dept.id}
+                                            onClick={() => {
+                                                setSelectedDept(dept.id);
+                                                setLogMessages(prev => [`[DEPT] Active workspace switched to ${dept.label}.`, ...prev]);
+                                            }}
+                                            style={{
+                                                flex: '1 1 45%',
+                                                padding: '6px 8px',
+                                                background: isSel ? 'rgba(168, 85, 247, 0.15)' : '#0d0e12',
+                                                border: isSel ? '1px solid #a855f7' : '1px solid #232733',
+                                                borderRadius: 6,
+                                                cursor: 'pointer',
+                                                fontSize: 9,
+                                                color: isSel ? '#fff' : '#888',
+                                                textAlign: 'center',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                        >
+                                            {dept.label}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            
+                            {/* Selected Department Details */}
+                            <div style={{ background: '#07070a', border: '1px solid #1a1d26', borderRadius: 6, padding: 8, marginTop: 6, fontSize: 9, color: '#888' }}>
+                                {selectedDept === 'ART_ASSETS' && <div>Tool: <span style={{ color: '#fff' }}>Substance Designer PBR</span> | Standard: <span style={{ color: '#a855f7' }}>4K texture arrays / 0.85 metalness limit</span></div>}
+                                {selectedDept === 'VFX_ENVIRONMENT' && <div>Tool: <span style={{ color: '#fff' }}>Three.js Volumetric Shader</span> | Standard: <span style={{ color: '#a855f7' }}>3 volumetric light shafts max</span></div>}
+                                {selectedDept === 'DESIGN_SYSTEMS' && <div>Tool: <span style={{ color: '#fff' }}>Deterministic Turn Balancer</span> | Standard: <span style={{ color: '#a855f7' }}>SJF priority queueing under 2ms</span></div>}
+                                {selectedDept === 'QA_TELEMETRY' && <div>Tool: <span style={{ color: '#fff' }}>OpenVINO Eye Gaze SDK</span> | Standard: <span style={{ color: '#a855f7' }}>Debounced 10Hz SQLite WAL telemetry</span></div>}
+                            </div>
+                        </div>
+
+                        {/* 2. SVG Node Editor Simulation */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 6 }}>TEXTURE INTERPRETATION NODE EDITOR</label>
+                            <div style={{ position: 'relative', width: '100%', height: 110, background: '#07070a', border: '1px solid #232733', borderRadius: 8, overflow: 'hidden' }}>
+                                {/* SVG connection lines */}
+                                <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                                    <path d="M 50 30 Q 95 30 110 55" stroke="#a855f7" strokeWidth="1.5" fill="none" strokeDasharray="3,3" />
+                                    <path d="M 50 80 Q 95 80 110 55" stroke="#a855f7" strokeWidth="1.5" fill="none" strokeDasharray="3,3" />
+                                    <path d="M 180 55 H 220" stroke="#00eeff" strokeWidth="1.8" fill="none" />
+                                    <path d="M 270 55 H 290" stroke="#00eeff" strokeWidth="1.8" fill="none" />
+                                </svg>
+
+                                {/* Nodes Layout */}
+                                {/* Input Node 1 */}
+                                <div style={{ position: 'absolute', top: 12, left: 10, width: 45, height: 26, background: '#111319', border: '1px solid #444', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff' }}>
+                                    Texture
+                                </div>
+                                {/* Input Node 2 */}
+                                <div style={{ position: 'absolute', top: 62, left: 10, width: 45, height: 26, background: '#111319', border: '1px solid #444', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff' }}>
+                                    Modifiers
+                                </div>
+                                {/* Middle Parser Node */}
+                                <div style={{ position: 'absolute', top: 38, left: 100, width: 80, height: 32, background: 'rgba(168, 85, 247, 0.2)', border: '1px solid #a855f7', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff' }}>
+                                    <span style={{ fontWeight: 'bold' }}>Semantic Parser</span>
+                                    <span style={{ fontSize: 6, color: '#a855f7' }}>[Name -> Spec]</span>
+                                </div>
+                                {/* Modifiers Node */}
+                                <div style={{ position: 'absolute', top: 38, left: 210, width: 60, height: 32, background: '#111319', border: '1px solid #00eeff', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff' }}>
+                                    <span style={{ fontWeight: 'bold' }}>Toner</span>
+                                    <span style={{ fontSize: 6, color: '#00eeff' }}>
+                                        {textureBoost ? '+Boost' : ''} {textureSpecular ? '+Glow' : ''}
+                                    </span>
+                                </div>
+                                {/* Output Node */}
+                                <div style={{ position: 'absolute', top: 40, left: 285, width: 28, height: 28, background: '#00ff00', border: '1px solid #fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#000', fontWeight: 'bold' }}>
+                                    OUT
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Texture input selection */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4 }}>SELECT TEXTURE TEMPLATE</label>
+                            <select 
+                                value={selectedTexture}
+                                onChange={(e) => {
+                                    setSelectedTexture(e.target.value);
+                                    setLogMessages(prev => [`[NODE] Loaded texture '${e.target.value}'. Parsing semantics...`, ...prev]);
+                                }}
+                                style={{ width: '100%', padding: '6px', background: '#0d0e12', color: '#fff', border: '1px solid #333', borderRadius: 4, fontSize: 11 }}
+                            >
+                                <option value="moss_base">moss_base (Lush Biome / soft matte / 1.0 friction)</option>
+                                <option value="glacier_fracture">glacier_fracture (Ice Biome / reflective / 0.8 friction)</option>
+                                <option value="toxic_sludge">toxic_sludge (Swamp Biome / specular purp / 1.6 friction)</option>
+                                <option value="sand_dunes">sand_dunes (Desert Biome / orange matte / 1.2 friction)</option>
+                                <option value="slag_plates">slag_plates (Barrens Biome / slate gray PBR / 1.0 friction)</option>
+                            </select>
+                        </div>
+
+                        {/* 4. Modifier switches */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 6 }}>NODE MODIFIERS</label>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={() => setTextureBoost(prev => !prev)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '6px',
+                                        fontSize: 9,
+                                        background: textureBoost ? '#a855f7' : '#0d0e12',
+                                        color: textureBoost ? '#000' : '#888',
+                                        border: '1px solid #232733',
+                                        borderRadius: 4,
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Boost Color
+                                </button>
+                                <button
+                                    onClick={() => setTextureBevel(prev => !prev)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '6px',
+                                        fontSize: 9,
+                                        background: textureBevel ? '#a855f7' : '#0d0e12',
+                                        color: textureBevel ? '#000' : '#888',
+                                        border: '1px solid #232733',
+                                        borderRadius: 4,
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Apply Bevel
+                                </button>
+                                <button
+                                    onClick={() => setTextureSpecular(prev => !prev)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '6px',
+                                        fontSize: 9,
+                                        background: textureSpecular ? '#a855f7' : '#0d0e12',
+                                        color: textureSpecular ? '#000' : '#888',
+                                        border: '1px solid #232733',
+                                        borderRadius: 4,
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Specular Glow
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 5. Semantic attributes inspector */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ background: '#0d0e12', border: '1px solid #232733', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                                <div style={{ fontSize: 10, color: '#a855f7', textTransform: 'uppercase', marginBottom: 8, fontWeight: 'bold' }}>
+                                    Surface Simulation Attributes
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 10, color: '#888' }}>
+                                    {/* Compute properties dynamically based on name */}
+                                    {selectedTexture === 'moss_base' && (
+                                        <>
+                                            <div>Elastic Modulus (E): <span style={{ color: '#fff' }}>0.01 GPa (highly compliant)</span></div>
+                                            <div>Thermal Conductivity (k): <span style={{ color: '#fff' }}>0.06 W/m·K (insulating)</span></div>
+                                            <div>Friction Coefficient (μs): <span style={{ color: '#ffd700' }}>{textureBoost ? '0.55' : '0.45'}</span></div>
+                                            <div>Heat Capacity (cp): <span style={{ color: '#00ff00', fontWeight: 'bold' }}>1920 J/kg·K</span></div>
+                                            <div>TDP Compliance: <span style={{ color: '#00ff00' }}>PASSED (Optimal)</span></div>
+                                        </>
+                                    )}
+                                    {selectedTexture === 'glacier_fracture' && (
+                                        <>
+                                            <div>Elastic Modulus (E): <span style={{ color: '#fff' }}>9.00 GPa (brittle solid)</span></div>
+                                            <div>Thermal Conductivity (k): <span style={{ color: '#fff' }}>2.22 W/m·K (highly conductive)</span></div>
+                                            <div>Friction Coefficient (μs): <span style={{ color: '#ffd700' }}>{textureBoost ? '0.25' : '0.15'}</span></div>
+                                            <div>Heat Capacity (cp): <span style={{ color: '#00eeff', fontWeight: 'bold' }}>2090 J/kg·K</span></div>
+                                            <div>TDP Compliance: <span style={{ color: '#00ff00' }}>PASSED (Optimal)</span></div>
+                                        </>
+                                    )}
+                                    {selectedTexture === 'toxic_sludge' && (
+                                        <>
+                                            <div>Elastic Modulus (E): <span style={{ color: '#fff' }}>0.005 GPa (fluid-like compliance)</span></div>
+                                            <div>Thermal Conductivity (k): <span style={{ color: '#fff' }}>0.58 W/m·K (aqueous)</span></div>
+                                            <div>Friction Coefficient (μs): <span style={{ color: '#ffd700' }}>{textureBoost ? '0.90' : '0.75'}</span></div>
+                                            <div>Heat Capacity (cp): <span style={{ color: '#d946ef', fontWeight: 'bold' }}>4184 J/kg·K</span></div>
+                                            <div>TDP Compliance: <span style={{ color: '#00ff00' }}>PASSED (Optimal)</span></div>
+                                        </>
+                                    )}
+                                    {selectedTexture === 'sand_dunes' && (
+                                        <>
+                                            <div>Elastic Modulus (E): <span style={{ color: '#fff' }}>0.05 GPa (granular displacement)</span></div>
+                                            <div>Thermal Conductivity (k): <span style={{ color: '#fff' }}>0.27 W/m·K (diffusive)</span></div>
+                                            <div>Friction Coefficient (μs): <span style={{ color: '#ffd700' }}>{textureBoost ? '0.65' : '0.55'}</span></div>
+                                            <div>Heat Capacity (cp): <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>830 J/kg·K</span></div>
+                                            <div>TDP Compliance: <span style={{ color: '#00ff00' }}>PASSED (Optimal)</span></div>
+                                        </>
+                                    )}
+                                    {selectedTexture === 'slag_plates' && (
+                                        <>
+                                            <div>Elastic Modulus (E): <span style={{ color: '#fff' }}>50.00 GPa (dense slate basalt)</span></div>
+                                            <div>Thermal Conductivity (k): <span style={{ color: '#fff' }}>1.80 W/m·K (rock transfer)</span></div>
+                                            <div>Friction Coefficient (μs): <span style={{ color: '#ffd700' }}>{textureBoost ? '0.95' : '0.80'}</span></div>
+                                            <div>Heat Capacity (cp): <span style={{ color: '#708090', fontWeight: 'bold' }}>750 J/kg·K</span></div>
+                                            <div>TDP Compliance: <span style={{ color: '#00ff00' }}>PASSED (Optimal)</span></div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Sync to Canvas trigger button */}
+                            <button
+                                onClick={() => {
+                                    setIsSyncing(true);
+                                    setTimeout(() => {
+                                        setIsSyncing(false);
+                                        const newConfig = {
+                                            selectedTexture,
+                                            textureBoost,
+                                            textureBevel,
+                                            textureSpecular,
+                                            lastSyncTime: Date.now()
+                                        };
+                                        setVirtualFiles(prev => ({
+                                            ...prev,
+                                            "game_content/configs/gameplay_rules.json": JSON.stringify(newConfig, null, 2)
+                                        }));
+                                        setLogMessages(prev => [
+                                            `[CMS] Node Editor synchronized texture specs for '${selectedTexture}' successfully with Active WebGL Compositor!`,
+                                            ...prev
+                                        ]);
+                                    }, 600);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    background: isSyncing ? '#333' : '#a855f7',
+                                    color: '#000',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 0 12px rgba(168, 85, 247, 0.3)',
+                                    fontSize: 11
+                                }}
+                                disabled={isSyncing}
+                            >
+                                {isSyncing ? 'Synchronizing...' : 'Sync Texture with WebGL Canvas'}
+                            </button>
                         </div>
                     </div>
                 )}

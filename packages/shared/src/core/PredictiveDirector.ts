@@ -10,7 +10,7 @@ export interface Quest {
   id: string;
   title: string;
   description: string;
-  objectiveType: 'DEFEAT_NPC' | 'HARVEST_MATERIAL' | 'REACH_BIOME' | 'REACH_LEVEL' | 'COLLECT_CHEST' | 'SPEND_ENERGY' | 'CAST_ULTIMATE' | 'DEAL_DAMAGE';
+  objectiveType: 'DEFEAT_NPC' | 'HARVEST_MATERIAL' | 'REACH_BIOME' | 'REACH_LEVEL' | 'COLLECT_CHEST' | 'SPEND_ENERGY' | 'CAST_ULTIMATE' | 'DEAL_DAMAGE' | 'TRADE_CARDS';
   targetValue: number;
   targetName?: string;
   progress: number;

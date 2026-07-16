@@ -22,7 +22,29 @@ import { SSAO2RenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipe
 import { ChromaticAberrationPostProcess } from '@babylonjs/core/PostProcesses/chromaticAberrationPostProcess';
 import neonMatrixTexUrl from '../../assets/neon_matrix_grid.png';
 import brushedMetalTexUrl from '../../assets/brushed_metal_tech.png';
+import { Effect } from '@babylonjs/core/Materials/effect';
+import { PostProcess } from '@babylonjs/core/PostProcesses/postProcess';
+import { ParticleSystem } from '@babylonjs/core/Particles/particleSystem';
 import { SpatialGuidanceSystem, SovereignPredictiveGenerator } from '../../../../shared/src/index';
+
+Effect.ShadersStore["toxic_hazeFragmentShader"] = `
+#ifdef GL_ES
+    precision highp float;
+#endif
+
+varying vec2 vUV;
+uniform sampler2D textureSampler;
+uniform vec3 u_fogColor;
+uniform float u_intensity;
+
+void main(void) 
+{
+    vec4 color = texture2D(textureSampler, vUV);
+    float dist = distance(vUV, vec2(0.5, 0.5));
+    vec3 finalColor = mix(color.rgb, u_fogColor, dist * u_intensity);
+    gl_FragColor = vec4(finalColor, color.a);
+}
+`;
 
 const WORLD_PROFILES = {
   DEFAULT: {
@@ -384,6 +406,58 @@ export default function BabylonCanvasRenderer({
       chromaticAberration.radialIntensity = 0.5;
     } catch (e) {
       console.warn("[CANVAS] Chromatic Aberration post-process failed to initialize:", e);
+    }
+
+    // Custom Volumetric Toxic Haze PostProcess (TDP compliant, 1 texture lookup)
+    let toxicHazePostProcess: PostProcess | null = null;
+    let hazeIntensity = 0.0;
+    try {
+      toxicHazePostProcess = new PostProcess(
+        "ToxicHazeShader",
+        "toxic_haze",
+        ["u_fogColor", "u_intensity"],
+        [],
+        0.25,
+        camera
+      );
+      toxicHazePostProcess.onApply = (effect) => {
+        effect.setColor3("u_fogColor", new Color3(0.04, 0.22, 0.12));
+        effect.setFloat("u_intensity", hazeIntensity);
+      };
+    } catch (e) {
+      console.warn("[CANVAS] Toxic Haze post-process failed to initialize:", e);
+    }
+
+    // Blizzard Snow Particle System (TDP compliant, limited to 128 elements)
+    let snowSystem: ParticleSystem | null = null;
+    try {
+      const particleTexture = new DynamicTexture("snowTexture", 16, scene);
+      const ctx = particleTexture.getContext();
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(8, 8, 6, 0, 2 * Math.PI);
+      ctx.fill();
+      particleTexture.update();
+
+      snowSystem = new ParticleSystem("snowParticles", 128, scene);
+      snowSystem.particleTexture = particleTexture;
+      snowSystem.emitter = new Vector3(0, 25, 0);
+      snowSystem.minEmitBox = new Vector3(-35, 0, -35);
+      snowSystem.maxEmitBox = new Vector3(35, 0, 35);
+      snowSystem.color1 = new Color4(1.0, 1.0, 1.0, 1.0);
+      snowSystem.color2 = new Color4(0.85, 0.92, 1.0, 0.8);
+      snowSystem.colorDead = new Color4(0.5, 0.5, 0.5, 0.0);
+      snowSystem.minSize = 0.2;
+      snowSystem.maxSize = 0.5;
+      snowSystem.minLifeTime = 1.5;
+      snowSystem.maxLifeTime = 3.0;
+      snowSystem.emitRate = 0; // Throttled by default
+      snowSystem.gravity = new Vector3(0, -5, 0);
+      snowSystem.direction1 = new Vector3(-0.5, -1, -0.5);
+      snowSystem.direction2 = new Vector3(0.5, -1, 0.5);
+      snowSystem.start();
+    } catch (e) {
+      console.warn("[CANVAS] Blizzard Snow system failed to initialize:", e);
     }
 
     // 4. Custom PBR Shader Materials
@@ -1631,16 +1705,25 @@ export default function BabylonCanvasRenderer({
         scene.fogStart = Scalar.Lerp(scene.fogStart, 20.0, 0.05);
         scene.fogEnd = Scalar.Lerp(scene.fogEnd, 80.0, 0.05);
         spawnerRingMat.emissiveColor.set(0.1, 0.85, 0.2); // Toxic Green Portal Ring
+        hazeIntensity = Scalar.Lerp(hazeIntensity, 0.65, 0.05);
+        if (snowSystem) snowSystem.emitRate = 0;
+        if (light) light.intensity = Scalar.Lerp(light.intensity, 1.3, 0.05);
       } else if (activeWeather === 'BLIZZARD') {
         scene.fogColor.set(0.70, 0.82, 0.90); // Glacial Ice White
         scene.fogStart = Scalar.Lerp(scene.fogStart, 15.0, 0.05);
         scene.fogEnd = Scalar.Lerp(scene.fogEnd, 60.0, 0.05);
         spawnerRingMat.emissiveColor.set(0.85, 0.92, 1.0); // Glacial White Portal Ring
+        hazeIntensity = Scalar.Lerp(hazeIntensity, 0.0, 0.05);
+        if (snowSystem) snowSystem.emitRate = 40;
+        if (light) light.intensity = Scalar.Lerp(light.intensity, 0.3, 0.05); // Dimmed light
       } else {
         scene.fogColor.set(0.03, 0.04, 0.05); // CLEAR Nominal
         scene.fogStart = Scalar.Lerp(scene.fogStart, 35.0, 0.05);
         scene.fogEnd = Scalar.Lerp(scene.fogEnd, 160.0, 0.05);
         spawnerRingMat.emissiveColor.set(0.06, 0.7, 0.85); // Nominal Cyan Portal Ring
+        hazeIntensity = Scalar.Lerp(hazeIntensity, 0.0, 0.05);
+        if (snowSystem) snowSystem.emitRate = 0;
+        if (light) light.intensity = Scalar.Lerp(light.intensity, 1.3, 0.05);
       }
 
       // Height selection highlight

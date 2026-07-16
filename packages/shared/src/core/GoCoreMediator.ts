@@ -15,6 +15,10 @@ export interface HexNode {
     hazardIndex?: number;
     posX?: number;
     posZ?: number;
+    voltage?: number;
+    currentInput?: number;
+    threadId?: string | number | null;
+    hasOpportunity?: string | null;
 }
 
 // Structures matching Go Core JSON API
@@ -646,5 +650,130 @@ export class GoCoreMediator {
             };
         });
     }
+
+    /**
+     * Authoritative Go Core KCL sparse matrix Gauss-Seidel solver
+     */
+    public async calculateKCLGrid(gridData: HexNode[]): Promise<HexNode[]> {
+        // Trigger non-blocking heartbeat check
+        SovereignFailoverGateway.verifyHealth(this.apiBaseUrl).catch(() => {});
+
+        const nodes: GoKCLNode[] = gridData.map(node => ({
+            chunkId: node.macroIndex,
+            blockId: node.subIndex,
+            posX: node.posX || 0,
+            posZ: node.posZ || 0,
+            conductivity: node.conductivity || 0.5,
+            currentInput: node.currentInput || 0.0,
+            voltage: node.voltage || 0.0
+        }));
+
+        if (SovereignFailoverGateway.isOnline()) {
+            try {
+                const res = await fetch(`${this.apiBaseUrl}/api/physics/kcl-grid`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nodes })
+                });
+                if (res.ok) {
+                    const data: GoKCLResponse = await res.json();
+                    if (data.success && data.nodes) {
+                        return gridData.map(tsNode => {
+                            const goMatch = data.nodes.find(g => g.chunkId === tsNode.macroIndex && g.blockId === tsNode.subIndex);
+                            if (!goMatch) return tsNode;
+                            return {
+                                ...tsNode,
+                                voltage: goMatch.voltage
+                            };
+                        });
+                    }
+                } else {
+                    SovereignFailoverGateway.setOnlineState(false);
+                }
+            } catch (err) {
+                SovereignFailoverGateway.setOnlineState(false);
+            }
+        }
+
+        // TS Fallback KCL calculations (Exact Parity)
+        const tsNodes = gridData.map(node => ({
+            chunkId: node.macroIndex,
+            blockId: node.subIndex,
+            posX: node.posX || 0,
+            posZ: node.posZ || 0,
+            conductivity: node.conductivity || 0.5,
+            currentInput: node.currentInput || 0.0,
+            voltage: node.voltage || 0.0
+        }));
+
+        const numNodes = tsNodes.length;
+        const neighbors: number[][] = Array.from({ length: numNodes }, () => []);
+
+        // Distance neighbors
+        for (let i = 0; i < numNodes; i++) {
+            for (let j = 0; j < numNodes; j++) {
+                if (i === j) continue;
+                const dx = tsNodes[i].posX - tsNodes[j].posX;
+                const dz = tsNodes[i].posZ - tsNodes[j].posZ;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                if (dist > 0.1 && dist <= 3.5) {
+                    neighbors[i].push(j);
+                }
+            }
+        }
+
+        // Gauss-Seidel 30 iterations
+        const maxIterations = 30;
+        for (let iter = 0; iter < maxIterations; iter++) {
+            for (let i = 0; i < numNodes; i++) {
+                if (tsNodes[i].chunkId === 0 && tsNodes[i].blockId === 0) {
+                    tsNodes[i].voltage = 0.0;
+                    continue;
+                }
+
+                let sumG = 0.0;
+                let sumGV = 0.0;
+
+                for (const j of neighbors[i]) {
+                    let g_ij = tsNodes[i].conductivity * tsNodes[j].conductivity;
+                    if (g_ij <= 0) {
+                        g_ij = 0.05;
+                    }
+                    sumG += g_ij;
+                    sumGV += g_ij * tsNodes[j].voltage;
+                }
+
+                if (sumG > 0) {
+                    tsNodes[i].voltage = (tsNodes[i].currentInput + sumGV) / sumG;
+                } else {
+                    tsNodes[i].voltage = 0.0;
+                }
+            }
+        }
+
+        return gridData.map(tsNode => {
+            const match = tsNodes.find(g => g.chunkId === tsNode.macroIndex && g.blockId === tsNode.subIndex);
+            return {
+                ...tsNode,
+                voltage: match ? match.voltage : 0.0
+            };
+        });
+    }
+}
+
+export interface GoKCLNode {
+    chunkId: number;
+    blockId: number;
+    posX: number;
+    posZ: number;
+    conductivity: number;
+    currentInput: number;
+    voltage: number;
+}
+
+export interface GoKCLResponse {
+    success: boolean;
+    nodes: GoKCLNode[];
+    logs: string;
 }
 

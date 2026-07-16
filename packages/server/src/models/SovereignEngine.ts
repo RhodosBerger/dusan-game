@@ -7,7 +7,7 @@ import { DatabaseSyncManager } from './DatabaseSyncManager';
 import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
 import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
 import { SovereignIslandSystem } from './SovereignIslandSystem';
-import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator, ITEMS_CATALOG, getPhysicsSpecs, SpatialGuidanceSystem } from '@dusan-game/shared';
 import { SovereignLayerLogger } from '../utils/SovereignLayerLogger';
 
 // Register Server-Side Interactive Quest Triggers (Rule 6 decoupling)
@@ -418,7 +418,7 @@ export class SovereignEngine {
           const currentDamage = damageDiffMap.get(target.id) || 0;
           damageDiffMap.set(target.id, currentDamage + finalDamage);
 
-          // Logovanie algebraického combat eventu
+           // Logovanie algebraického combat eventu
           this.traceLog.push({
             type: 'Combat',
             attackerId: source.id,
@@ -428,6 +428,45 @@ export class SovereignEngine {
             timestamp: Date.now(),
             message: combatLog
           });
+
+          // Zníženie životnosti (durability) aktívnej zbrane útočníka o 5 bodov
+          if (source.items && Array.isArray(source.items)) {
+            const equippedWeapon = source.items.find((item: any) => {
+              const catalogItem = ITEMS_CATALOG[item.itemKey];
+              const itemDurability = item.durability !== undefined ? item.durability : 100;
+              return catalogItem && catalogItem.category === 'WEAPON' && itemDurability > 0;
+            });
+            if (equippedWeapon) {
+              const currentDur = equippedWeapon.durability !== undefined ? equippedWeapon.durability : 100;
+              equippedWeapon.durability = Math.max(0, currentDur - 5);
+              console.log(`[DURABILITY] Hráčovi ${source.id} klesla životnosť zbrane ${equippedWeapon.itemKey} na ${equippedWeapon.durability}%.`);
+            }
+          }
+
+          // Dynamic Terrain Resonator: high-voltage moves cause adjacent blocks with hazardIndex > 0.6 to collapse
+          const cardSpecs = getPhysicsSpecs(node.instruction.id);
+          if (cardSpecs && cardSpecs.voltage * 15 > 75 && target.position && target.position.meta !== null && target.position.hex !== null) {
+            const targetAxial = SpatialGuidanceSystem.resolveAxial(target.position.meta, target.position.hex);
+            this.map.chunks.forEach(chunk => {
+              chunk.blocks.forEach(block => {
+                const blockAxial = SpatialGuidanceSystem.resolveAxial(chunk.id, block.id);
+                const dist = (Math.abs(targetAxial.q - blockAxial.q) + Math.abs(targetAxial.q + targetAxial.r - blockAxial.q - blockAxial.r) + Math.abs(targetAxial.r - blockAxial.r)) / 2;
+                if (dist === 1) {
+                  console.log(`[DYNAMIC_RESONATOR] Adjacent Block vibrating: Chunk ${chunk.id} Block ${block.id} (hazard: ${block.hazardIndex})`);
+                  if (block.hazardIndex > 0.6) {
+                    block.collapseInTurns = 2;
+                    console.log(`[DYNAMIC_RESONATOR] Block marked for collapse in 2 turns: Chunk ${chunk.id} Block ${block.id}`);
+                    this.traceLog.push({
+                      type: 'TerrainVibration',
+                      threadId: 'system',
+                      message: `Chunk ${chunk.id} Block ${block.id} is unstable and will collapse in 2 turns!`,
+                      timestamp: Date.now()
+                    } as any);
+                  }
+                }
+              });
+            });
+          }
 
           // Aplikácia negatívnych stavov
           if (node.instruction.effects.chronoLock) target.isRooted = true;
@@ -806,6 +845,19 @@ export class SovereignEngine {
         const netDmg = Math.max(0, dmg - thread.armor);
         thread.applySemanticErosion(netDmg);
         thread.isSlowed = true; // slow player
+        this.traceLog.push({
+          type: 'Combat',
+          attackerId: ownerId || 'SYSTEM',
+          targetId: thread.id,
+          damage: netDmg,
+          armor: thread.armor,
+          timestamp: Date.now()
+        });
+      } else if (trapType === 'STATIC_CHARGE_TRAP') {
+        const dmg = 4;
+        const netDmg = Math.max(0, dmg - thread.armor);
+        thread.applySemanticErosion(netDmg);
+        this.systemEnergy = Math.max(0, this.systemEnergy - 15);
         this.traceLog.push({
           type: 'Combat',
           attackerId: ownerId || 'SYSTEM',

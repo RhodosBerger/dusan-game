@@ -230,6 +230,19 @@ export default function ArenaUIOverlay({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [cards, selectedCard, selectedNode, onEndTurn, setSelectedCard, onExecuteAction]);
 
+    React.useEffect(() => {
+        const handleDragCast = (e) => {
+            const { cardId } = e.detail;
+            const cardObj = cards.find(c => c.id === cardId);
+            if (cardObj) {
+                setCastingCard(cardObj);
+                setTimeout(() => setCastingCard(null), 450);
+            }
+        };
+        window.addEventListener('card_drag_cast', handleDragCast);
+        return () => window.removeEventListener('card_drag_cast', handleDragCast);
+    }, [cards]);
+
     const [collapsed, setCollapsed] = React.useState({
         telemetry: true,
         sandbox: true,
@@ -888,7 +901,7 @@ export default function ArenaUIOverlay({
     };
 
     return (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 z-10 font-sans">
+        <div className="absolute inset-0 pointer-events-none z-10 font-sans">
             {/* FULLSCREEN MULLIGAN OVERLAY */}
             {gameState?.state === 'MULLIGAN' && (() => {
                 const oponentId = activePlayer?.id === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
@@ -908,14 +921,20 @@ export default function ArenaUIOverlay({
                             {cards.map((card, idx) => {
                                 const meta = getCardMetadata(card.id, entropy);
                                 const isSelected = selectedMulliganCardIds.includes(card.id);
-                                const isAttack = meta.type.includes('ATTACK') || card.id.toLowerCase().includes('attack') || card.id.toLowerCase().includes('cleave') || card.id.toLowerCase().includes('shards') || card.id.toLowerCase().includes('meteor');
-                                const isMagic = meta.type.includes('MAGIC') || card.id.toLowerCase().includes('spell') || card.id.toLowerCase().includes('lance') || card.id.toLowerCase().includes('shield');
-                                const isMove = meta.type.includes('MOVE') || card.id.toLowerCase().includes('move') || card.id.toLowerCase().includes('teleport') || card.id.toLowerCase().includes('dash');
+                                const isUlt = card.isUltimate || card.id.toLowerCase().includes('ultimate');
 
-                                let cardThemeColor = 'border-slate-800 bg-slate-900/40 text-slate-300';
-                                if (isAttack) cardThemeColor = 'border-red-900/60 bg-red-950/20 text-red-200';
-                                else if (isMagic) cardThemeColor = 'border-blue-900/60 bg-blue-950/20 text-blue-200';
-                                else if (isMove) cardThemeColor = 'border-yellow-900/60 bg-yellow-950/20 text-yellow-200';
+                                let factionClass = 'hs-art-void';
+                                if (card.id.includes('crystal') || card.id.includes('laser') || card.id.includes('shield') || card.id.includes('pulse')) {
+                                    factionClass = 'hs-art-crystal';
+                                } else if (card.id.includes('toxic') || card.id.includes('snake') || card.id.includes('acid') || card.id.includes('hook') || card.id.includes('mud')) {
+                                    factionClass = 'hs-art-toxic';
+                                } else if (card.id.includes('bear') || card.id.includes('forest') || card.id.includes('wind') || card.id.includes('nature')) {
+                                    factionClass = 'hs-art-druid';
+                                }
+
+                                const specs = getPhysicsSpecs(card.id) || { voltage: 0, resistance: 0 };
+                                const voltage = card.voltage ?? specs.voltage ?? 0;
+                                const resistance = card.resistance ?? specs.resistance ?? 0;
 
                                 return (
                                     <div 
@@ -928,30 +947,51 @@ export default function ArenaUIOverlay({
                                                     : [...prev, card.id]
                                             );
                                         }}
-                                        className={`relative w-48 h-72 border rounded-2xl p-4 flex flex-col justify-between cursor-pointer transition-all duration-300 select-none ${cardThemeColor} ${
+                                        className={`hs-card relative w-40 h-56 md:w-44 md:h-64 flex-shrink-0 cursor-pointer transition-all duration-300 select-none ${
+                                            isUlt ? 'hs-card-ultimate' : ''
+                                        } ${
                                             isSelected 
-                                                ? 'scale-105 border-red-500 bg-red-950/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
-                                                : 'hover:scale-102 hover:border-slate-600 shadow-xl'
+                                                ? 'scale-105 border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.5)]' 
+                                                : 'shadow-xl'
                                         }`}
                                     >
-                                        <div className="flex flex-col gap-1.5">
-                                            <div className="flex justify-between items-start gap-1">
-                                                <span className="font-bold text-sm tracking-tight text-left">{meta.name}</span>
-                                                <span className="text-[10px] bg-slate-800/80 px-1.5 py-0.5 rounded font-mono font-bold text-purple-400">
-                                                    {meta.cost}W
-                                                </span>
-                                            </div>
-                                            <span className="text-[8px] uppercase tracking-wider font-mono font-semibold text-slate-500 text-left">
-                                                {meta.type}
-                                            </span>
-                                            <p className="text-[10px] text-slate-400 text-left leading-relaxed mt-2 italic">
-                                                {meta.desc}
-                                            </p>
+                                        {/* Cost Badge */}
+                                        <div className="hs-card-cost-badge">
+                                            {meta.cost}
                                         </div>
 
+                                        {/* Oval Art Frame */}
+                                        <div className="hs-card-art-frame">
+                                            <div className={`hs-card-art-inner ${factionClass}`}>
+                                                <div className="hs-art-sphere" />
+                                            </div>
+                                        </div>
+
+                                        {/* Name Banner */}
+                                        <div className="hs-card-name-banner">
+                                            <div className="hs-card-title">{meta.name}</div>
+                                        </div>
+
+                                        {/* Desc Box */}
+                                        <div className="hs-card-desc-box">
+                                            <p className="hs-card-desc-text">{meta.desc}</p>
+                                        </div>
+
+                                        {/* Stats */}
+                                        {voltage > 0 && (
+                                            <div className="hs-card-stat-badge hs-attack" title="Voltage (Attack)">
+                                                {voltage}
+                                            </div>
+                                        )}
+                                        {resistance > 0 && (
+                                            <div className="hs-card-stat-badge hs-defense" title="Resistance (Defense)">
+                                                {resistance}
+                                            </div>
+                                        )}
+
                                         {isSelected && (
-                                            <div className="absolute inset-0 bg-red-950/50 rounded-2xl flex items-center justify-center backdrop-blur-[1px]">
-                                                <span className="bg-red-600 text-white font-mono text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-lg border border-red-400">
+                                            <div className="absolute inset-0 bg-red-950/70 rounded-xl flex items-center justify-center backdrop-blur-[1px] z-30">
+                                                <span className="bg-red-600 text-white font-mono text-[9px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-lg border border-red-400">
                                                     🔄 VYMENIŤ
                                                 </span>
                                             </div>
@@ -1058,7 +1098,7 @@ export default function ArenaUIOverlay({
                 );
             })()}
             {/* Mobile/Tablet Compact Top Bar */}
-            <div className="w-full flex lg:hidden justify-between items-center bg-[#0e0e16]/90 border border-slate-800/80 p-3 rounded-2xl backdrop-blur-xl shadow-xl pointer-events-auto gap-3 text-white font-mono text-[10px] md:text-xs">
+            <div className="absolute top-4 left-4 right-4 flex lg:hidden justify-between items-center bg-[#0e0e16]/90 border border-slate-800/80 p-3 rounded-2xl backdrop-blur-xl shadow-xl pointer-events-auto gap-3 text-white font-mono text-[10px] md:text-xs z-30">
                 <div className="flex items-center gap-2">
                     <span className="text-[color:var(--accent-magic)] font-bold">💎 {crystalPlayer ? crystalPlayer.health : 0} HP</span>
                     <span className="text-slate-600">|</span>
@@ -1147,22 +1187,23 @@ export default function ArenaUIOverlay({
                 </button>
             </div>
 
-            {/* Desktop-only side panels — kontajner je celoplošný, preto NESMIE chytať
-                pointer eventy (blokoval by kameru na canvase pod ním); interaktívne sú
-                až samotné panely. flex-1 + min-h-0 zaručí, že panely si zoberú len
-                priestor zvyšný po spodnom HUD s kartami a vnútri skrolujú. */}
-            <div className="w-full hidden lg:flex lg:flex-row justify-between items-start gap-4 pointer-events-none pr-2 flex-1 min-h-0 mt-16">
-                <div className="flex flex-col gap-3 w-full max-w-sm pointer-events-auto max-h-full overflow-y-auto pr-1">
+            {/* Desktop Left-side HUD widgets (Telemetry, Sandbox, Quests, Compositor, Vector Guidance) */}
+            {(!collapsed.telemetry || !collapsed.sandbox || !collapsed.quests || !collapsed.compositor || !collapsed.vectorGuidance) && (
+                <div className="hidden lg:flex flex-col gap-3 w-80 md:w-96 absolute top-20 left-4 bottom-6 pointer-events-auto overflow-y-auto custom-scrollbar pr-1.5 z-20">
                     {!collapsed.telemetry && renderTelemetry(false)}
                     {!collapsed.sandbox && renderSandbox(false)}
                     {!collapsed.quests && renderQuests(false)}
                     {!collapsed.compositor && renderCompositor(false)}
                     {!collapsed.vectorGuidance && renderVectorGuidance(false)}
                 </div>
-                <div className="pointer-events-auto max-h-full overflow-y-auto">
-                    {!collapsed.logs && renderLogs(false)}
+            )}
+
+            {/* Desktop Right-side HUD widgets (Logs) */}
+            {!collapsed.logs && (
+                <div className="hidden lg:flex flex-col w-80 md:w-96 absolute top-20 right-4 bottom-6 pointer-events-auto overflow-y-auto custom-scrollbar pl-1.5 z-20">
+                    {renderLogs(false)}
                 </div>
-            </div>
+            )}
 
             {/* Mobile/Tablet Full Dashboard Drawer */}
             {isMobileDrawerOpen && (
@@ -1193,7 +1234,7 @@ export default function ArenaUIOverlay({
 
 
             {/* Spodná ruka kariet (Spodný HUD z bodu 2 checklistu) */}
-            <div className="w-full h-[30vh] flex flex-col items-center justify-center gap-2 pointer-events-auto bg-slate-950/20 backdrop-blur-md border-t border-cyan-500/25 px-6 py-2 mt-auto">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-auto max-w-[90vw] pointer-events-auto bg-[#09090f]/75 border border-cyan-500/25 rounded-2xl p-4 shadow-[0_4px_30px_rgba(0,0,0,0.5)] backdrop-blur-lg flex flex-col items-center justify-center gap-1.5 z-25">
                 {/* Compact Horizontal Action / Node Dock */}
                 {selectedCard && (
                     <div className="flex flex-col md:flex-row gap-3 items-stretch justify-center max-w-full mb-1">
@@ -1208,7 +1249,7 @@ export default function ArenaUIOverlay({
                                      <div className="mt-2">
                                          <button 
                                              onClick={handleExecuteClick}
-                                             className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer text-[10px]"
+                                             className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer text-[10px] btn-springy"
                                          >
                                              Spustiť [Space]
                                          </button>
@@ -1289,15 +1330,69 @@ export default function ArenaUIOverlay({
                     Aktívny klan: <span className="text-slate-200 font-bold uppercase">{gameState?.activePlayerId === 'thread_king_ai' ? 'Crystal (King AI)' : 'Toxic (Hacker Root)'}</span>
                 </div>
                 {activePlayer && (
-                    <div className="flex flex-wrap gap-3 md:gap-4 text-[10px] md:text-xs font-mono text-slate-300 bg-black/80 px-4 py-2 rounded-xl border border-slate-800 shadow-lg justify-center items-center">
-                        <span className="text-[color:var(--accent-magic)] font-bold">❤️ HP: {activePlayer.health}/{activePlayer.maxHealth || 15}</span>
-                        <span className="text-[color:var(--accent-loot)]">⚔️ Dosah Útoku: {activePlayer.attackReach}</span>
-                        <span className="text-purple-400">🔮 Dosah Kúzla: {activePlayer.spellReach}</span>
-                        <span className="text-green-400">👟 Pohyb: {activePlayer.movementBase}</span>
-                        <span className="text-blue-400">🎴 Limit ruky: {activePlayer.handLimit} (Vlajky: {activePlayer.axiomaticFlags})</span>
-                        <span className="text-emerald-400">📥 Balíček: {activePlayer.drawPileCount}</span>
-                        <span className="text-rose-400">📤 Odhadzovacie: {activePlayer.discardPileCount}</span>
-                        <span className="text-slate-400 font-bold">{activePlayer.freeMovementUsed ? "🚫 Ťah využitý" : "🚶 Voľný pohyb"}</span>
+                    <div className="glass-panel-heavy flex flex-col gap-2 p-3 text-[10px] md:text-xs font-mono text-slate-300 min-w-[320px] max-w-lg shadow-2xl justify-center items-stretch pointer-events-auto">
+                        {/* Health Bar (Dota 2 style) */}
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex justify-between text-[9px] font-bold text-green-400">
+                                <span>HEALTH STATUS (HP):</span>
+                                <span>{activePlayer.health} / {activePlayer.maxHealth || 15} HP</span>
+                            </div>
+                            <div className="dota-progress-bar-container">
+                                <div 
+                                    className="dota-progress-bar-fill dota-bg-health" 
+                                    style={{ width: `${(activePlayer.health / (activePlayer.maxHealth || 15)) * 100}%` }}
+                                />
+                                <div className="dota-progress-text">{activePlayer.health} / {activePlayer.maxHealth || 15}</div>
+                            </div>
+                        </div>
+
+                        {/* Energy / Entropy Bar (Dota 2 style) */}
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex justify-between text-[9px] font-bold text-cyan-400">
+                                <span>SYSTEM OVERLOAD (ENTROPY):</span>
+                                <span>{(entropy * 100).toFixed(0)}%</span>
+                            </div>
+                            <div className="dota-progress-bar-container">
+                                <div 
+                                    className="dota-progress-bar-fill dota-bg-entropy" 
+                                    style={{ width: `${entropy * 100}%` }}
+                                />
+                                <div className="dota-progress-text">{(entropy * 100).toFixed(1)}%</div>
+                            </div>
+                        </div>
+
+                        {/* Stats Row */}
+                        <div className="grid grid-cols-3 gap-x-4 gap-y-1.5 mt-1 pt-1.5 border-t border-slate-800 text-[9px] text-slate-400">
+                            <div className="flex justify-between">
+                                <span>Attack Range:</span>
+                                <span className="text-amber-400 font-bold">{activePlayer.attackReach}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Spell Range:</span>
+                                <span className="text-purple-400 font-bold">{activePlayer.spellReach}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Movement:</span>
+                                <span className="text-green-400 font-bold">{activePlayer.movementBase}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Hand Limit:</span>
+                                <span className="text-blue-400 font-bold">{activePlayer.handLimit}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Draw Pile:</span>
+                                <span className="text-emerald-400 font-bold">{activePlayer.drawPileCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Discard:</span>
+                                <span className="text-rose-400 font-bold">{activePlayer.discardPileCount}</span>
+                            </div>
+                        </div>
+                        
+                        <div className="text-[8px] text-center border-t border-slate-800/60 pt-1.5 font-mono text-slate-500 flex justify-between items-center">
+                            <span>FLAGS: {activePlayer.axiomaticFlags || 0}</span>
+                            <span className="font-bold text-slate-400">{activePlayer.freeMovementUsed ? "🚫 MOVEMENT EXHAUSTED" : "🚶 FREE MOVE READY"}</span>
+                        </div>
                     </div>
                 )}
                 {/* Rollout target hexagon keyframe preview */}
@@ -1353,7 +1448,6 @@ export default function ArenaUIOverlay({
                             const meta = getCardMetadata(card.id, entropy);
                             const isSelected = selectedCard === card;
                             const isCasting = castingCard === card;
-                            const hoverClass = getFactionHoverClass(card.id);
                             const isUlt = card.isUltimate;
                             const isReactive = gameState?.turnStateMachine?.currentPhase === 'INTERRUPT_WINDOW' && 
                                 (card.id.includes('magic') || card.id.includes('shield') || card.id.includes('pulse'));
@@ -1400,6 +1494,19 @@ export default function ArenaUIOverlay({
                                 };
                             }
 
+                            let factionClass = 'hs-art-void';
+                            if (card.id.includes('crystal') || card.id.includes('laser') || card.id.includes('shield') || card.id.includes('pulse')) {
+                                factionClass = 'hs-art-crystal';
+                            } else if (card.id.includes('toxic') || card.id.includes('snake') || card.id.includes('acid') || card.id.includes('hook') || card.id.includes('mud')) {
+                                factionClass = 'hs-art-toxic';
+                            } else if (card.id.includes('bear') || card.id.includes('forest') || card.id.includes('wind') || card.id.includes('nature')) {
+                                factionClass = 'hs-art-druid';
+                            }
+                            
+                            const specs = getPhysicsSpecs(card.id) || { voltage: 0, resistance: 0 };
+                            const voltage = card.voltage ?? specs.voltage ?? 0;
+                            const resistance = card.resistance ?? specs.resistance ?? 0;
+
                             return (
                                 <div 
                                     key={`${card.id}_${idx}`}
@@ -1407,25 +1514,54 @@ export default function ArenaUIOverlay({
                                     onMouseEnter={() => setHoveredCardIndex(idx)}
                                     onMouseLeave={() => setHoveredCardIndex(null)}
                                     style={inlineStyle}
-                                    className={`w-20 h-28 md:w-26 md:h-36 flex-shrink-0 bg-gradient-to-b from-[#181824] to-[#0b0b11] border rounded-xl p-2 md:p-2.5 flex flex-col justify-between text-white cursor-pointer transition-all duration-200 relative ${
-                                        isUlt ? 'card-ultimate' : ''
+                                    className={`hs-card w-24 h-36 md:w-28 md:h-40 flex-shrink-0 text-white cursor-pointer relative ${
+                                        isUlt ? 'hs-card-ultimate' : ''
                                     } ${isReactive ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''} ${isCasting ? 'card-cast-lift' : ''}`}
                                 >
+                                    {/* Cost Badge */}
+                                    <div className="hs-card-cost-badge">
+                                        {meta.cost}
+                                    </div>
+
+                                    {/* Oval Art Frame */}
+                                    <div className="hs-card-art-frame">
+                                        <div className={`hs-card-art-inner ${factionClass}`}>
+                                            <div className="hs-art-sphere" />
+                                        </div>
+                                    </div>
+
                                     {/* Hotkey Indicator Badge */}
-                                    <div className="absolute -top-1.5 -left-1.5 bg-[#14141e]/95 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-lg pointer-events-none z-20">
+                                    <div className="absolute -top-1.5 -right-1.5 bg-[#14141e]/95 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-lg pointer-events-none z-20">
                                         {idx + 1}
                                     </div>
+
                                     {isReactive && (
-                                        <div className="absolute -top-2 -right-1 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_6px_#ef4444] animate-pulse font-mono tracking-wide z-10">
+                                        <div className="absolute -top-2 -left-1 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_6px_#ef4444] animate-pulse font-mono tracking-wide z-10">
                                             ⚡ REACT
                                         </div>
                                     )}
-                                    <div className="text-[7px] md:text-[8px] font-mono text-[color:var(--accent-magic)] uppercase tracking-wider">{meta.type}</div>
-                                    <div className="text-[10px] md:text-xs font-bold text-center mt-1 text-slate-200 truncate">{meta.name}</div>
-                                    <div className="text-[8px] md:text-[9px] text-slate-400 text-center font-mono leading-tight line-clamp-3">{meta.desc}</div>
-                                    <div className="bg-[color:var(--panel-bg)] text-[7px] md:text-[8px] text-center font-mono text-[color:var(--accent-magic)] py-0.5 md:py-1 rounded border border-[color:var(--accent-magic)]">
-                                        {card.isUltimate ? 'Ultimate' : 'Normal'}
+
+                                    {/* Name Banner */}
+                                    <div className="hs-card-name-banner">
+                                        <div className="hs-card-title">{meta.name}</div>
                                     </div>
+
+                                    {/* Desc Box */}
+                                    <div className="hs-card-desc-box">
+                                        <div className="hs-card-desc-text">{meta.desc}</div>
+                                    </div>
+
+                                    {/* Stats */}
+                                    {voltage > 0 && (
+                                        <div className="hs-card-stat-badge hs-attack" title="Voltage (Attack)">
+                                            {voltage}
+                                        </div>
+                                    )}
+                                    {resistance > 0 && (
+                                        <div className="hs-card-stat-badge hs-defense" title="Resistance (Defense)">
+                                            {resistance}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })
@@ -1435,7 +1571,7 @@ export default function ArenaUIOverlay({
                     {isPlayerInTown && (
                         <button 
                             onClick={() => setIsShopOpen(true)}
-                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn bg-cyan-950/50 border border-cyan-400 hover:bg-cyan-900/60 text-cyan-400 hover:text-cyan-200 flex items-center justify-center font-heading text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn bg-cyan-950/50 border border-cyan-400 hover:bg-cyan-900/60 text-cyan-400 hover:text-cyan-200 flex items-center justify-center font-heading text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.2)] btn-springy"
                         >
                             🏬 Town Shop
                         </button>
@@ -1443,7 +1579,7 @@ export default function ArenaUIOverlay({
                     
                     <button 
                         onClick={onToggleStealth}
-                        className={`h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn border text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer font-heading ${
+                        className={`h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn border text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer font-heading btn-springy ${
                             isStealthed 
                                 ? 'bg-cyan-400/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(0,229,255,0.3)] font-extrabold' 
                                 : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-900/60 hover:text-slate-200'
@@ -1454,7 +1590,7 @@ export default function ArenaUIOverlay({
                     
                     <button 
                         onClick={onEndTurn}
-                        className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn bg-red-950/50 border border-red-500/80 hover:bg-red-900/60 text-red-400 hover:text-red-200 flex items-center justify-center font-heading text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                        className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 cyber-btn bg-red-950/50 border border-red-500/80 hover:bg-red-900/60 text-red-400 hover:text-red-200 flex items-center justify-center font-heading text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.2)] btn-springy"
                     >
                         End Turn [E]
                     </button>

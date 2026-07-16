@@ -207,94 +207,125 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
     }
 
     return (
-        <div className="w-screen h-screen flex justify-center items-center bg-black text-white relative overflow-y-auto p-4 font-sans">
-            <CyberGridBackground />
-            {/* Cyber Grid background */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.18),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.18),transparent_50%)]"></div>
-            <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_95%,rgba(45,211,241,0.3)_95%),linear-gradient(90deg,rgba(18,16,16,0)_95%,rgba(45,211,241,0.3)_95%)] [background-size:32px_32px]"></div>
+        <div className="w-screen h-screen flex justify-center items-center bg-[#150f0a] text-white relative overflow-y-auto p-4 font-sans">
+            {/* Warm dark medieval radial gradient background */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,38,24,0.3)_0%,#0e0a07_100%)]"></div>
+            <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[radial-gradient(rgba(212,175,55,0.2)_1px,transparent_1px)] [background-size:20px_20px]"></div>
  
-            {/* AAA Glass Panel Container with Cyber Decor */}
-            <div className="glass-panel-heavy scanline-effect p-6 md:p-8 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.9)] max-w-2xl w-full max-h-[92vh] overflow-y-auto z-10 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 relative border border-cyan-500/30">
-                {/* Tech crosshairs */}
-                <div className="absolute top-2 left-2 text-cyan-500/40 font-mono text-[8px] select-none pointer-events-none">SYS_READY // LOBBY</div>
-                <div className="absolute bottom-2 right-2 text-purple-500/40 font-mono text-[8px] select-none pointer-events-none">SECURE_GATEWAY_V2</div>
+            {/* AAA Glass Panel Container with Medieval Trim */}
+            <div className="glass-panel-heavy p-6 md:p-8 rounded-2xl shadow-[0_12px_60px_rgba(0,0,0,0.95)] max-w-2xl w-full max-h-[92vh] overflow-y-auto z-10 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 relative border border-[#bd9b60]/50">
+                {/* Decorative medieval corner text */}
+                <div className="absolute top-3 left-3 text-[#bd9b60]/60 font-mono text-[7px] select-none pointer-events-none tracking-widest">WAR_COUNCIL // LOBBY</div>
+                <div className="absolute bottom-3 right-3 text-[#bd9b60]/60 font-mono text-[7px] select-none pointer-events-none tracking-widest">SOVEREIGN_GATEWAY_V2</div>
 
-                <div className="md:col-span-2 text-center pb-3 border-b border-slate-800/80">
-                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-widest bg-gradient-to-r from-cyan-400 via-purple-400 to-fuchsia-400 bg-clip-text text-transparent uppercase font-heading glow-text-cyan">
+                <div className="md:col-span-2 text-center pb-3 border-b border-[#3d2f23]">
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-widest bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 bg-clip-text text-transparent uppercase font-heading drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         POSLEDNÝ KMEN
                     </h1>
                     <div className="flex justify-center items-center gap-2 mt-1.5">
-                        <span className="h-[1px] w-8 bg-cyan-500/30"></span>
-                        <span className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">SOVEREIGN NETWORK INTERFACE</span>
-                        <span className="h-[1px] w-8 bg-cyan-500/30"></span>
+                        <span className="h-[1px] w-8 bg-[#bd9b60]/30"></span>
+                        <span className="text-[10px] text-[#c5bba8] font-mono tracking-widest uppercase">WARLORD COMMAND GATEWAY</span>
+                        <span className="h-[1px] w-8 bg-[#bd9b60]/30"></span>
                     </div>
                 </div>
  
                 <div className="flex flex-col gap-4">
-                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-cyan-400 pl-2 font-heading">1. Výber Hrdinu</h3>
-                    
-                    <div className="grid grid-cols-3 gap-2.5">
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-[#bd9b60] pl-2 font-heading">1. Výber Hrdinu</h3>
+                             <div className="grid grid-cols-3 gap-2.5">
                         {/* Crystal King */}
                         <div 
                             onClick={() => setSelectedHero('thread_king_ai')}
-                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center relative ${selectedHero === 'thread_king_ai' ? 'bg-cyan-950/30 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.25)] scale-[1.03]' : 'bg-slate-950/50 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/20'}`}
+                            className={`hs-card h-52 w-full p-2 flex flex-col justify-between cursor-pointer relative ${selectedHero === 'thread_king_ai' ? 'active' : ''}`}
                         >
-                            <div className="w-12 h-12 bg-slate-950/70 rounded-lg flex items-center justify-center mb-2 border border-slate-800/60">
-                                <CrystalKingAvatar />
+                            <div className="hs-card-cost-badge">1</div>
+                            <div className="hs-card-art-frame">
+                                <div className="hs-card-art-inner hs-art-crystal">
+                                    <div className="absolute inset-0 flex items-center justify-center p-2">
+                                        <CrystalKingAvatar />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-[10px] font-bold text-cyan-400 mb-0.5 font-heading">CRYSTAL</div>
-                            <div className="text-[8px] text-slate-400 leading-tight">Vysoké HP & Pevný pancier</div>
+                            <div className="hs-card-name-banner">
+                                <div className="hs-card-title">CRYSTAL</div>
+                            </div>
+                            <div className="hs-card-desc-box">
+                                <p className="hs-card-desc-text">Vysoké HP & Pevný pancier</p>
+                            </div>
+                            <div className="hs-card-stat-badge hs-attack" title="Max HP">20</div>
+                            <div className="hs-card-stat-badge hs-defense" title="Armor">1</div>
                         </div>
- 
+
                         {/* Toxic Hacker */}
                         <div 
                             onClick={() => setSelectedHero('thread_hacker_root')}
-                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center relative ${selectedHero === 'thread_hacker_root' ? 'bg-purple-950/30 border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.25)] scale-[1.03]' : 'bg-slate-950/50 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/20'}`}
+                            className={`hs-card h-52 w-full p-2 flex flex-col justify-between cursor-pointer relative ${selectedHero === 'thread_hacker_root' ? 'active' : ''}`}
                         >
-                            <div className="w-12 h-12 bg-slate-950/70 rounded-lg flex items-center justify-center mb-2 border border-slate-800/60">
-                                <ToxicHackerAvatar />
+                            <div className="hs-card-cost-badge">2</div>
+                            <div className="hs-card-art-frame">
+                                <div className="hs-card-art-inner hs-art-toxic">
+                                    <div className="absolute inset-0 flex items-center justify-center p-2">
+                                        <ToxicHackerAvatar />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-[10px] font-bold text-purple-400 mb-0.5 font-heading">TOXIC</div>
-                            <div className="text-[8px] text-slate-400 leading-tight">Rýchly pohyb & Korózia</div>
+                            <div className="hs-card-name-banner">
+                                <div className="hs-card-title">TOXIC</div>
+                            </div>
+                            <div className="hs-card-desc-box">
+                                <p className="hs-card-desc-text">Rýchly pohyb & Korózia</p>
+                            </div>
+                            <div className="hs-card-stat-badge hs-attack" title="Max HP">15</div>
+                            <div className="hs-card-stat-badge hs-defense" title="Armor">0</div>
                         </div>
- 
+
                         {/* Void Weaver */}
                         <div 
                             onClick={() => setSelectedHero('thread_void_weaver')}
-                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center relative ${selectedHero === 'thread_void_weaver' ? 'bg-fuchsia-950/30 border-fuchsia-400 shadow-[0_0_15px_rgba(217,70,239,0.25)] scale-[1.03]' : 'bg-slate-950/50 border-slate-800/80 hover:border-slate-700/80 hover:bg-slate-900/20'}`}
+                            className={`hs-card h-52 w-full p-2 flex flex-col justify-between cursor-pointer relative ${selectedHero === 'thread_void_weaver' ? 'active' : ''}`}
                         >
-                            <div className="w-12 h-12 bg-slate-950/70 rounded-lg flex items-center justify-center mb-2 border border-slate-800/60">
-                                <VoidWeaverAvatar />
+                            <div className="hs-card-cost-badge">3</div>
+                            <div className="hs-card-art-frame">
+                                <div className="hs-card-art-inner hs-art-void">
+                                    <div className="absolute inset-0 flex items-center justify-center p-2">
+                                        <VoidWeaverAvatar />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-[10px] font-bold text-fuchsia-400 mb-0.5 font-heading">VOID</div>
-                            <div className="text-[8px] text-slate-400 leading-tight">Entropy kúzla & Zadarmo cast</div>
+                            <div className="hs-card-name-banner">
+                                <div className="hs-card-title">VOID</div>
+                            </div>
+                            <div className="hs-card-desc-box">
+                                <p className="hs-card-desc-text">Entropy & Zadarmo cast</p>
+                            </div>
+                            <div className="hs-card-stat-badge hs-attack" title="Max HP">14</div>
+                            <div className="hs-card-stat-badge hs-defense" title="Armor">0</div>
                         </div>
                     </div>
  
-                    {/* Class Details Panel */}
-                    <div className="bg-slate-950/60 border border-slate-800/60 p-4 rounded-xl text-xs text-slate-400 flex gap-4 items-center">
-                        <div className="w-14 h-14 bg-slate-900/80 rounded-xl border border-slate-850 flex items-center justify-center flex-shrink-0 shadow-inner">
+                    {/* Class Details Panel (Dota 2 themed) */}
+                    <div className="glass-panel-heavy p-4 rounded-xl text-xs text-slate-400 flex gap-4 items-center">
+                        <div className="w-14 h-14 bg-slate-900/80 rounded-xl border border-[#4a3b2c] flex items-center justify-center flex-shrink-0 shadow-inner">
                             {selectedHero === 'thread_king_ai' && <CrystalKingAvatar />}
                             {selectedHero === 'thread_hacker_root' && <ToxicHackerAvatar />}
                             {selectedHero === 'thread_void_weaver' && <VoidWeaverAvatar />}
                         </div>
-                        <div className="flex flex-col gap-1 flex-1 font-mono">
+                        <div className="flex flex-col gap-1 flex-1 font-sans">
                             <div className="font-bold text-slate-200 uppercase tracking-wider text-[10px] font-heading">Class Matrix Specs:</div>
                             {selectedHero === 'thread_king_ai' ? (
                                 <ul className="list-none pl-0 flex flex-col gap-0.5 text-[10px]">
-                                    <li>- Max HP: <span className="text-cyan-400 font-bold">20 HP</span></li>
-                                    <li>- Armor: <span className="text-cyan-400 font-bold">1 Armor</span></li>
+                                    <li>- Max HP: <span className="text-yellow-500 font-bold">20 HP</span></li>
+                                    <li>- Armor: <span className="text-yellow-500 font-bold">1 Armor</span></li>
                                     <li>- Mastery: Zvýšený výskyt Crystal Shards.</li>
                                 </ul>
                             ) : selectedHero === 'thread_hacker_root' ? (
                                 <ul className="list-none pl-0 flex flex-col gap-0.5 text-[10px]">
-                                    <li>- Max HP: <span className="text-purple-400 font-bold">15 HP</span></li>
-                                    <li>- Rýchlosť: <span className="text-purple-400 font-bold">+1 hex</span> na spórových plochách</li>
+                                    <li>- Max HP: <span className="text-yellow-500 font-bold">15 HP</span></li>
+                                    <li>- Rýchlosť: <span className="text-yellow-500 font-bold">+1 hex</span> na spórových plochách</li>
                                     <li>- Mastery: Imunita voči toxic-hazard škodám.</li>
                                 </ul>
                             ) : (
                                 <ul className="list-none pl-0 flex flex-col gap-0.5 text-[10px]">
-                                    <li>- Max HP: <span className="text-fuchsia-400 font-bold">14 HP</span></li>
+                                    <li>- Max HP: <span className="text-yellow-500 font-bold">14 HP</span></li>
                                     <li>- Spells: Bezplatné kúzlenie pri entropii &gt; 0.70</li>
                                     <li>- Mastery: Void kúzla nespôsobujú prepätie mriežky.</li>
                                 </ul>
@@ -306,7 +337,7 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                 {/* Column 2: Player Profile & Operations */}
                 <div className="flex flex-col gap-4 justify-between">
                     <div className="flex flex-col gap-4">
-                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-purple-400 pl-2 font-heading">2. Konfigurácia</h3>
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l-2 border-[#bd9b60] pl-2 font-heading">2. Konfigurácia</h3>
  
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] text-slate-400 uppercase font-heading">Alias Vlákna (Meno):</label>
@@ -316,29 +347,29 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 maxLength={15}
-                                className="bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 text-cyan-300 font-bold transition-all placeholder-slate-600 font-mono"
+                                className="bg-[#1c140d]/80 border border-[#4a3b2c] rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 text-[#f5f2eb] font-bold transition-all placeholder-slate-600 font-sans"
                             />
                         </div>
-
+ 
                         <div className="flex flex-col gap-1.5 mt-2">
                             <label className="text-[10px] text-slate-400 uppercase font-heading">Herné pravidlá (Mashup):</label>
                             <select 
                                 value={mashupMode}
                                 onChange={(e) => setMashupMode(e.target.value)}
-                                className="bg-slate-950/70 border border-slate-850 rounded-xl px-4 py-2 text-xs text-cyan-300 font-bold focus:outline-none focus:border-cyan-550 font-mono"
+                                className="bg-[#1c140d]/80 border border-[#4a3b2c] rounded-xl px-4 py-2 text-xs text-[#f5f2eb] font-bold focus:outline-none focus:border-[#d4af37] font-sans"
                             >
                                 <option value="STANDARD">Standard Arena Rules</option>
                                 <option value="VOLTAGE_GLACIER">Mashup: Voltage Overload & Frost Friction</option>
                                 <option value="VOID_TOXIC">Mashup: Void Rift & Toxic Corrosion</option>
                             </select>
                         </div>
-
+ 
                         {/* Dusan's Customized Mazak Model Grid Preview */}
                         <div className="flex flex-col gap-1.5 mt-2.5">
                             <label className="text-[10px] text-slate-400 uppercase font-heading">
                                 Dusan's Customized Mazak Arena Model:
                             </label>
-                            <div className="grid grid-cols-3 gap-1 w-32 bg-slate-950 p-1.5 rounded-lg border border-slate-800/80">
+                            <div className="grid grid-cols-3 gap-1 w-32 bg-[#1c140d]/80 p-1.5 rounded-lg border border-[#4a3b2c]/80">
                                 {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
                                     const weights = { 0: 0.8, 1: 0.5, 2: 0.8, 3: 0.5, 4: 1.0, 5: 0.5, 6: 0.8, 7: 0.5, 8: 0.8 };
                                     const w = weights[i];
@@ -348,16 +379,16 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                                             className="h-6 rounded flex items-center justify-center text-[7px] font-bold font-mono transition-all duration-300 hover:scale-105"
                                             style={{
                                                 background: w === 1.0 
-                                                    ? 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
+                                                    ? 'linear-gradient(135deg, #d4af37 0%, #b8860b 100%)' 
                                                     : w === 0.8 
-                                                    ? 'rgba(6, 182, 212, 0.25)' 
-                                                    : 'rgba(30, 41, 59, 0.6)',
+                                                    ? 'rgba(184, 134, 11, 0.25)' 
+                                                    : 'rgba(74, 59, 44, 0.3)',
                                                 border: w === 1.0 
-                                                    ? '1px solid #d946ef' 
+                                                    ? '1px solid #d4af37' 
                                                     : w === 0.8 
-                                                    ? '1px solid rgba(6, 182, 212, 0.4)' 
-                                                    : '1px solid rgba(255, 255, 255, 0.05)',
-                                                color: w === 1.0 ? '#ffffff' : '#94a3b8'
+                                                    ? '1px solid rgba(184, 134, 11, 0.4)' 
+                                                    : '1px solid rgba(255, 255, 255, 0.02)',
+                                                color: w === 1.0 ? '#ffffff' : '#bd9b60'
                                             }}
                                             title={`Sector ${i} Weight: ${w}`}
                                         >
@@ -373,43 +404,42 @@ export default function LobbyScreen({ onStartGame, onSearchMatch, isSearching, o
                     <div className="flex flex-col gap-2.5 mt-6">
                         <button 
                             onClick={(e) => handleSubmit(e, false)}
-                            className="w-full cyber-btn bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold py-3 px-4 text-xs uppercase tracking-wider cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.4)] flex items-center justify-center gap-2 border-0"
-                            style={{ color: '#020617' }}
+                            className="w-full bg-gradient-to-r from-red-800 via-red-700 to-red-900 hover:from-red-700 hover:to-red-800 text-amber-100 font-bold py-3 px-4 text-xs uppercase tracking-wider cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.6)] flex items-center justify-center gap-2 border border-[#bd9b60] rounded-xl btn-springy font-heading"
                         >
                             <span>⚔️</span> Vstúpiť do PvP Arény
                         </button>
                         
                         <button 
                             onClick={(e) => handleSubmit(e, true)}
-                            className="w-full cyber-btn bg-slate-950/60 hover:bg-slate-900 border border-purple-500/50 text-purple-300 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full bg-[#1c140d]/80 hover:bg-[#2c2017] border border-[#bd9b60]/50 text-amber-100 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 rounded-xl btn-springy font-heading"
                         >
                             <span>🤖</span> Trénovať proti AI
                         </button>
- 
+  
                         <button 
                             onClick={onOpenGraphicsDemo}
-                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-slate-800/80 text-slate-400 hover:text-slate-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full bg-[#1c140d]/40 hover:bg-[#2c2017] border border-[#4a3b2c] text-slate-400 hover:text-slate-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 rounded-xl btn-springy font-heading"
                         >
                             <span>🌌</span> WebGL Graphics Showcase
                         </button>
-
+ 
                         <button 
                             onClick={onOpenBuilder}
-                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-cyan-800/80 text-cyan-400 hover:text-cyan-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full bg-[#1c140d]/40 hover:bg-[#2c2017] border border-[#4a3b2c] text-[#bd9b60] hover:text-amber-300 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 rounded-xl btn-springy font-heading"
                         >
                             <span>🛠️</span> Sovereign Builder CMS
                         </button>
-
+ 
                         <button 
                             onClick={onOpenComposer}
-                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-yellow-800/80 text-yellow-400 hover:text-yellow-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full bg-[#1c140d]/40 hover:bg-[#2c2017] border border-[#4a3b2c] text-[#bd9b60] hover:text-amber-300 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 rounded-xl btn-springy font-heading"
                         >
                             <span>📋</span> Board Composer
                         </button>
-
+ 
                         <button 
                             onClick={onOpenB2B}
-                            className="w-full cyber-btn bg-slate-950/40 hover:bg-slate-900 border border-emerald-800/80 text-emerald-400 hover:text-emerald-200 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full bg-[#1c140d]/40 hover:bg-[#2c2017] border border-[#4a3b2c] text-[#bd9b60] hover:text-amber-300 font-bold py-2.5 px-4 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 rounded-xl btn-springy font-heading"
                         >
                             <span>💼</span> B2B Backoffice Portal
                         </button>

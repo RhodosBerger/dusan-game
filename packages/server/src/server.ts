@@ -10,14 +10,15 @@ import { startBackoffice } from './backoffice';
 import { AIOpponentDirector } from './models/AIOpponentDirector';
 import { initializeSeedData } from './seedData';
 import { DailyQuestEngine } from './models/DailyQuestEngine';
+import { TradingSimulator } from './economy/TradingSimulator';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignFailoverGateway, SovereignPhraseGenerator } from '@dusan-game/shared';
+import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignFailoverGateway, SovereignPhraseGenerator, SovereignTaskScheduler, GoCoreMediator } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
-import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
+import { RenderPriorityBalancer } from '@dusan-game/shared';
 import { GameplayCompositorManager } from './models/GameplayCompositorManager';
 import { GameplayCompositionEngine } from './models/GameplayCompositionEngine';
 import { AestheticMarketCoordinator } from './models/AestheticMarketCoordinator';
@@ -71,22 +72,90 @@ const matchmakingQueue: WaitingPlayer[] = [];
 const activeMatches = new Map<string, { engine: SovereignEngine; players: string[]; interval: NodeJS.Timeout; aiDirector?: AIOpponentDirector; aiThreadId?: string }>();
 
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
+import { SovereignIntrospectionEngine } from './models/SovereignIntrospectionEngine';
 
 const dbSync = new DatabaseSyncManager('./database.db');
+
+class ServerDeltaManager {
+  private static lastStates = new Map<string, string>(); // room/socket ID -> JSON string of last state
+
+  public static emitState(roomOrSocket: any, id: string, nextState: any) {
+    const serialized = JSON.stringify(nextState);
+    const last = this.lastStates.get(id);
+    if (last) {
+      const prev = JSON.parse(last);
+      const delta = this.computeDelta(prev, nextState);
+      if (delta && Object.keys(delta).length > 0) {
+        this.lastStates.set(id, serialized);
+        roomOrSocket.emit('state_delta', delta);
+        return;
+      }
+    }
+    this.lastStates.set(id, serialized);
+    roomOrSocket.emit('state_resolved', nextState);
+  }
+
+  public static clearState(id: string) {
+    this.lastStates.delete(id);
+  }
+
+  private static computeDelta(prev: any, next: any): any {
+    if (prev === next) return null;
+    if (typeof prev !== 'object' || typeof next !== 'object' || prev === null || next === null) {
+      return next;
+    }
+    const delta: any = {};
+    let hasChanges = false;
+    for (const key of Object.keys(next)) {
+      if (!(key in prev)) {
+        delta[key] = next[key];
+        hasChanges = true;
+      } else {
+        const subDelta = this.computeDelta(prev[key], next[key]);
+        if (subDelta !== null) {
+          delta[key] = subDelta;
+          hasChanges = true;
+        }
+      }
+    }
+    return hasChanges ? delta : null;
+  }
+}
+
+
+
+class BackofficeRegulators {
+  public static config = {
+    enabledDraco: true,
+    enabledTurnBalancer: true,
+    enabledTransparency: true,
+    enabledGodRays: true,
+    enabledItemLoaders: true,
+    enabledOpenVINO: true,
+    enabledDeltaCompression: true,
+    selectedTexture: 'moss_base',
+    textureBoost: true,
+    textureBevel: false,
+    textureSpecular: true
+  };
+}
 
 const getEngineContext = (sock: any) => {
   const matchId = sock.data.matchId;
   if (matchId && activeMatches.has(matchId)) {
     const match = activeMatches.get(matchId)!;
+    const roomName = `room_${matchId}`;
     return {
       engine: match.engine,
-      targetEmit: (event: string, payload: any) => io.to(`room_${matchId}`).emit(event, payload),
+      targetEmit: (event: string, payload: any) => io.to(roomName).emit(event, payload),
+      targetEmitState: (state: any) => ServerDeltaManager.emitState(io.to(roomName), roomName, state),
       matchId
     };
   }
   return {
     engine: defaultEngine,
     targetEmit: (event: string, payload: any) => io.emit(event, payload),
+    targetEmitState: (state: any) => ServerDeltaManager.emitState(io, 'default_match', state),
     matchId: 'default_match'
   };
 };
@@ -108,7 +177,7 @@ const saveEngineState = (engine: SovereignEngine, matchId: string) => {
 setInterval(() => {
   if (defaultEngine.turnStateMachine.currentPhase === 'INTERRUPT_WINDOW') {
     defaultEngine.turnStateMachine.tickTimer();
-    io.emit('state_resolved', defaultEngine.getState());
+    ServerDeltaManager.emitState(io, 'default_match', defaultEngine.getState());
   }
 }, 1000);
 
@@ -132,7 +201,7 @@ io.on('connection', (socket) => {
     console.log(`${socket.id} joined as spectator.`);
   }
   socket.emit('initial_map', defaultEngine.getStaticMapState());
-  socket.emit('state_resolved', defaultEngine.getState());
+  ServerDeltaManager.emitState(socket, socket.id, defaultEngine.getState());
 
   // Načítanie a interpretácia herných scenárov
   socket.on('load_scenario', (payload: { scenarioName: string }) => {
@@ -297,7 +366,7 @@ io.on('connection', (socket) => {
       const matchInterval = setInterval(() => {
         if (matchEngine.turnStateMachine.currentPhase === 'INTERRUPT_WINDOW') {
           matchEngine.turnStateMachine.tickTimer();
-          io.to(roomName).emit('state_resolved', matchEngine.getState());
+          ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
         }
       }, 1000);
 
@@ -309,7 +378,7 @@ io.on('connection', (socket) => {
 
       io.to(roomName).emit('match_started', { matchId, theme: p1.theme, mode: 'PVP' });
       io.to(roomName).emit('initial_map', matchEngine.getStaticMapState());
-      io.to(roomName).emit('state_resolved', matchEngine.getState());
+      ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
       console.log(`[LOBBY] PvP Match ${matchId} started between ${p1.name} and ${p2.name}.`);
     }
   });
@@ -408,13 +477,13 @@ io.on('connection', (socket) => {
     const matchInterval = setInterval(() => {
       if (matchEngine.turnStateMachine.currentPhase === 'INTERRUPT_WINDOW') {
         matchEngine.turnStateMachine.tickTimer();
-        io.to(roomName).emit('state_resolved', matchEngine.getState());
+        ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
       }
 
       // AI protivník: max. 1 akcia za sekundu, nech má ťah čitateľné tempo
       if (aiDirector.tick()) {
         saveEngineState(matchEngine, matchId);
-        io.to(roomName).emit('state_resolved', matchEngine.getState());
+        ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
       }
     }, 1000);
 
@@ -429,7 +498,7 @@ io.on('connection', (socket) => {
     socket.emit('match_started', { matchId, theme: payload.theme, mode: 'AI' });
     io.to(roomName).emit('initial_map', matchEngine.getStaticMapState());
     saveEngineState(matchEngine, matchId);
-    io.to(roomName).emit('state_resolved', matchEngine.getState());
+    ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
     console.log(`[LOBBY] AI Match ${matchId} started for player ${payload.name}.`);
   });
 
@@ -445,6 +514,11 @@ io.on('connection', (socket) => {
     
     // Vyčistenie inštancie pri odpojení všetkých hráčov
     const matchId = socket.data.matchId;
+    ServerDeltaManager.clearState(socket.id);
+    if (matchId) {
+      ServerDeltaManager.clearState(`room_${matchId}`);
+    }
+
     if (matchId && activeMatches.has(matchId)) {
       const match = activeMatches.get(matchId)!;
       clearInterval(match.interval);
@@ -526,6 +600,58 @@ io.on('connection', (socket) => {
     
     // Každá zahraná karta sa presunie do odkladacieho balíčka
     activePlayerThread.discardPile.push(instruction);
+
+    // ── Semantic Weather Action Tensors ─────────────────────────────────────
+    const cardIdLower = payload.cardId.toLowerCase();
+    let selectedWeather: string | null = null;
+    if (cardIdLower.includes('toxic') || cardIdLower.includes('acid') || cardIdLower.includes('swamp') || cardIdLower.includes('poison')) {
+      selectedWeather = 'TOXIC_STORM';
+    } else if (cardIdLower.includes('void') || cardIdLower.includes('collapse') || cardIdLower.includes('darkness') || cardIdLower.includes('purge')) {
+      selectedWeather = 'BLIZZARD';
+    } else if (cardIdLower.includes('crystal') || cardIdLower.includes('laser') || cardIdLower.includes('beam') || cardIdLower.includes('shatter')) {
+      selectedWeather = 'CLEAR';
+    }
+
+    if (selectedWeather) {
+      console.log(`[WEATHER_TENSOR] Card ${payload.cardId} triggers environmental flux: ${selectedWeather}`);
+      const goBridge = new GoCoreMediator(GO_CORE_URL);
+      
+      const flatBlocks: any[] = [];
+      engine.map.chunks.forEach(chunk => {
+        chunk.blocks.forEach(block => {
+          flatBlocks.push({
+            macroIndex: chunk.id,
+            subIndex: block.id,
+            friction: block.friction || 1.0,
+            conductivity: block.conductivity || 0.5,
+            hazardIndex: block.hazardIndex || 0.0,
+            walkable: block.walkable !== false
+          });
+        });
+      });
+
+      goBridge.calculateEnvironmentFlux(selectedWeather, flatBlocks)
+        .then(updatedBlocks => {
+          updatedBlocks.forEach(upNode => {
+            const chunk = engine.map.chunks.find(c => c.id === upNode.macroIndex);
+            const block = chunk?.blocks.find(b => b.id === upNode.subIndex);
+            if (block) {
+              block.friction = upNode.friction ?? 1.0;
+              block.conductivity = upNode.conductivity ?? 0.5;
+              block.hazardIndex = upNode.hazardIndex ?? 0.0;
+            }
+          });
+          
+          io.to(matchId).emit('weather_change', {
+            weather: selectedWeather,
+            logs: `Authoritative weather flux mutated grid to ${selectedWeather}!`
+          });
+          console.log(`[WEATHER_TENSOR] Broadcasted weather change event: ${selectedWeather}`);
+        })
+        .catch(err => {
+          console.error('[WEATHER_TENSOR_ERROR] Failed environment flux calculation:', err);
+        });
+    }
 
     // ── Void Walker Entropy Check ──────────────────────────────────────────
     if (baseCard && baseCard.heroId === 'void') {
@@ -626,6 +752,21 @@ io.on('connection', (socket) => {
     if ((engine as any).lastFocusIndex !== undefined && (engine as any).lastFocusIndex > 0.8) {
       finalSpecs.voltage = Number((finalSpecs.voltage * 1.15).toFixed(2));
       console.log(`[OPENVINO FOCUS BONUS] High focus detected (${(engine as any).lastFocusIndex.toFixed(2)} > 0.8). Card voltage boosted to ${finalSpecs.voltage}V!`);
+    }
+
+    const lastBlinks = (engine as any).lastBlinkCount || 0;
+    const lastFace = (engine as any).lastFaceMovement || 0.0;
+    const lastFatigue = (engine as any).lastFatigueIndex || 0.0;
+    const lastEmotion = (engine as any).lastEmotion || 'CALM';
+
+    if (lastBlinks > 5 || lastFace > 0.7 || lastFatigue > 0.65) {
+      engine.globalEntropy = Number((engine.globalEntropy + 0.04).toFixed(2));
+      console.log(`[OPENVINO DYNAMIC STRESS] Stressed play detected (Blinks: ${lastBlinks}, Face: ${lastFace}). Global entropy increased to ${engine.globalEntropy}!`);
+    }
+
+    if (lastFatigue > 0.6 || lastEmotion === 'STRESSED') {
+      finalSpecs.resistance = Math.max(1, finalSpecs.resistance - 1);
+      console.log(`[OPENVINO EMOTIONAL ADAPTATION] Reduced resistance to ${finalSpecs.resistance} to assist fatigued/stressed player.`);
     }
 
     const isCardUltimate = baseCard ? (baseCard.isUltimate || false) : false;
@@ -846,11 +987,58 @@ io.on('connection', (socket) => {
     if (targetBlock && targetBlock.hasChest) {
       targetBlock.hasChest = false; // consume
       
-      const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
-      thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 1;
-      thread.xp = (thread.xp || 0) + 50;
-      
-      console.log(`[CHEST CLAIM] Player ${thread.id} claimed loot chest. +1 ${materialToGive}, +50 XP!`);
+      const roll = Math.random();
+      let chestMsg = '';
+      if (roll < 0.3) {
+        // Roll random item from catalog
+        const catalogKeys = Object.keys(ITEMS_CATALOG);
+        const randomKey = catalogKeys[Math.floor(Math.random() * catalogKeys.length)];
+        const item = ITEMS_CATALOG[randomKey];
+        if (item) {
+          try {
+            if (item.category === 'MAGIC' && item.heroClass) {
+              dbSync.addPlayerArtifact(
+                thread.name,
+                item.key,
+                item.category,
+                item.heroClass,
+                item.statBonus?.spellReach ?? 0,
+                item.statBonus?.damage ?? 0
+              );
+              thread.artifacts = dbSync.getPlayerArtifacts(thread.name).map((art: any) => ({
+                id: art.id,
+                artifactKey: art.artifact_key,
+                category: art.category,
+                heroClass: art.hero_class,
+                spellReachBonus: art.spell_reach_bonus,
+                damageBonus: art.damage_bonus
+              }));
+            } else {
+              dbSync.addPlayerItem(thread.name, item.key, item.category);
+              thread.items = dbSync.getPlayerItems(thread.name);
+            }
+            chestMsg = `Claimed chest: found ${item.name}! Added to database inventory.`;
+            console.log(`[CHEST CLAIM] Player ${thread.id} found ${item.name} in chest!`);
+          } catch (e: any) {
+            console.error(`[CHEST CLAIM ERROR] Failed to save item to database:`, e);
+            const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
+            thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 2;
+            thread.xp = (thread.xp || 0) + 100;
+            chestMsg = `Claimed chest: +2 ${materialToGive}, +100 XP (DB Write Fallback)`;
+          }
+        } else {
+          const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
+          thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 2;
+          thread.xp = (thread.xp || 0) + 100;
+          chestMsg = `Claimed chest: +2 ${materialToGive}, +100 XP`;
+        }
+      } else {
+        const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
+        thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 2;
+        thread.xp = (thread.xp || 0) + 100;
+        chestMsg = `Claimed chest: +2 ${materialToGive}, +100 XP`;
+        console.log(`[CHEST CLAIM] Player ${thread.id} claimed loot chest. +2 ${materialToGive}, +100 XP!`);
+      }
       
       // RPG Level Up check: each level requires level * 100 XP
       const nextLevelXp = (thread.level || 1) * 100;
@@ -865,7 +1053,7 @@ io.on('connection', (socket) => {
       engine.traceLog.push({
         type: 'ChestClaim',
         threadId: thread.id,
-        message: `Loot chest claimed! +1 ${materialToGive}, +50 XP`,
+        message: chestMsg,
         timestamp: Date.now()
       } as any);
     }
@@ -1182,6 +1370,61 @@ app.get('/api/devops/telemetry', (req, res) => {
   }
 });
 
+app.get('/api/telemetry/planning', (req, res) => {
+  try {
+    const kclLayer = SovereignLayerLogger.getLayer('GAUSS_SEIDEL_KCL') || {
+      layerName: 'GAUSS_SEIDEL_KCL',
+      efficiencyRating: 'OPTIMAL',
+      cpuExecutionTimeMs: 0.12,
+      memoryFootprintMb: 2.4,
+      operationalStatus: 'STANDBY',
+      telemetryPayloadBytes: 256
+    };
+
+    const gazeLayer = SovereignLayerLogger.getLayer('OPENVINO_GAZE_TRACKING') || {
+      layerName: 'OPENVINO_GAZE_TRACKING',
+      efficiencyRating: 'OPTIMAL',
+      cpuExecutionTimeMs: 0.45,
+      memoryFootprintMb: 4.8,
+      operationalStatus: 'STANDBY',
+      telemetryPayloadBytes: 128
+    };
+
+    const dbStats = DatabaseSyncManager.getBufferStats();
+
+    res.status(200).json({
+      timestamp: new Date().toISOString(),
+      layers: {
+        GAUSS_SEIDEL_KCL: kclLayer,
+        OPENVINO_GAZE_TRACKING: gazeLayer,
+        SQLITE_DEBOUNCED_WAL: {
+          layerName: 'SQLITE_DEBOUNCED_WAL',
+          efficiencyRating: 'OPTIMAL',
+          cpuExecutionTimeMs: dbStats.averageLatencyMs,
+          memoryFootprintMb: 1.2,
+          operationalStatus: dbStats.status,
+          telemetryPayloadBytes: dbStats.queueSize * 128,
+          stats: dbStats
+        }
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/telemetry/introspection', async (req, res) => {
+  try {
+    const analysis = await SovereignIntrospectionEngine.analyzeLogs(
+      defaultEngine.traceLog,
+      dbSync
+    );
+    res.status(200).json(analysis);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/predict', (req, res) => {
   try {
     const meta = parseInt(req.query.meta as string || '0', 10);
@@ -1366,8 +1609,15 @@ app.post('/api/telemetry/vision', async (req, res) => {
 
     const focusVal = details.focus_index !== undefined ? details.focus_index : 0.85;
     const fatigueVal = details.fatigue_index !== undefined ? details.fatigue_index : 0.15;
+    const blinkVal = details.blink_count !== undefined ? details.blink_count : 0;
+    const faceVal = details.face_movement !== undefined ? details.face_movement : 0.0;
+    const emotionVal = details.emotion !== undefined ? details.emotion : 'CALM';
+
     (defaultEngine as any).lastFocusIndex = focusVal;
     (defaultEngine as any).lastFatigueIndex = fatigueVal;
+    (defaultEngine as any).lastBlinkCount = blinkVal;
+    (defaultEngine as any).lastFaceMovement = faceVal;
+    (defaultEngine as any).lastEmotion = emotionVal;
 
     ClickHouseTelemetryClient.logVision({
       session_id: payload.session_id || 'unknown_session',
@@ -1404,6 +1654,53 @@ app.post('/api/ml/archetype/adapt', (req, res) => {
   (defaultEngine as any).activeArchetype = archetype;
   console.log(`[ML ARCHETYPE ADAPT] Player ${username} classified as ${archetype}. Spawner probability adjusted.`);
   res.status(200).json({ success: true, message: `Successfully updated player archetype to ${archetype}` });
+});
+
+// ── Backoffice Regulators endpoints (CMS Sync) ──────────────────────────────
+app.get('/api/backoffice/regulators', (req, res) => {
+  res.status(200).json(BackofficeRegulators.config);
+});
+
+app.post('/api/backoffice/regulators', (req, res) => {
+  BackofficeRegulators.config = {
+    ...BackofficeRegulators.config,
+    ...req.body
+  };
+  res.status(200).json({ success: true, config: BackofficeRegulators.config });
+});
+
+// ── Backoffice Task Priority Scheduler endpoints (SJF priority queue) ───────
+app.get('/api/backoffice/tasks', (req, res) => {
+  res.status(200).json(SovereignTaskScheduler.getTasks());
+});
+
+app.post('/api/backoffice/tasks', (req, res) => {
+  const { name, estimatedDurationMs, priority } = req.body;
+  if (!name || estimatedDurationMs === undefined || priority === undefined) {
+    res.status(400).json({ error: 'name, estimatedDurationMs and priority are required' });
+    return;
+  }
+  const task = SovereignTaskScheduler.addTask(name, Number(estimatedDurationMs), Number(priority));
+  res.status(201).json({ success: true, task });
+});
+
+app.delete('/api/backoffice/tasks/:uid', (req, res) => {
+  const { uid } = req.params;
+  const success = SovereignTaskScheduler.removeTask(uid);
+  if (success) {
+    res.status(200).json({ success: true, message: `Task ${uid} removed` });
+  } else {
+    res.status(404).json({ error: `Task ${uid} not found` });
+  }
+});
+
+// ── Backoffice active session UIDs endpoint ────────────────────────────
+app.get('/api/backoffice/sessions', (req, res) => {
+  const list: any[] = [];
+  socketToThread.forEach((threadId, socketId) => {
+    list.push({ socketId, threadId });
+  });
+  res.status(200).json(list);
 });
 
 app.get('/api/db/registers', (req, res) => {
@@ -2601,6 +2898,36 @@ app.get('/goal', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.status(200).send('Server is healthy');
+});
+
+app.post('/api/trades/offer', async (req, res) => {
+  try {
+    const { senderId, offeredCardId, requestedCardDef, receiverId } = req.body;
+    const trade = await TradingSimulator.createTradeOffer(senderId, offeredCardId, requestedCardDef, receiverId);
+    res.json(trade);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/trades/pending', async (req, res) => {
+  try {
+    const { playerId } = req.query;
+    const trades = await TradingSimulator.listPendingOffers(playerId as string);
+    res.json(trades);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/trades/accept', async (req, res) => {
+  try {
+    const { receiverId, tradeId, acceptedCardId } = req.body;
+    const trade = await TradingSimulator.acceptTradeOffer(receiverId, tradeId, acceptedCardId);
+    res.json(trade);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 server.listen(PORT, async () => {

@@ -20,12 +20,27 @@ import * as THREE from 'three';
 // ── CDN base URL — controlled via Vite env variable ──────────────────────────
 const CDN_BASE = import.meta.env.VITE_CDN_URL || '';
 
-// ── Faction → CDN GLB path ────────────────────────────────────────────────────
+// ── Faction → GLB path (supports local folder overrides / custom game content)
 const MODEL_URLS = {
-    crystal: `${CDN_BASE}/models/heroes/crystal_king.glb`,
-    toxic:   `${CDN_BASE}/models/heroes/toxic_hacker.glb`,
-    druid:   `${CDN_BASE}/models/heroes/druid_warden.glb`,
-    void:    `${CDN_BASE}/models/heroes/void_walker.glb`,
+    crystal:         `${CDN_BASE}/models/heroes/crystal/hero.glb`,
+    crystal_warrior: `${CDN_BASE}/models/heroes/crystal_warrior/hero.glb`,
+    crystal_mage:    `${CDN_BASE}/models/heroes/crystal_mage/hero.glb`,
+    crystal_rogue:   `${CDN_BASE}/models/heroes/crystal_rogue/hero.glb`,
+    
+    toxic:           `${CDN_BASE}/models/heroes/toxic/hero.glb`,
+    toxic_warrior:   `${CDN_BASE}/models/heroes/toxic_warrior/hero.glb`,
+    toxic_mage:      `${CDN_BASE}/models/heroes/toxic_mage/hero.glb`,
+    toxic_rogue:     `${CDN_BASE}/models/heroes/toxic_rogue/hero.glb`,
+    
+    druid:           `${CDN_BASE}/models/heroes/druid/hero.glb`,
+    druid_warrior:   `${CDN_BASE}/models/heroes/druid_warrior/hero.glb`,
+    druid_mage:      `${CDN_BASE}/models/heroes/druid_mage/hero.glb`,
+    druid_rogue:     `${CDN_BASE}/models/heroes/druid_rogue/hero.glb`,
+    
+    void:            `${CDN_BASE}/models/heroes/void/hero.glb`,
+    void_warrior:    `${CDN_BASE}/models/heroes/void_warrior/hero.glb`,
+    void_mage:       `${CDN_BASE}/models/heroes/void_mage/hero.glb`,
+    void_rogue:      `${CDN_BASE}/models/heroes/void_rogue/hero.glb`,
 };
 
 // Faction emissive tints applied on top of the base model material
@@ -48,7 +63,8 @@ export function preloadAllHeroModels() {
 // ────────────────────────────────────────────────────────────────────────────
 function HeroLoadingFallback({ position, faction }) {
     const ringRef = useRef();
-    const tint    = FACTION_EMISSIVE[faction] || FACTION_EMISSIVE.crystal;
+    const baseFaction = faction.split('_')[0];
+    const tint        = FACTION_EMISSIVE[baseFaction] || FACTION_EMISSIVE.crystal;
 
     useFrame((state) => {
         if (ringRef.current) {
@@ -93,9 +109,10 @@ function HeroLoadingFallback({ position, faction }) {
 // Inner loader — must be wrapped in Suspense (useGLTF triggers it)
 // ────────────────────────────────────────────────────────────────────────────
 function HeroGLTF({ faction, position, scale = 1, lowHp = false }) {
-    const url         = MODEL_URLS[faction] || MODEL_URLS.crystal;
+    const baseFaction = faction.split('_')[0];
+    const url         = MODEL_URLS[faction] || MODEL_URLS[baseFaction] || MODEL_URLS.crystal;
     const { scene }   = useGLTF(url);      // Draco-decompressed, cached by drei
-    const emissiveTint = FACTION_EMISSIVE[faction] || FACTION_EMISSIVE.crystal;
+    const emissiveTint = FACTION_EMISSIVE[baseFaction] || FACTION_EMISSIVE.crystal;
 
     // Clone scene: each instance gets its own material copy
     const cloned = useMemo(() => {

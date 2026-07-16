@@ -329,6 +329,31 @@ func handleSolve(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
+func handleKCLGrid(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req engine.KCLRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	res, err := engine.SolveKCL(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
 func handleInfer(w http.ResponseWriter, r *http.Request) {
 	if setupCORS(w, r) {
 		return
@@ -821,6 +846,7 @@ func main() {
 	http.HandleFunc("/api/combat/resolve", handleCombatResolve)
 	http.HandleFunc("/api/physics/solve", handleSolve)
 	http.HandleFunc("/api/tensor/infer-unknown", handleInfer)
+	http.HandleFunc("/api/physics/kcl-grid", handleKCLGrid)
 	http.HandleFunc("/api/synthesize", handleSynthesize)
 	http.HandleFunc("/api/synthesize/batch", handleSynthesizeBatch)
 	http.HandleFunc("/api/telemetry/combat", func(w http.ResponseWriter, r *http.Request) {

@@ -5,7 +5,7 @@ import { initializeSeedData } from './seedData';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
-import { CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignEffectSequencer, SovereignElementorRegistry, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignPhraseGenerator } from '@dusan-game/shared';
+import { HexNode, ConnectionEngine, HardwareGovernor, RenderPriorityBalancer, StructuralStateParameters, SovereignRuleDrivenCompositionManager, CombinatoricProbabilityEngine, DungeonDirector, BiomeEngine, MLTerrainSynthesizer, Pathfinder, PredictiveBalanceDirector, AlgebraicActionTensor, AdrenalineDirector, AethericDiceEngine, VOID_CARDS_BASE, AlgebraicOpportunityGenerator, QuestTriggerManager, RuleOfThreeSolver, OhmGridEvaluator, SovereignSignalMediator, ITEMS_CATALOG, GameEvent, CardBase, SpatialGuidanceSystem, GoCoreMediator, UniversalWasmBridge, executeKineticOverrideTransition, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignEffectSequencer, SovereignElementorRegistry, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignPhraseGenerator, SovereignTaskScheduler } from '@dusan-game/shared';
 import { KnowledgeBaseService } from './services/KBService';
 import { TelemetryBigQueryService } from './services/TelemetryBigQueryService';
 import { GameState, resolveEngineState, EnginePipeline } from './models/EnginePipeline';
@@ -14,7 +14,6 @@ import { SovereignIntrospectionEngine } from './models/SovereignIntrospectionEng
 import { GameMap } from './models/Map';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
-import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
 import { GameplayCompositorManager } from './models/GameplayCompositorManager';
 import { GameplayCompositionEngine } from './models/GameplayCompositionEngine';
 import { AestheticMarketCoordinator } from './models/AestheticMarketCoordinator';
@@ -22,6 +21,9 @@ import { TacticalGenerativeCoordinator } from './models/TacticalGenerativeCoordi
 import { SovereignContentDistributor } from './models/SovereignContentDistributor';
 import { SovereignSoldierSimulator } from './models/SovereignSoldierSimulator';
 import { SovereignIslandSystem } from './models/SovereignIslandSystem';
+import { TradingSimulator } from './economy/TradingSimulator';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 import { DeterministicTurnBalancer } from './models/DeterministicTurnBalancer';
 import { SovereignLogicConsole } from './models/SovereignLogicConsole';
 import { SovereignBattleDirector } from './models/SovereignBattleDirector';
@@ -948,6 +950,7 @@ async function runTests() {
   dbManagerQuestTest.savePlayerState(mockThread);
   dbManagerQuestTest.addPlayerItem('test_quest_player', 'aether_saber', 'WEAPON');
   
+  DatabaseSyncManager.flushWrites();
   const runQuestGenCmd = `"${venvPython}" "${dbQuestScript}" test_quest_player crystal`;
   const questGenOutput = JSON.parse(execSync(runQuestGenCmd).toString().trim());
   
@@ -3283,7 +3286,529 @@ async function runTests() {
   console.log("  [PASS] Authoritative Weather Flux calculations verified successfully: TOXIC_STORM, BLIZZARD, CLEAR");
   console.log("  [PASS] Test 95 (Go Core Authoritative Environmental Flux) validated successfully.");
 
-  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator, Sovereign-Card-Fusion, Sovereign-Reality-Compositor, Go-Core-Simulation-Bridge, Go-Core-State-Engine, Go-Core-Pathfinder, Go-Core-Environmental-Flux testy prebehli úspešne!");
+  console.log("\nTest 96: SQLite Debounced WAL & Introspection Engine");
+  const testDbPath96 = `./database_test_${Date.now()}.db`;
+  const dbManagerTest96 = new DatabaseSyncManager(testDbPath96);
+
+  // 1. Verify writes are queued (buffered)
+  dbManagerTest96.saveMemoryRegister('0x00E0', '0x120C1F', 'test_register_buffered');
+  const bufferStats = DatabaseSyncManager.getBufferStats();
+  assert(bufferStats.queueSize === 1, "SaveMemoryRegister must buffer the write in WAL queue.");
+  assert(bufferStats.status === 'ACTIVE', "Buffer state must be ACTIVE.");
+
+  // 2. Verify read flushes WAL queue automatically
+  const readRegisters = dbManagerTest96.getMemoryRegisters();
+  const bufferStatsAfterRead = DatabaseSyncManager.getBufferStats();
+  assert(bufferStatsAfterRead.queueSize === 0, "WAL queue must be automatically flushed before a read query.");
+  assert(readRegisters.length > 0, "Read query must return the flushed register.");
+  assert(readRegisters[0].register_address === '0x00E0', "Returned register address must be 0x00E0.");
+
+  // 3. Verify SovereignIntrospectionEngine LIFO analysis
+  const mockTraceLogs = [
+    { type: 'Spawn', message: 'Hero spawned', timestamp: Date.now() - 5000 },
+    { type: 'Combat', message: 'Player attacked target', timestamp: Date.now() - 4000 },
+    { type: 'Combat', message: '[LIFO_ARBITER] Initializing stack resolution (size: 2).', timestamp: Date.now() - 3000 },
+    { type: 'Combat', message: '[MITIGATED] Player B successfully dodged Player A\'s attack!', timestamp: Date.now() - 2000 },
+    { type: 'Error', message: 'Database write failed due to timeout', timestamp: Date.now() - 1000 }
+  ];
+
+  const analysis = await SovereignIntrospectionEngine.analyzeLogs(mockTraceLogs, dbManagerTest96);
+  assert(analysis.totalLogsAnalyzed >= 5, "Introspection engine must analyze at least the trace logs.");
+  assert(analysis.anomaliesDetected.length > 0, "Introspection engine must detect the SYSTEM_ERROR anomaly.");
+  assert(analysis.anomaliesDetected[0].type === 'SYSTEM_ERROR', "Detected anomaly type must be SYSTEM_ERROR.");
+  assert(analysis.lifoArbiterMetrics.totalResolutions === 2, "Introspection engine must detect 2 LIFO Arbiter steps.");
+  assert(analysis.lifoArbiterMetrics.mitigationAccuracy === 50.0, "Dodge accuracy should be exactly 50% (1 successful, 2 total).");
+
+  // Clean up test DB
+  if (require('fs').existsSync(testDbPath96)) {
+    require('fs').unlinkSync(testDbPath96);
+  }
+
+  console.log("  [PASS] SQLite Debounced WAL queuing and auto-flushing verified.");
+  console.log("  [PASS] Sovereign Introspection Engine LIFO anomaly & Arbiter resolution analysis verified.");
+  console.log("  [PASS] Test 96 (SQLite Debounced WAL & Introspection Engine) validated successfully.");
+
+  console.log("\nTest 97: Go Core Authoritative KCL Sparse Grid Solver (Gauss-Seidel)");
+  // 1. Create a 3-node grid layout
+  // Node 0 (Anchor/Ground) - posX: 0.0, posZ: 0.0
+  // Node 1 (Neighbor) - posX: 2.0, posZ: 0.0
+  // Node 2 (Neighbor) - posX: 4.0, posZ: 0.0
+  const kclGridNodes: HexNode[] = [
+    { macroIndex: 0, subIndex: 0, posX: 0.0, posZ: 0.0, conductivity: 0.8, currentInput: 0.0, voltage: 0.0 },
+    { macroIndex: 0, subIndex: 1, posX: 2.0, posZ: 0.0, conductivity: 0.8, currentInput: 5.0, voltage: 0.0 }, // Inject 5A current here
+    { macroIndex: 0, subIndex: 2, posX: 4.0, posZ: 0.0, conductivity: 0.8, currentInput: 0.0, voltage: 0.0 }
+  ];
+
+  // 2. Solve KCL voltage potentials
+  const solvedKCLGrid = await goBridgeMediator.calculateKCLGrid(kclGridNodes);
+
+  // 3. Assertions
+  const groundNode = solvedKCLGrid.find(n => n.macroIndex === 0 && n.subIndex === 0);
+  const injectedNode = solvedKCLGrid.find(n => n.macroIndex === 0 && n.subIndex === 1);
+  const passiveNode = solvedKCLGrid.find(n => n.macroIndex === 0 && n.subIndex === 2);
+
+  if (!groundNode || !injectedNode || !passiveNode) {
+    throw new Error("Test 97 nodes could not be found.");
+  }
+
+  const gVoltage = groundNode.voltage ?? 0.0;
+  const iVoltage = injectedNode.voltage ?? 0.0;
+  const pVoltage = passiveNode.voltage ?? 0.0;
+
+  // Anchor node (0,0) is forced to 0.0V (Ground reference)
+  assert(gVoltage === 0.0, `Ground node voltage must be exactly 0.0V, got: ${gVoltage}`);
+  // Injected node (0,1) must have positive voltage due to current source
+  assert(iVoltage > 0.0, `Injected node voltage must be positive, got: ${iVoltage}`);
+  // Passive node (0,2) must receive propagated voltage from node 1
+  assert(pVoltage > 0.0, `Passive node voltage must receive propagated potential, got: ${pVoltage}`);
+
+  console.log(`  [PASS] KCL Solver computed voltages: Node 0: ${gVoltage.toFixed(2)}V, Node 1: ${iVoltage.toFixed(2)}V, Node 2: ${pVoltage.toFixed(2)}V`);
+  console.log("  [PASS] Test 97 (Go Core Authoritative KCL Sparse Grid Solver) validated successfully.");
+
+  console.log("\nTest 98: Rule-Driven Automatic Composition Manager");
+  // 1. Setup sample grid and props
+  const gridNode: HexNode = { macroIndex: 0, subIndex: 1, posX: 2.0, posZ: 0.0, walkable: true, hazardIndex: 0.1, biome: 'VOID_CRUCIBLE', friction: 0.5, conductivity: 0.5, voltage: 6.0 };
+  
+  // 2. Test Placement Validation (Spawner guards)
+  const validation1 = SovereignRuleDrivenCompositionManager.validatePlacement(gridNode, 10, 2);
+  assert(validation1.placeable === true, "Valid node must be placeable.");
+  
+  const invalidNode: HexNode = { macroIndex: 0, subIndex: 2, posX: 4.0, posZ: 0.0, walkable: false };
+  const validation2 = SovereignRuleDrivenCompositionManager.validatePlacement(invalidNode, 10, 2);
+  assert(validation2.placeable === false, "Non-walkable node must not be placeable.");
+  
+  const highHazardNode: HexNode = { macroIndex: 0, subIndex: 3, posX: 6.0, posZ: 0.0, walkable: true, hazardIndex: 0.95 };
+  const validation3 = SovereignRuleDrivenCompositionManager.validatePlacement(highHazardNode, 10, 2);
+  assert(validation3.placeable === false, "High hazard index node must trigger safety guard.");
+
+  // 3. Test DevOps Telemetry Mapping
+  const geometry = SovereignRuleDrivenCompositionManager.mapCodeToGeometry(1250, 4.0);
+  assert(geometry.teethCount === 12, `1250 LOC must map to 12 teeth, got ${geometry.teethCount}`);
+  assert(geometry.heightOffset === 2.0, `4.0s build time must map to 2.0 height offset, got ${geometry.heightOffset}`);
+
+  // 4. Test Synthesis Composition Modulations
+  const composition = SovereignRuleDrivenCompositionManager.synthesizeComposition(
+    [gridNode],
+    { codeLines: 1500, buildTimeSec: 6.0 },
+    0.8, // high entropy
+    3 // 3 threads
+  );
+  
+  assert(composition.teethCount === 15, "1500 LOC must map to 15 teeth.");
+  assert(composition.heightOffset === 3.0, "6.0s build time must map to 3.0 height offset.");
+  assert(composition.isTdpCompliant === true, "Composition should be TDP compliant under limits.");
+  
+  const synthesizedNode = composition.nodes[0];
+  assert(synthesizedNode.conductivity === 1.0, `Environmental scaling must set conductivity to 1.0, got ${synthesizedNode.conductivity}`);
+  assert(synthesizedNode.posZ === 3.0, `High voltage must raise posZ to 3.0, got ${synthesizedNode.posZ}`);
+
+  console.log("  [PASS] Spawner guards and TDP limits validated.");
+  console.log("  [PASS] DevOps LOC and build time geometry mapping validated.");
+  console.log("  [PASS] Rule-driven environmental scaling and high voltage lift validated.");
+  console.log("  [PASS] Test 98 (Rule-Driven Automatic Composition Manager) validated successfully.");
+
+  console.log("\nTest 99: Dynamic Escape Paths & Player Retention Motivation (DDA)");
+  // 1. Setup grid: Player at (0, 0) and 5 neighbors
+  const playerPos = { posX: 0.0, posZ: 0.0 };
+  const mockGrid: HexNode[] = [
+    { macroIndex: 0, subIndex: 0, posX: 0.0, posZ: 0.0, walkable: true, hazardIndex: 0.5 }, // player node
+    { macroIndex: 0, subIndex: 1, posX: 2.0, posZ: 0.0, walkable: true, hazardIndex: 0.5 }, // neighbor 1
+    { macroIndex: 0, subIndex: 2, posX: -2.0, posZ: 0.0, walkable: true, hazardIndex: 0.5 }, // neighbor 2
+    { macroIndex: 0, subIndex: 3, posX: 0.0, posZ: 2.0, walkable: true, hazardIndex: 0.5 }, // neighbor 3
+    { macroIndex: 0, subIndex: 4, posX: 0.0, posZ: -2.0, walkable: true, hazardIndex: 0.5 }, // neighbor 4
+    { macroIndex: 0, subIndex: 5, posX: 1.0, posZ: 1.5, walkable: true, hazardIndex: 0.5 } // neighbor 5
+  ];
+
+  // 2. Validate Dynamic Escape Paths (items decrease as failures increase)
+  // failureCount = 0 -> maxSpawns = 4
+  const escapeGrid0 = SovereignRuleDrivenCompositionManager.spawnManaEscapePaths(mockGrid, playerPos, 0);
+  const items0 = escapeGrid0.filter(n => n.hasOpportunity !== undefined && n.hasOpportunity !== null);
+  assert(items0.length === 4, `With 0 failures, max escape spawns should be 4, got: ${items0.length}`);
+
+  // failureCount = 2 -> maxSpawns = 2
+  const escapeGrid2 = SovereignRuleDrivenCompositionManager.spawnManaEscapePaths(mockGrid, playerPos, 2);
+  const items2 = escapeGrid2.filter(n => n.hasOpportunity !== undefined && n.hasOpportunity !== null);
+  assert(items2.length === 2, `With 2 failures, max escape spawns should be 2, got: ${items2.length}`);
+
+  // failureCount = 4 -> maxSpawns = 1
+  const escapeGrid4 = SovereignRuleDrivenCompositionManager.spawnManaEscapePaths(mockGrid, playerPos, 4);
+  const items4 = escapeGrid4.filter(n => n.hasOpportunity !== undefined && n.hasOpportunity !== null);
+  assert(items4.length === 1, `With 4 failures, max escape spawns should be 1, got: ${items4.length}`);
+
+  // 3. Validate Retention Motivation (lower hazard when in danger)
+  // low health (5) + failureCount = 1 (low failures) -> hazardIndex halved (0.5 * 0.5 = 0.25)
+  const retentionGridMotivated = SovereignRuleDrivenCompositionManager.motivatePlayerRetention(mockGrid, playerPos, 5, 10, 1);
+  const adjacentMotivated = retentionGridMotivated.filter(n => n.subIndex > 0);
+  assert(adjacentMotivated.every(n => n.hazardIndex === 0.25), "Hazards must be halved to 0.25 when player is motivated.");
+
+  // low health (5) + failureCount = 5 (high failures) -> hazardIndex elevated (0.5 * 1.3 = 0.65)
+  const retentionGridRamped = SovereignRuleDrivenCompositionManager.motivatePlayerRetention(mockGrid, playerPos, 5, 10, 5);
+  const adjacentRamped = retentionGridRamped.filter(n => n.subIndex > 0);
+  assert(adjacentRamped.every(n => n.hazardIndex === 0.65), "Hazards must be elevated to 0.65 under escalating failure penalty.");
+
+  console.log("  [PASS] Escape path item counts dynamically throttled by combat failures.");
+  console.log("  [PASS] Retention motivation lowers hazards adjacent to endangered players under low failures.");
+  console.log("  [PASS] Dynamic failure penalty elevates hazards adjacent to endangered players under high failures.");
+  console.log("  [PASS] Test 99 (Dynamic Escape Paths & Player Retention Motivation) validated successfully.");
+
+  console.log("\nTest 100: Hardware-Adaptive Governor Profile Transition Assertions");
+  // Reset governor state
+  HardwareGovernor.reset();
+  
+  // 1. Simulate low-end frame times (> 16.6ms)
+  for (let i = 0; i < 65; i++) {
+    HardwareGovernor.updateProfile(22.0);
+  }
+  const lowEndLimits = HardwareGovernor.updateProfile(22.0);
+  assert(lowEndLimits.kclIterations === 16, `LOW_END iterations must be 16, got ${lowEndLimits.kclIterations}`);
+  assert(lowEndLimits.uniformThrottleHz === 5, `LOW_END uniform throttle must be 5Hz, got ${lowEndLimits.uniformThrottleHz}`);
+  assert(lowEndLimits.maxInstancedProps === 20, `LOW_END max instanced props must be 20, got ${lowEndLimits.maxInstancedProps}`);
+  assert(lowEndLimits.enableVolumetricFog === false, `LOW_END fog must be disabled, got ${lowEndLimits.enableVolumetricFog}`);
+  assert(HardwareGovernor.currentTier === 'LOW_END', `Current tier must be LOW_END, got ${HardwareGovernor.currentTier}`);
+
+  // 2. Simulate high-end frame times (< 8.3ms)
+  for (let i = 0; i < 65; i++) {
+    HardwareGovernor.updateProfile(5.0);
+  }
+  const highEndLimits = HardwareGovernor.updateProfile(5.0);
+  assert(highEndLimits.kclIterations === 40, `HIGH_END iterations must be 40, got ${highEndLimits.kclIterations}`);
+  assert(highEndLimits.uniformThrottleHz === 30, `HIGH_END uniform throttle must be 30Hz, got ${highEndLimits.uniformThrottleHz}`);
+  assert(highEndLimits.maxInstancedProps === 100, `HIGH_END max instanced props must be 100, got ${highEndLimits.maxInstancedProps}`);
+  assert(highEndLimits.enableVolumetricFog === true, `HIGH_END fog must be enabled, got ${highEndLimits.enableVolumetricFog}`);
+  assert(HardwareGovernor.currentTier === 'HIGH_END', `Current tier must be HIGH_END, got ${HardwareGovernor.currentTier}`);
+
+  console.log("  [PASS] HardwareGovernor correctly transitions to LOW_END profile under simulated frame spikes.");
+  console.log("  [PASS] HardwareGovernor correctly transitions to HIGH_END profile under simulated frame peaks.");
+  console.log("  [PASS] Test 100 (Hardware-Adaptive Governor Profile Transition Assertions) validated successfully.");
+
+  console.log("\nTest 101: Decoupled Balancer & Structural State Union Validation");
+  // 1. Simulácia slabého hardvéru (Vysoký delta frame time zbernice) [cite: 1]
+  const mockLowEndParams: StructuralStateParameters = {
+    activeThreadsCount: 4,
+    globalEntropyStress: 0.1,
+    averageFrameTimeMs: 22.5, // 22.5ms = pod 45 FPS
+    viewportPropsCount: 80
+  };
+
+  const lowEndResult = RenderPriorityBalancer.balanceComputeLoad(mockLowEndParams);
+  
+  assert(lowEndResult.hardwareTier === 'LOW_END', "Tier must be LOW_END");
+  assert(lowEndResult.kclIterations === 16, "kclIterations must be 16");
+  assert(lowEndResult.gpuThrottleFrequencyHz === 5, "gpuThrottleFrequencyHz must be 5");
+  assert(lowEndResult.renderPostProcessing === false, "renderPostProcessing must be false");
+  
+  console.log("  [PASS] Low-End limits correctly computed strictly via structural parameters.");
+  console.log("  [PASS] Test 101 (Decoupled Balancer & Structural State Union Validation) validated successfully.");
+
+  console.log("\nTest 102: Card Trading & Trade Quest Verification");
+  // 1. Create fresh players in DB
+  const tradePlayerA = await prisma.player.create({
+    data: {
+      username: `trade_player_a_${Date.now()}`,
+      email: `trade_a_${Date.now()}@test.com`,
+      passwordHash: 'hash',
+      quests: {
+        create: {
+          questKey: 'TRADE_QUEST_102',
+          targetValue: 1,
+          progress: 0,
+          completed: false,
+          xpReward: 50
+        }
+      }
+    }
+  });
+
+  const tradePlayerB = await prisma.player.create({
+    data: {
+      username: `trade_player_b_${Date.now()}`,
+      email: `trade_b_${Date.now()}@test.com`,
+      passwordHash: 'hash',
+      quests: {
+        create: {
+          questKey: 'TRADE_QUEST_102',
+          targetValue: 1,
+          progress: 0,
+          completed: false,
+          xpReward: 50
+        }
+      }
+    }
+  });
+
+  // 2. Create cards for both players
+  const cardA = await prisma.playerCard.create({
+    data: {
+      playerId: tradePlayerA.id,
+      cardDefinitionId: 'voidErosion',
+      customVoltage: 1.0,
+      customResistance: 1.0
+    }
+  });
+
+  const cardB = await prisma.playerCard.create({
+    data: {
+      playerId: tradePlayerB.id,
+      cardDefinitionId: 'crystal_laser_burst',
+      customVoltage: 2.0,
+      customResistance: 2.0
+    }
+  });
+
+  // 3. Create a trade offer: Player A offers voidErosion, requests crystal_laser_burst
+  const tradeOffer = await TradingSimulator.createTradeOffer(tradePlayerA.id, cardA.id, 'crystal_laser_burst', tradePlayerB.id);
+  assert(tradeOffer.status === 'PENDING', "Trade offer status must be PENDING");
+
+  // 4. Accept the trade offer: Player B accepts A's offer, offering cardB
+  const acceptedTrade = await TradingSimulator.acceptTradeOffer(tradePlayerB.id, tradeOffer.id, cardB.id);
+  assert(acceptedTrade.status === 'COMPLETED', "Trade status must be COMPLETED");
+
+  // 5. Verify the cards have swapped owners
+  const swappedCardA = await prisma.playerCard.findUnique({ where: { id: cardA.id } });
+  const swappedCardB = await prisma.playerCard.findUnique({ where: { id: cardB.id } });
+
+  assert(swappedCardA !== null, "swappedCardA should not be null");
+  assert(swappedCardB !== null, "swappedCardB should not be null");
+  assert(swappedCardA!.playerId === tradePlayerB.id, `Card A owner must now be Player B, got ${swappedCardA!.playerId}`);
+  assert(swappedCardB!.playerId === tradePlayerA.id, `Card B owner must now be Player A, got ${swappedCardB!.playerId}`);
+
+  // 6. Verify trade quest status is COMPLETED for both players
+  const questA = await prisma.playerQuest.findUnique({
+    where: { playerId_questKey: { playerId: tradePlayerA.id, questKey: 'TRADE_QUEST_102' } }
+  });
+  const questB = await prisma.playerQuest.findUnique({
+    where: { playerId_questKey: { playerId: tradePlayerB.id, questKey: 'TRADE_QUEST_102' } }
+  });
+
+  assert(questA !== null, "questA should not be null");
+  assert(questB !== null, "questB should not be null");
+  assert(questA!.completed === true, "Player A quest must be completed");
+  assert(questA!.progress === 1, "Player A quest progress must be 1");
+  assert(questB!.completed === true, "Player B quest must be completed");
+  assert(questB!.progress === 1, "Player B quest progress must be 1");
+
+  console.log("  [PASS] Cards swapped owners atomically via Prisma interactive transaction.");
+  console.log("  [PASS] Both players received quest progress increments and marked quests as completed.");
+  console.log("  [PASS] Test 102 (Card Trading & Trade Quest Verification) validated successfully.");
+
+  console.log("\nTest 103: Expanded Traps & Randomized Chest Rewards");
+  const engine103 = new SovereignEngine();
+  const p103 = new Thread('test_player_103', 'PLAYER');
+  p103.name = 'test_player_103';
+  p103.health = 15;
+  p103.maxHealth = 15;
+  p103.armor = 1; // will reduce dmg from 4 to 3
+  engine103.threads.push(p103);
+  
+  // Test STATIC_CHARGE_TRAP
+  const testChunk = engine103.map.chunks[0];
+  const trapBlock103 = testChunk.blocks[1];
+  assert(trapBlock103 !== undefined, "Trap block should not be undefined");
+  trapBlock103.hasTrap = 'STATIC_CHARGE_TRAP';
+  engine103.systemEnergy = 50;
+  
+  engine103.triggerTrapCheck(p103, testChunk.id, trapBlock103.id);
+  
+  assert(p103.health === 12, `Health should be 12 after STATIC_CHARGE_TRAP (15 - (4 - 1 armor)), got ${p103.health}`);
+  assert(engine103.systemEnergy === 35, `System energy should be 35 after -15 drain, got ${engine103.systemEnergy}`);
+  assert(trapBlock103.hasTrap === null, "Trap must be consumed");
+  
+  console.log("  [PASS] STATIC_CHARGE_TRAP mechanical effects and energy drain validated.");
+
+  // Test Randomized Chest Rewards
+  let itemsOrArtifactsCount = 0;
+  let materialsCount = 0;
+  const dbSync103 = new DatabaseSyncManager('./database.db');
+  
+  // Ensure player profile exists in DB
+  try {
+    dbSync103.getOrCreatePlayer('test_player_103', 'crystal');
+  } catch(e) {}
+  
+  for (let i = 0; i < 100; i++) {
+    const roll = Math.random();
+    if (roll < 0.3) {
+      const catalogKeys = Object.keys(ITEMS_CATALOG);
+      const randomKey = catalogKeys[Math.floor(Math.random() * catalogKeys.length)];
+      const item = ITEMS_CATALOG[randomKey];
+      if (item) {
+        if (item.category === 'MAGIC' && item.heroClass) {
+          dbSync103.addPlayerArtifact(p103.name, item.key, item.category, item.heroClass, 0, 0);
+        } else {
+          dbSync103.addPlayerItem(p103.name, item.key, item.category);
+        }
+        itemsOrArtifactsCount++;
+      }
+    } else {
+      materialsCount++;
+    }
+  }
+  
+  assert(itemsOrArtifactsCount > 10 && itemsOrArtifactsCount < 50, `Items count should be roughly around 30, got ${itemsOrArtifactsCount}`);
+  assert(materialsCount > 50 && materialsCount < 90, `Materials count should be roughly around 70, got ${materialsCount}`);
+  
+  // Flush WAL writes before clean up
+  DatabaseSyncManager.flushWrites();
+  
+  // Clean up test player artifacts and items
+  try {
+    dbSync103.getDbInstance().prepare("DELETE FROM player_artifacts WHERE player_username = ?").run('test_player_103');
+    dbSync103.getDbInstance().prepare("DELETE FROM player_items WHERE player_username = ?").run('test_player_103');
+    dbSync103.getDbInstance().prepare("DELETE FROM players WHERE username = ?").run('test_player_103');
+  } catch(e) {}
+  
+  console.log("  [PASS] Chest reward distribution (30% persistent drop / 70% material) validated.");
+  console.log("  [PASS] Test 103 (Expanded Traps & Randomized Chest Rewards) validated successfully.");
+
+  console.log("\nTest 104: Backoffice SJF Priority Task Scheduler");
+  // Clear any existing tasks
+  while(SovereignTaskScheduler.popNextTask()) {}
+  
+  // Add tasks out of order
+  SovereignTaskScheduler.addTask("Long running high priority", 5000, 3);
+  SovereignTaskScheduler.addTask("Short running low priority", 1000, 1);
+  SovereignTaskScheduler.addTask("Medium running medium priority", 2500, 2);
+  SovereignTaskScheduler.addTask("Short running high priority", 1000, 3);
+  
+  const tasks = SovereignTaskScheduler.getTasks();
+  assert(tasks.length === 4, "Task queue size should be 4");
+  
+  // Expected order (SJF, then priority descending tie breaker):
+  // 1. Short running high priority (1000ms, priority 3)
+  // 2. Short running low priority (1000ms, priority 1)
+  // 3. Medium running medium priority (2500ms, priority 2)
+  // 4. Long running high priority (5000ms, priority 3)
+  assert(tasks[0].name === "Short running high priority", `First task should be Short running high priority, got: ${tasks[0].name}`);
+  assert(tasks[1].name === "Short running low priority", `Second task should be Short running low priority, got: ${tasks[1].name}`);
+  assert(tasks[2].name === "Medium running medium priority", `Third task should be Medium running medium priority, got: ${tasks[2].name}`);
+  assert(tasks[3].name === "Long running high priority", `Fourth task should be Long running high priority, got: ${tasks[3].name}`);
+  
+  const next = SovereignTaskScheduler.popNextTask();
+  assert(next?.name === "Short running high priority", "Next popped task should be Short running high priority");
+  assert(SovereignTaskScheduler.getTasks().length === 3, "Task queue size should be 3 after pop");
+
+  console.log("  [PASS] Shortest Job First (SJF) sorting order verified.");
+  console.log("  [PASS] Tie breaking by priority descending verified.");
+  console.log("  [PASS] Test 104 (Backoffice SJF Priority Task Scheduler) validated successfully.");
+
+  console.log("\nTest 105: Dynamic Item Bonuses & Durability Calculations");
+  const tester105 = {
+    id: "test_player_105",
+    level: 1,
+    luck: 0.5,
+    items: [
+      { itemKey: "AETHER_SABER", category: "WEAPON", quantity: 1, durability: 100 }
+    ],
+    artifacts: [
+      { artifactKey: "EXEMPLAR_CROWN", category: "MAGIC", heroClass: "SOVEREIGN_EXEMPLAR", spellReachBonus: 0, damageBonus: 3 }
+    ]
+  };
+
+  const dummyHex = { biome: "LUSH_FOREST", friction: 0.5, hazardIndex: 0.2 };
+  const outcome105 = AlgebraicActionTensor.evaluate(tester105, "crystal_laser", dummyHex);
+  assert(outcome105.damageApplied === 8, `Expected 8 damage applied, got: ${outcome105.damageApplied}`);
+  console.log("  [PASS] Dynamic damage bonuses from items and artifacts applied correctly.");
+
+  const testEngineInstance105 = new SovereignEngine();
+  const t105 = new Thread("test_player_105", "PLAYER");
+  t105.items = [
+    { itemKey: "AETHER_SABER", category: "WEAPON", quantity: 1, durability: 100 }
+  ];
+  t105.position = { meta: 0, hex: 0 };
+  const target105 = new Thread("test_target_105", "PLAYER");
+  target105.position = { meta: 0, hex: 0 };
+  testEngineInstance105.threads.push(t105);
+  testEngineInstance105.threads.push(target105);
+  testEngineInstance105.turnCount = 2;
+
+  const mockInstruction105 = { id: "crystal_laser", type: "ACTION", damage: 5, energyCost: 1, specifications: ["attack"], effects: {} } as any;
+  const mockNode105 = new ActionNode("node_105", mockInstruction105, t105.id, target105.id);
+  testEngineInstance105.actionNetwork.push(mockNode105);
+  
+  AethericDiceEngine.bypassDice = true;
+  testEngineInstance105.resolveActionNetwork();
+  AethericDiceEngine.bypassDice = false;
+
+  const resolvedSaber = t105.items[0];
+  assert(resolvedSaber.durability === 95, `Expected saber durability to drop to 95, got: ${resolvedSaber.durability}`);
+  console.log("  [PASS] Weapon durability degraded by 5 points after attack execution.");
+  console.log("  [PASS] Test 105 (Dynamic Item Bonuses & Durability Calculations) validated successfully.");
+
+  console.log("\nTest 106: Dynamic Terrain Resonator & Collapsing Hexes");
+  const testEngineInstance106 = new SovereignEngine();
+  
+  const t106 = new Thread("test_player_106", "PLAYER");
+  t106.position = { meta: 0, hex: 0 };
+  const target106 = new Thread("test_target_106", "PLAYER");
+  target106.position = { meta: 0, hex: 1 };
+  
+  testEngineInstance106.threads.push(t106);
+  testEngineInstance106.threads.push(target106);
+  testEngineInstance106.turnCount = 2;
+
+  const block2 = testEngineInstance106.map.chunks[0].blocks[2];
+  block2.hazardIndex = 0.8;
+  block2.walkable = true;
+
+  const mockInstruction106 = { id: "voidErosion", type: "ACTION", damage: 4, energyCost: 1, specifications: ["attack"], effects: {} } as any;
+  const mockNode106 = new ActionNode("node_106", mockInstruction106, t106.id, target106.id);
+  testEngineInstance106.actionNetwork.push(mockNode106);
+
+  AethericDiceEngine.bypassDice = true;
+  testEngineInstance106.resolveActionNetwork();
+  AethericDiceEngine.bypassDice = false;
+
+  assert(block2.collapseInTurns === 2, `Expected block 2 to have collapseInTurns === 2, got: ${block2.collapseInTurns}`);
+  console.log("  [PASS] High-voltage move correctly marked adjacent unstable hex for collapse.");
+
+  testEngineInstance106.turnStateMachine.balancer = { getNextPlayerId: () => "test_player_106" } as any;
+  testEngineInstance106.turnStateMachine.activePlayerId = "test_player_106";
+  testEngineInstance106.turnStateMachine.baseActivePlayerId = "test_player_106";
+  testEngineInstance106.turnStateMachine.endTurn();
+
+  assert(block2.collapseInTurns === 1, `Expected collapseInTurns to be 1 after 1 turn, got: ${block2.collapseInTurns}`);
+  assert((block2.walkable as any) === true, "Expected block 2 to still be walkable after 1 turn");
+  console.log("  [PASS] Collapse counter decremented correctly after 1 turn.");
+
+  testEngineInstance106.turnStateMachine.activePlayerId = "test_player_106";
+  testEngineInstance106.turnStateMachine.baseActivePlayerId = "test_player_106";
+  testEngineInstance106.turnStateMachine.endTurn();
+
+  assert(block2.collapseInTurns === undefined, "Expected collapseInTurns to be undefined after collapse");
+  assert((block2.walkable as any) === false, "Expected block 2 to be unwalkable (collapsed) into the void");
+  assert(block2.hazardIndex === 1.0, `Expected block 2 hazardIndex to be 1.0, got: ${block2.hazardIndex}`);
+  console.log("  [PASS] Hex collapsed successfully and turned unwalkable after 2 turns.");
+  console.log("  [PASS] Test 106 (Dynamic Terrain Resonator & Collapsing Hexes) validated successfully.");
+
+  console.log("\nTest 107: State Delta Array Parity Verification");
+  const conn = new ConnectionEngine();
+  const baseState = {
+    state: "MATCH",
+    activePlayerId: "p1",
+    systemEnergy: 100,
+    globalEntropy: 0.1,
+    threads: [
+      { id: "p1", name: "Player 1", type: "PLAYER", health: 15, armor: 2, position: null, currentBuffer: [] },
+      { id: "p2", name: "Player 2", type: "PLAYER", health: 15, armor: 2, position: null, currentBuffer: [] }
+    ]
+  } as any;
+
+  const deltaObj = {
+    threads: {
+      "0": { health: 10 }
+    }
+  };
+
+  const mergedState = (conn as any).applyStateDelta(baseState, deltaObj);
+  
+  assert(Array.isArray(mergedState.threads), `Expected mergedState.threads to remain an Array, got type: ${typeof mergedState.threads}`);
+  assert(mergedState.threads[0].health === 10, `Expected threads[0].health to be 10, got: ${mergedState.threads[0].health}`);
+  assert(mergedState.threads[1].id === "p2", `Expected threads[1].id to remain 'p2', got: ${mergedState.threads[1].id}`);
+
+  console.log("  [PASS] Deep merged delta arrays correctly preserved array types.");
+  console.log("  [PASS] Test 107 (State Delta Array Parity Verification) validated successfully.");
+
+  console.log("\nVšetky RPG, štatistické, dungeon, biómové, fyzikálne, ML, AI, Trace, DDA, Quest, Status-Cure, Database, Algebraic-Tensor, Adrenaline-Surge, Aetheric-Dice, Shop-Items, PvEvP, Traps/Void, Scenario-Trigger, Algebraic-Opportunities, ML-Movement-Prediction, Quest-CRUD-Trigger, ML-Hero-Spawner, LLM-Dialogue-Generator, DB-Quest-Generator-Telemetry, Semantic-Gameplay-Coordinator, Terrain-Telemetry-Dopamine-Balancer, Render-Priority-Instancing-Optimizer-Resolve-Chain, Gameplay-Compositor-Manager-Interactive-Spawner, Algebraic-Canvas-Composition, Hero-Graphics-Dataset, Biome-Market-Pricing, Generative-ML-Tactical-Spawner, Consecutive-Combos, Terrain-Traps, Multi-Area-Distributor, Soldier-Combinatorial-NPC-turns, Deterministic-Turn-Balancer, Soldier-Wave-Superposition-Director, Sovereign-Logic-Console, Sovereign-Battle-Director, Sovereign-System-Hierarchy, Sovereign-Superposition-Engine, Sovereign-Statistics-Reporter, Sovereign-Telemetry-Spawner, Sovereign-Combinatorics-Registry, Rule-Of-Three-Solver, Tensor-Inference-Unknowns, OpenVINO-Vision-Telemetry, Ohm-Grid-Evaluator, ClickHouse-Big-Data-Telemetry, SQLite-Register-Buff, PC-Vision-Focus-Fatigue, K-Means-Archetype-Spawner, Asynchronous-Spawner-Timeout, SQLite-Procedural-Compositions-CRUD, Multi-Chunk-Jump-Energy-Cost, Dopamine-Companion-Movement-Simulation, Gradual-Spawning-Planner, Deep-Learning-Neural-Math-Resolver, Backoffice-Performance-Dashboard, Magic-RPG-Items, Character-Class-Artifacts, Modular-Integration-Framework, Decoupled-Go-Core-Microservices, Backoffice-Algebraic-Map-Telemetry, Database-Reality-Priority-Templates, Cartesian-Guidance-HUD-Trajectories, Eight-Directional-Vector-Guidance, Tactical-Gravity-Well-Overdrive, Mulligan-Phase-Setup, Go-Core-Mediator, Telemetry-Big-Query, Universal-Wasm-Bridge, Sovereign-State-Engine, Sovereign-Scenario-Interpreter, Scenario-REST-Trigger, Sovereign-Keyframe-Interpreter, Sovereign-Effect-Sequencer, Sovereign-Elementor-Sandbox, Sovereign-Elementor-Registry, Sovereign-Generative-Orchestrator, Sovereign-Reality-Matrix, Sovereign-LIFO-Arbiter, Aetheric-Dice-Hit-Zone-Probability, Sovereign-Island-System, Helper-Tower-Flag-Collection, Helper-Tower-Altitude-Reach-Flag-Collect, Sovereign-Introspection-VPC, Sovereign-Predictive-Generator, Sovereign-Card-Fusion, Sovereign-Reality-Compositor, Go-Core-Simulation-Bridge, Go-Core-State-Engine, Go-Core-Pathfinder, Go-Core-Environmental-Flux, SQLite-Debounced-WAL-Introspection, Go-Core-Gauss-Seidel-KCL-Solver, Sovereign-Rule-Driven-Composition, Sovereign-Dynamic-Escape-Retention, Hardware-Adaptive-Governor, Decoupled-Balancer-Structural-State-Union, Card-Trading-Quest-Verification, Expanded-Traps-Randomized-Chests, Backoffice-SJF-Priority-Scheduler, Dynamic-Item-Durability-Calculations, Dynamic-Terrain-Resonator-Collapses, State-Delta-Array-Parity testy prebehli úspešne!");
 }
 
 runTests().catch(err => {

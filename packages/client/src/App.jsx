@@ -136,10 +136,16 @@ function App() {
       setRealityPhase(payload.realityPhase);
     };
 
+    const handleWeatherChanged = (payload) => {
+      setWeatherOverride(payload.weather === 'TOXIC_STORM' ? 'TOXIC_HAZE' : payload.weather === 'BLIZZARD' ? 'VOID_ECLIPSE' : null);
+      setActionLogs(prev => [`🌧️ WEATHER TENSOR EFFECT: Mutated environment to ${payload.weather}!`, ...prev]);
+    };
+
     socket.on('match_started', handleMatchStarted);
     socket.on('voltage_surge', handleVoltageSurge);
     socket.on('short_circuit', handleShortCircuit);
     socket.on('reality_phase_changed', handleRealityPhaseChanged);
+    socket.on('weather_change', handleWeatherChanged);
 
     // ── Audio + VFX wire-up ─────────────────────────────────────────────────
     const handleCardEffect = (e) => {
@@ -179,6 +185,7 @@ function App() {
       socket.off('voltage_surge', handleVoltageSurge);
       socket.off('short_circuit', handleShortCircuit);
       socket.off('reality_phase_changed', handleRealityPhaseChanged);
+      socket.off('weather_change', handleWeatherChanged);
       window.removeEventListener('card_played_effect', handleCardEffect);
     };
   }, [connectionEngine, isSandbox]);
@@ -437,11 +444,16 @@ function App() {
         }
       }
 
-      connectionEngine.playCard(
-        card.id,
-        hoveredNode.macroIndex,
-        hoveredNode.subIndex
-      );
+      // Trigger Hearthstone casting transition before playing!
+      window.dispatchEvent(new CustomEvent('card_drag_cast', { detail: { cardId: card.id } }));
+
+      setTimeout(() => {
+        connectionEngine.playCard(
+          card.id,
+          hoveredNode.macroIndex,
+          hoveredNode.subIndex
+        );
+      }, 300);
 
       arenaAudio.playSpellCast();
       setActionLogs(prev => [
@@ -668,14 +680,18 @@ function App() {
     );
   }
 
+  const isOverlayActive = useMemo(() => {
+    return gameState?.state === 'MULLIGAN' || gameState?.state === 'GAME_OVER';
+  }, [gameState?.state]);
+
   return (
     <div 
-      className="w-full h-screen flex flex-col bg-black overflow-hidden"
+      className="w-full h-screen relative bg-black overflow-hidden"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleCanvasDrop}
     >
-      {/* Top 70% Viewport: Zoomable Hexagon World */}
-      <div className="w-full h-[70vh] relative overflow-hidden">
+      {/* Fullscreen 3D Viewport: Zoomable Hexagon World */}
+      <div className="absolute inset-0 w-full h-full z-0">
         <CanvasRenderer3D 
           entropy={entropy} 
           threads={gameState?.threads || []}
@@ -699,11 +715,8 @@ function App() {
           hoveredNode={hoveredNode}
           setHoveredNode={setHoveredNode}
           realityPhase={realityPhase}
+          isOverlayActive={isOverlayActive}
         />
-      </div>
-
-      {/* Bottom 30% Viewport: Translucent Card Hand Area */}
-      <div className="w-full h-[30vh] relative bg-[#090a10] border-t border-cyan-500/20 overflow-hidden">
       </div>
       
       {/* Cyber-Glassmorphism Tailwind UI */}
@@ -768,41 +781,40 @@ function App() {
           </div>
         );
       })()}
-      {/* Floating button to open Combinatorics Sandbox */}
-      <button 
-        onClick={() => setIsCombinatoricsSandboxOpen(true)}
-        className="fixed top-4 left-[240px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        🧪 Sandbox Kombinatoriky
-      </button>
-      {/* Floating button to open Telemetry Dashboard */}
-      <button 
-        onClick={() => setIsTelemetryDashboardOpen(true)}
-        className="fixed top-4 left-[445px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-purple-500/40 text-purple-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        📊 Telemetry & DB
-      </button>
-      {/* Floating button to open RPG Class Board */}
-      <button 
-        onClick={() => setIsRPGClassBoardOpen(true)}
-        className="fixed top-4 left-[615px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-amber-500/40 text-amber-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        👑 RPG Class Board
-      </button>
-      {/* Floating button to open Admin Diagnostics */}
-      <button 
-        onClick={() => setIsAdminDiagnosticsOpen(true)}
-        className="fixed top-4 left-[785px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-emerald-500/40 text-emerald-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        🛠️ Admin Diagnostics
-      </button>
-      {/* Floating button to open Metacognitive Architecture Hub */}
-      <button 
-        onClick={() => setIsMetaHubOpen(true)}
-        className="fixed top-4 left-[975px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        🧠 Metacognitive Hub
-      </button>
+      {/* Desktop Top-Left Unified Dev Tools Bar */}
+      <div className="hidden lg:flex justify-start gap-2 pointer-events-auto z-40 absolute top-4 left-4 glass-panel-heavy p-2 rounded-xl border border-cyan-500/20 shadow-lg">
+        <span className="text-[9px] text-cyan-400 font-mono font-bold self-center px-2 border-r border-cyan-500/25 mr-1 uppercase tracking-widest">DEV CONTROL</span>
+        <button 
+          onClick={() => setIsCombinatoricsSandboxOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-cyan-500/40 text-cyan-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(6,182,212,0.3)] btn-springy"
+        >
+          🧪 Sandbox
+        </button>
+        <button 
+          onClick={() => setIsTelemetryDashboardOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-purple-500/40 text-purple-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.3)] btn-springy"
+        >
+          📊 Telemetria DB
+        </button>
+        <button 
+          onClick={() => setIsRPGClassBoardOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-amber-500/40 text-amber-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(245,158,11,0.3)] btn-springy"
+        >
+          👑 Class Board
+        </button>
+        <button 
+          onClick={() => setIsAdminDiagnosticsOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-emerald-500/40 text-emerald-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(16,185,129,0.3)] btn-springy"
+        >
+          🛠️ Diagnostika
+        </button>
+        <button 
+          onClick={() => setIsMetaHubOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-cyan-500/40 text-cyan-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(6,182,212,0.3)] btn-springy"
+        >
+          🧠 Meta Hub
+        </button>
+      </div>
       {/* Interaktívny Sandbox Modul */}
       {isCombinatoricsSandboxOpen && (
         <CombinatoricsSandbox onClose={() => setIsCombinatoricsSandboxOpen(false)} />
