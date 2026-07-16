@@ -206,3 +206,10 @@
 *   **Go Source Bundle Compilation**: When executing Go programs locally or in startup shell scripts, compile the primary `main.go` file together with all sibling Go source files (e.g., `go run main.go pathfinder.go`) to prevent undefined function crashes during compilation.
 *   **Pathfinder Line Geometry Caching**: Any visual path trajectory line component (e.g. `PathTrajectoryLine`) rendered inside R3F `<Canvas>` must cache its generated `THREE.BufferGeometry` using `useMemo` mapped to the underlying step coordinates array to prevent garbage collection spikes.
 
+## 37. React Hook & Lifecycle Constraints
+*   **Hook Placement**: Never declare hook functions (like `useState`, `useMemo`, `useEffect`) below early conditional returns. All hook declarations must reside at the very top of React functional components.
+*   **Initialization Sequence**: State variables must be declared physically above any other hooks or expressions that access them to avoid temporal dead-zone exceptions.
+*   **State Effect Change-Guards**: Any `useEffect` hook that performs state updates (e.g., `setLastPosition`) must wrap the state mutation in a strict value/identity check (e.g., comparing old value to new value) to prevent infinite render loops ("Maximum update depth exceeded").
+
+## 38. Automated Match State Completion
+*   **AI Phase Completion**: Any game phase that requires active confirmation from all players (e.g. Mulligan confirm) must automatically resolve and complete for any AI-controlled threads (`Sovereign AI`) in the match engine to prevent the match state from freezing.

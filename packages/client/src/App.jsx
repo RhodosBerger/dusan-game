@@ -331,29 +331,30 @@ function App() {
     const newMeta = localThread.position.meta;
     const newHex = localThread.position.hex;
 
-    if (lastPosition.meta !== null && (lastPosition.meta !== newMeta || lastPosition.hex !== newHex)) {
-      const node = gridData.find(n => n.macroIndex === newMeta && n.subIndex === newHex);
-      if (node) {
-        const BIOME_COLORS = {
-          GLACIER: '#00eeff',
-          TOXIC_SWAMP: '#39ff14',
-          DESERT: '#f97316',
-          BARRENS: '#eab308',
-          LUSH_FOREST: '#22c55e'
-        };
-        const biome = node.biome || 'BARRENS';
-        const color = BIOME_COLORS[biome] || '#38bdf8';
-        const transId = `trans_${Date.now()}_${Math.random()}`;
+    if (lastPosition.meta !== newMeta || lastPosition.hex !== newHex) {
+      if (lastPosition.meta !== null) {
+        const node = gridData.find(n => n.macroIndex === newMeta && n.subIndex === newHex);
+        if (node) {
+          const BIOME_COLORS = {
+            GLACIER: '#00eeff',
+            TOXIC_SWAMP: '#39ff14',
+            DESERT: '#f97316',
+            BARRENS: '#eab308',
+            LUSH_FOREST: '#22c55e'
+          };
+          const biome = node.biome || 'BARRENS';
+          const color = BIOME_COLORS[biome] || '#38bdf8';
+          const transId = `trans_${Date.now()}_${Math.random()}`;
 
-        setActiveTransitions(prev => [
-          ...prev,
-          { id: transId, position: node.position, color }
-        ]);
+          setActiveTransitions(prev => [
+            ...prev,
+            { id: transId, position: node.position, color }
+          ]);
+        }
       }
+      setLastPosition({ meta: newMeta, hex: newHex });
     }
-
-    setLastPosition({ meta: newMeta, hex: newHex });
-  }, [gameState, gridData, lastPosition]);
+  }, [gameState, gridData, lastPosition, myThreadId]);
 
   // Handler pre kliknutie na uzol v 3D aréne
   const handleNodeClick = (node) => {

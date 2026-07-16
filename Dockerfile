@@ -8,6 +8,7 @@ COPY package.json yarn.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/client/package.json ./packages/client/
 COPY packages/server/package.json ./packages/server/
+COPY packages/babylon-sovereign/package.json ./packages/babylon-sovereign/
 
 RUN yarn install --frozen-lockfile
 

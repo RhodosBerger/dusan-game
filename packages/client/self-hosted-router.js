@@ -41,12 +41,16 @@ app.get('/api/devops/statistics', (req, res) => {
     });
 });
 
-// 2. Serve compiled React static assets
-app.use(express.static(path.join(process.cwd(), 'packages/client/dist')));
+// 2. Serve compiled React static assets (prefer BabylonSovereign dist if exists, fallback to standard client)
+const babylonDist = path.join(process.cwd(), 'packages/babylon-sovereign/dist/client');
+const standardDist = path.join(process.cwd(), 'packages/client/dist');
+const distPath = fs.existsSync(babylonDist) ? babylonDist : standardDist;
+
+app.use(express.static(distPath));
 
 // SPA Fallback routing
 app.get('*', (req, res) => {
-    res.sendFile(path.join(process.cwd(), 'packages/client/dist/index.html'));
+    res.sendFile(path.join(distPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 8080;

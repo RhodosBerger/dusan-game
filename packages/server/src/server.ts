@@ -2522,7 +2522,7 @@ app.post('/api/scenarios/keyframe-simulation', (req, res) => {
 app.post('/api/scenarios/html5-entities', async (req, res) => {
   const { hexCoord } = req.body;
   try {
-    const fetchResponse = await fetch('http://localhost:8081/api/scenarios/html5-entities', {
+    const fetchResponse = await fetch(`${GO_CORE_URL}/api/scenarios/html5-entities`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hexCoord })
