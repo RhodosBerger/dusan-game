@@ -19,6 +19,8 @@ export interface HexNode {
     currentInput?: number;
     threadId?: string | number | null;
     hasOpportunity?: string | null;
+    collapseInTurns?: number;
+    isSunk?: boolean;
 }
 
 // Structures matching Go Core JSON API

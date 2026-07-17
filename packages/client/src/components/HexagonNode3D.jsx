@@ -657,6 +657,8 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
     const tileRef = useRef();
     const materialRef = useRef();
     const innerMaterialRef = useRef();
+    const borderMaterialRef = useRef();
+    const amberLightRef = useRef(null);
     const [waveTrigger, setWaveTrigger] = React.useState({ time: 0, originMeta: null, originHex: null, voltage: 0 });
 
     const activeOccupyingThread = useMemo(() => {
@@ -1010,10 +1012,15 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         if (!tileRef.current) return;
         const time = state.clock.elapsedTime;
 
+        if (amberLightRef.current) {
+            amberLightRef.current.material.opacity = 0.3 + Math.sin(time * 15.0) * 0.15;
+            amberLightRef.current.rotation.y = time * 0.5;
+        }
+
         let targetLift = 0;
         const phase = node.realityPhase || realityPhase || 'STANDARD';
         if (isCollapsing) {
-            targetLift = 0;
+            targetLift = -5.0;
         } else if (isHovered || isSelected) {
             targetLift = 0.25;
         } else if (shufflePulse) {
@@ -1176,6 +1183,22 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             innerMaterialRef.current.emissiveIntensity = emissiveInt;
             innerMaterialRef.current.needsUpdate = true;
         }
+
+        if (borderMaterialRef.current) {
+            if (isCollapsing) {
+                const pulse = (Math.sin(state.clock.elapsedTime * 8.0) + 1.0) / 2.0; // Fast pulsing red
+                borderMaterialRef.current.color.set('#ef4444');
+                borderMaterialRef.current.emissive.set('#ff0000');
+                borderMaterialRef.current.emissiveIntensity = 0.5 + pulse * 2.5;
+            } else {
+                borderMaterialRef.current.color.set(borderProps.color);
+                if (borderProps.emissive) {
+                    borderMaterialRef.current.emissive.copy(borderProps.emissive);
+                }
+                borderMaterialRef.current.emissiveIntensity = borderProps.emissiveIntensity;
+            }
+            borderMaterialRef.current.needsUpdate = true;
+        }
     });
 
     // Výpočet dynamického ligtingu na základe ML Light Emission a Biómu
@@ -1325,6 +1348,18 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
     const borderProps = useMemo(() => {
         const biome = biomeInfo.biome;
+
+        if (isCollapsing) {
+            return {
+                color: '#ef4444',
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: new THREE.Color('#ff0000'),
+                emissiveIntensity: 1.5,
+                transparent: true,
+                opacity: 0.8
+            };
+        }
         
         let emissiveInt = isSelected ? 2.0 : isHovered ? 1.4 : isTargetable ? 1.0 : 0.2;
         let opacityVal = isSelected ? 1.0 : isHovered ? 0.95 : isTargetable ? 0.85 : 0.6;
@@ -1386,7 +1421,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 opacity: opacityVal
             };
         }
-    }, [biomeInfo.biome, isSelected, isHovered, isTargetable]);
+    }, [biomeInfo.biome, isSelected, isHovered, isTargetable, isCollapsing]);
 
     return (
         <group
@@ -1418,7 +1453,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 </mesh>
 
                 <mesh geometry={sharedBorderGeometry} position={[0, 0, 0.403]} castShadow receiveShadow>
-                    <meshStandardMaterial {...borderProps} />
+                    <meshStandardMaterial ref={borderMaterialRef} {...borderProps} />
                 </mesh>
 
                 {/* Spell Casting VFX projected on the Hexagon */}
@@ -1476,6 +1511,24 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                     </mesh>
                 )}
 
+                {/* Volumetric amber light shafts emitting from cracks when tile is cracked (Dynamic Terrain Resonator) */}
+                {node.collapseInTurns !== undefined && node.collapseInTurns !== null && !isCollapsing && (
+                    <group position={[0, 0, 0.3]}>
+                        <mesh ref={amberLightRef} rotation={[Math.PI / 2, 0, 0]}>
+                            <cylinderGeometry args={[0.1, 0.6, 2.5, 12, 1, true]} />
+                            <meshBasicMaterial 
+                                color="#ffaa00" 
+                                transparent 
+                                opacity={0.3} 
+                                blending={THREE.AdditiveBlending}
+                                side={THREE.DoubleSide} 
+                                depthWrite={false}
+                            />
+                        </mesh>
+                        <pointLight color="#ffaa00" intensity={4.0} distance={6} decay={2} />
+                    </group>
+                )}
+
                 {/* Render Faction Base Flags at starting points */}
                 {!isCollapsing && node.macroIndex === 0 && node.subIndex === 0 && (
                     <group position={[-0.65, 0.45, 0.41]}>
@@ -1511,9 +1564,6 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             {/* Časticové efekty biómov */}
             {biomeInfo.biome === 'GLACIER' && !isCollapsing && <SnowParticles />}
             {biomeInfo.biome === 'TOXIC_SWAMP' && !isCollapsing && <SwampVapors />}
-            {biomeInfo.biome === 'DESERT' && !isCollapsing && <DesertHeatParticles />}
-            {biomeInfo.biome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
-            {biomeInfo.biome === 'LUSH_FOREST' && !isCollapsing && entropy > 0.5 && <ForestFireflies />}
             {isCollapsing && <VoidCollapseParticles />}
 
             {/* ANCHOR: A_OVERHEAD - Statusový hologram visiaci nad vybraným políčkom */}

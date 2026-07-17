@@ -203,5 +203,108 @@ export const KeyframeAnimationExtension = {
             }
         }
         return decoys;
+    },
+
+    /**
+     * Generates a timeline of keyframes mimicking Adobe Mixamo Animation Kits.
+     * @param {number[]} startPos - [x, y, z] start coordinates
+     * @param {number[]} endPos - [x, y, z] end coordinates
+     * @param {string} actionType - Mixamo animation kit ('mixamo_idle', 'mixamo_walk', 'mixamo_run', 'mixamo_jump', 'mixamo_attack')
+     * @param {boolean} isStealthed - stealth state
+     * @returns {Array<object>} keyframes sequence
+     */
+    generateMixamoSequence(startPos, endPos, actionType = 'mixamo_walk', isStealthed = false) {
+        const keyframes = [];
+        const STEPS = 16;
+        const dx = endPos[0] - startPos[0];
+        const dy = endPos[1] - startPos[1];
+        const dz = endPos[2] - startPos[2];
+        const length = Math.sqrt(dx * dx + dz * dz);
+        const dirX = length > 0 ? dx / length : 0;
+        const dirZ = length > 0 ? dz / length : 0;
+        const baseOpacity = isStealthed ? 0.35 : 1.0;
+
+        for (let i = 0; i <= STEPS; i++) {
+            const t = i / STEPS;
+            const keyframe = {
+                time: t,
+                position: [
+                    startPos[0] + dx * t,
+                    startPos[1] + dy * t,
+                    startPos[2] + dz * t
+                ],
+                scale: [1, 1, 1],
+                opacity: baseOpacity,
+                rotation: [0, 0, 0],
+                vfxType: 'none'
+            };
+
+            switch (actionType) {
+                case 'mixamo_idle':
+                    keyframe.position = [...startPos];
+                    keyframe.position[1] += Math.sin(t * Math.PI * 2) * 0.05;
+                    const idleScale = 1.0 + Math.sin(t * Math.PI * 2) * 0.03;
+                    keyframe.scale = [idleScale, 1.0 / idleScale, idleScale];
+                    break;
+
+                case 'mixamo_walk':
+                    const walkHeight = Math.sin(t * Math.PI * 2) * 0.15;
+                    keyframe.position[1] += Math.abs(walkHeight);
+                    const walkLean = Math.sin(t * Math.PI * 2) * 0.05;
+                    keyframe.rotation = [0.08, 0, walkLean];
+                    break;
+
+                case 'mixamo_run':
+                    const runHeight = Math.sin(t * Math.PI * 4) * 0.35;
+                    keyframe.position[1] += Math.abs(runHeight);
+                    keyframe.rotation = [0.22, 0, 0];
+                    const runStretch = 1.0 + Math.sin(t * Math.PI * 4) * 0.12;
+                    keyframe.scale = [1.0 / Math.sqrt(runStretch), runStretch, 1.0 / Math.sqrt(runStretch)];
+                    keyframe.vfxType = 'dust_cloud';
+                    break;
+
+                case 'mixamo_jump':
+                    const jumpHeight = Math.sin(t * Math.PI) * 2.2;
+                    keyframe.position[1] += jumpHeight;
+                    const jumpPitch = Math.sin(t * Math.PI * 2) * 0.18;
+                    keyframe.rotation = [jumpPitch, 0, 0];
+                    if (t > 0.2 && t < 0.8) {
+                        keyframe.vfxType = 'void_warp_burst';
+                    }
+                    break;
+
+                case 'mixamo_attack':
+                    if (t < 0.4) {
+                        const dashT = t / 0.4;
+                        keyframe.position = [
+                            startPos[0] + dx * dashT * 1.25,
+                            startPos[1] + dy * dashT * 1.25,
+                            startPos[2] + dz * dashT * 1.25
+                        ];
+                        keyframe.rotation = [0.35, 0, 0];
+                        keyframe.scale = [0.9, 1.3, 0.9];
+                    } else if (t >= 0.4 && t <= 0.6) {
+                        keyframe.position = [
+                            startPos[0] + dx * 1.25,
+                            startPos[1] + dy * 1.25,
+                            startPos[2] + dz * 1.25
+                        ];
+                        keyframe.vfxType = 'crystal_spark';
+                        keyframe.scale = [1.4, 0.8, 1.4];
+                    } else {
+                        const returnT = (t - 0.6) / 0.4;
+                        keyframe.position = [
+                            startPos[0] + dx * 1.25 + (startPos[0] - (startPos[0] + dx * 1.25)) * returnT,
+                            startPos[1] + dy * 1.25 + (startPos[1] - (startPos[1] + dy * 1.25)) * returnT,
+                            startPos[2] + dz * 1.25 + (startPos[2] - (startPos[2] + dz * 1.25)) * returnT
+                        ];
+                        keyframe.rotation = [-0.15, 0, 0];
+                    }
+                    break;
+            }
+
+            keyframes.push(keyframe);
+        }
+        return keyframes;
     }
 };

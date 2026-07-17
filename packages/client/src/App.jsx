@@ -73,6 +73,7 @@ function App() {
     return playerThread?.id || gameState?.threads?.[0]?.id || socket.id;
   }, [gameState, socket.id]);
   const [activeTransitions, setActiveTransitions] = useState([]);
+  const [biomePulse, setBiomePulse] = useState(null);
   const [lastPosition, setLastPosition] = useState({ meta: null, hex: null });
   const [surgeTile, setSurgeTile] = useState(null);
   const [scorchedTiles, setScorchedTiles] = useState([]);
@@ -150,11 +151,19 @@ function App() {
       setActionLogs(prev => [`🌧️ WEATHER TENSOR EFFECT: Mutated environment to ${payload.weather}!`, ...prev]);
     };
 
+    const handleResonatorWave = (payload) => {
+      setActionLogs(prev => [`⚡ SEISMIC RESONATOR: High-voltage shockwave deforms adjacent tiles!`, ...prev]);
+      setShakeIntensity(1.5);
+      setTimeout(() => setShakeIntensity(0), 120);
+      window.dispatchEvent(new CustomEvent('resonator_wave_start', { detail: payload }));
+    };
+
     socket.on('match_started', handleMatchStarted);
     socket.on('voltage_surge', handleVoltageSurge);
     socket.on('short_circuit', handleShortCircuit);
     socket.on('reality_phase_changed', handleRealityPhaseChanged);
     socket.on('weather_change', handleWeatherChanged);
+    socket.on('resonator_wave', handleResonatorWave);
 
     // ── Audio + VFX wire-up ─────────────────────────────────────────────────
     const handleCardEffect = (e) => {
@@ -195,6 +204,7 @@ function App() {
       socket.off('short_circuit', handleShortCircuit);
       socket.off('reality_phase_changed', handleRealityPhaseChanged);
       socket.off('weather_change', handleWeatherChanged);
+      socket.off('resonator_wave', handleResonatorWave);
       window.removeEventListener('card_played_effect', handleCardEffect);
     };
   }, [connectionEngine, isSandbox]);
@@ -355,6 +365,8 @@ function App() {
             ...prev,
             { id: transId, position: node.position, color }
           ]);
+          setBiomePulse(color);
+          setTimeout(() => setBiomePulse(null), 800);
         }
       }
       setLastPosition({ meta: newMeta, hex: newHex });
@@ -764,7 +776,10 @@ function App() {
       />
       {/* Fullscreen white flash overlay for Ultimate actions */}
       {ultimateFlash && (
-        <div className="fixed inset-0 bg-white pointer-events-none z-50 animate-pulse" style={{ animationDuration: '0.15s' }}></div>
+        <div className="ultimate-flash-overlay"></div>
+      )}
+      {biomePulse && (
+        <div className="biome-border-pulse" style={{ boxShadow: `inset 0 0 35px ${biomePulse}` }}></div>
       )}
       {/* Koniec hry — výsledok a návrat do lobby */}
       {gameState?.state === 'GAME_OVER' && (() => {

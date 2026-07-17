@@ -1,10 +1,11 @@
-export type HardwareTier = 'LOW_END' | 'NOMINAL' | 'HIGH_END';
+export type HardwareTier = 'LEGACY' | 'LOW_END' | 'NOMINAL' | 'HIGH_END';
 
 export interface StructuralStateParameters {
   activeThreadsCount: number;
   globalEntropyStress: number;
   averageFrameTimeMs: number;
   viewportPropsCount: number;
+  isLowPowerGPU?: boolean;
 }
 
 export interface BalancedExecutionLimits {
@@ -194,35 +195,75 @@ export class RenderPriorityBalancer {
    * Vyhodnocuje priority záťaže striktne zo štrukturálnych parametrov stavu
    */
   public static balanceComputeLoad(params: StructuralStateParameters): BalancedExecutionLimits {
-    // Hraničná podmienka pre slabý hardvér alebo extrémny klastrový stres [cite: 1]
-    if (params.averageFrameTimeMs > 16.6 || params.globalEntropyStress > 0.8) {
-      return {
-        hardwareTier: 'LOW_END',
-        kclIterations: 16,          // Redukovaný výpočtový budget solvera
-        gpuThrottleFrequencyHz: 5,   // Striktný throttling zápisu na slabých GPU
-        instancedCullingLimit: Math.max(10, params.viewportPropsCount - 30),
-        renderPostProcessing: false // Kompletné vypnutie post-processing passov pre TDP stabilitu
+    let limits: BalancedExecutionLimits;
+
+    // SCENÁR A: Legacy/Extrémny hardvérový klastrový stres / slabá GPU
+    if (params.isLowPowerGPU || params.averageFrameTimeMs > 33.3) {
+      limits = {
+        hardwareTier: 'LEGACY',
+        kclIterations: 8,          // Redukovaný výpočtový budget solvera
+        gpuThrottleFrequencyHz: 2,   // Striktný throttling zápisu na slabých GPU
+        instancedCullingLimit: Math.max(5, params.viewportPropsCount - 45),
+        renderPostProcessing: false
       };
     }
-
-    // Hraničná podmienka pre silný hardvér a stabilný stav matice
-    if (params.averageFrameTimeMs < 8.3 && params.globalEntropyStress < 0.3) {
-      return {
+    // SCENÁR B: Slabý hardvér
+    else if (params.averageFrameTimeMs > 16.6 || params.globalEntropyStress > 0.8) {
+      limits = {
+        hardwareTier: 'LOW_END',
+        kclIterations: 16,
+        gpuThrottleFrequencyHz: 5,
+        instancedCullingLimit: Math.max(10, params.viewportPropsCount - 30),
+        renderPostProcessing: false
+      };
+    }
+    // SCENÁR C: Výkonný hardvér
+    else if (params.averageFrameTimeMs < 8.3 && params.globalEntropyStress < 0.3) {
+      limits = {
         hardwareTier: 'HIGH_END',
-        kclIterations: 40,          // Maximálna presnosť konvergencie siete KCL
-        gpuThrottleFrequencyHz: 30,  // Plynulý real-time prenos (30Hz)
-        instancedCullingLimit: params.viewportPropsCount, // Žiadne obmedzenie inštancií
+        kclIterations: 40,
+        gpuThrottleFrequencyHz: 30,
+        instancedCullingLimit: params.viewportPropsCount,
+        renderPostProcessing: true
+      };
+    }
+    // SCENÁR D: Nominálny stav
+    else {
+      limits = {
+        hardwareTier: 'NOMINAL',
+        kclIterations: 24,
+        gpuThrottleFrequencyHz: 10,
+        instancedCullingLimit: Math.min(params.viewportPropsCount, 50),
         renderPostProcessing: true
       };
     }
 
-    // Nominálny/Defaultný profil
-    return {
-      hardwareTier: 'NOMINAL',
-      kclIterations: 24,
-      gpuThrottleFrequencyHz: 10,    // Ochranný mantinel Master Špecifikácie
-      instancedCullingLimit: Math.min(params.viewportPropsCount, 50),
-      renderPostProcessing: true
-    };
+    return this.validateLimits(limits, limits.hardwareTier);
+  }
+
+  /**
+   * Skontroluje a koriguje limity pre danú výkonnostnú triedu
+   */
+  public static validateLimits(limits: BalancedExecutionLimits, tier: HardwareTier): BalancedExecutionLimits {
+    const validated = { ...limits };
+    if (tier === 'LEGACY') {
+      validated.kclIterations = Math.min(8, validated.kclIterations);
+      validated.gpuThrottleFrequencyHz = Math.min(2, validated.gpuThrottleFrequencyHz);
+      validated.instancedCullingLimit = Math.min(5, validated.instancedCullingLimit);
+      validated.renderPostProcessing = false;
+    } else if (tier === 'LOW_END') {
+      validated.kclIterations = Math.min(16, validated.kclIterations);
+      validated.gpuThrottleFrequencyHz = Math.min(5, validated.gpuThrottleFrequencyHz);
+      validated.instancedCullingLimit = Math.min(20, validated.instancedCullingLimit);
+      validated.renderPostProcessing = false;
+    } else if (tier === 'NOMINAL') {
+      validated.kclIterations = Math.max(16, Math.min(24, validated.kclIterations));
+      validated.gpuThrottleFrequencyHz = Math.max(5, Math.min(10, validated.gpuThrottleFrequencyHz));
+      validated.instancedCullingLimit = Math.min(50, validated.instancedCullingLimit);
+    } else if (tier === 'HIGH_END') {
+      validated.kclIterations = Math.max(24, Math.min(40, validated.kclIterations));
+      validated.gpuThrottleFrequencyHz = Math.max(10, Math.min(30, validated.gpuThrottleFrequencyHz));
+    }
+    return validated;
   }
 }

@@ -49,6 +49,7 @@ export interface Block {
   trapOwnerId?: string | null;
   hasOpportunity?: 'SURGE_NODE' | 'VOID_RIFT' | 'REPAIR_KIT' | null;
   collapseInTurns?: number;
+  isSunk?: boolean;
 }
 
 export interface Chunk {

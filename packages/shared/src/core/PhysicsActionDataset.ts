@@ -9,9 +9,10 @@ export interface PhysicsSpecs {
     displacementType: 'push' | 'pull' | 'none';
     damage: number;          // 1, 2, or 3 (default = 1)
     effect?: CardEffect;
+    cost?: number;           // Hot-reloaded cost
 }
 
-export const PHYSICS_ACTION_DATASET: Record<string, Omit<PhysicsSpecs, 'current' | 'powerLoad' | 'damage' | 'effect'> & { damage?: number; effect?: CardEffect }> = {
+export const PHYSICS_ACTION_DATASET: Record<string, Omit<PhysicsSpecs, 'current' | 'powerLoad' | 'damage' | 'effect'> & { damage?: number; effect?: CardEffect; cost?: number }> = {
     // Crystal Clan
     "crystal_laser": { voltage: 4.5, resistance: 1.5, kineticForce: 1, displacementType: 'push', damage: 3, effect: 'slow' },
     "crystal_shield": { voltage: 0.5, resistance: 4.0, kineticForce: 0, displacementType: 'none', damage: 1 },
@@ -63,6 +64,18 @@ export function getPhysicsSpecs(cardId: string): PhysicsSpecs {
         powerLoad,
         displacementType: base.displacementType as any,
         damage,
-        effect
+        effect,
+        cost: base.cost
     };
+}
+
+export function applyRuleAdjustments(adjustments: Record<string, { cost?: number; voltage?: number; resistance?: number }>) {
+    for (const [cardId, adj] of Object.entries(adjustments)) {
+        if (PHYSICS_ACTION_DATASET[cardId]) {
+            const base = PHYSICS_ACTION_DATASET[cardId];
+            if (adj.voltage !== undefined) base.voltage = adj.voltage;
+            if (adj.resistance !== undefined) base.resistance = adj.resistance;
+            base.cost = adj.cost;
+        }
+    }
 }

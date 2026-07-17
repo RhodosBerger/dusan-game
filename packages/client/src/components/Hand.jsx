@@ -1,4 +1,5 @@
 import React from 'react';
+import { getPhysicsSpecs } from '@dusan-game/shared';
 
 const Hand = ({ cards, activeCardId, onCardClick }) => {
   if (!cards || cards.length === 0) {
@@ -40,7 +41,7 @@ const Hand = ({ cards, activeCardId, onCardClick }) => {
           >
             {/* Hearthstone Cost Badge */}
             <div className="hs-card-cost-badge">
-              {card.cost !== undefined ? card.cost : (card.voltage || card.resistance || 2)}
+              {getPhysicsSpecs(card.id)?.cost !== undefined ? getPhysicsSpecs(card.id).cost : (card.cost !== undefined ? card.cost : (card.voltage || card.resistance || 2))}
             </div>
 
             {/* Hearthstone Oval Art Frame */}

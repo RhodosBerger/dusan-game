@@ -2004,6 +2004,14 @@ SYNC_CARTEZIAN_COORDINATES();`;
                                 ))}
                             </div>
 
+                            {/* LLaMA Narrative / Dialogue Block */}
+                            {simulatedQuest.steps[currentStepIdx]?.dialogue && (
+                                <div className="mt-2 p-2 bg-[#0c0c14] border border-[#a855f7]/30 rounded text-[#c084fc] font-mono leading-relaxed text-[7px]">
+                                    <span className="text-[#a855f7] font-bold block uppercase text-[6px] mb-1">🤖 LLaMA Quest Narrative</span>
+                                    {simulatedQuest.steps[currentStepIdx].dialogue}
+                                </div>
+                            )}
+
                             {/* Player Status info */}
                             <div className="border-t border-slate-900 pt-1.5 mt-1.5 flex justify-between items-center text-[7.5px]">
                                 <div>

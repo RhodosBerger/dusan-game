@@ -115,6 +115,90 @@ export class Pathfinder {
   }
 
   /**
+   * Najde A* najkratsiu zahojenu cestu na arene, ktora penalizuje nepriechodne uzly vysokou cenou
+   */
+  public static findHealedPath(
+    startChunkId: number,
+    startBlockId: number,
+    targetChunkId: number,
+    targetBlockId: number,
+    blocksList: { chunkId: number; blockId: number; walkable: boolean; energyCostMultiplier: number }[]
+  ): PathNode[] | null {
+    const nodes: (PathNode & { walkable: boolean; cost: number })[] = [];
+    
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 7; j++) {
+        const coords = BiomeEngine.getHexCoordinates(i, j);
+        const listMatch = blocksList.find(b => b.chunkId === i && b.blockId === j);
+        const isWalkable = listMatch ? listMatch.walkable : true;
+        
+        nodes.push({
+          chunkId: i,
+          blockId: j,
+          q: coords.q,
+          r: coords.r,
+          walkable: true, // Force all nodes walkable for healing search
+          cost: isWalkable ? (listMatch ? listMatch.energyCostMultiplier : 1.0) : 1000.0 // Huge penalty for blocked tiles
+        });
+      }
+    }
+
+    const startNode = nodes.find(n => n.chunkId === startChunkId && n.blockId === startBlockId);
+    const targetNode = nodes.find(n => n.chunkId === targetChunkId && n.blockId === targetBlockId);
+    
+    if (!startNode || !targetNode) return null;
+
+    const openSet: typeof startNode[] = [startNode];
+    const cameFrom = new Map<string, typeof startNode>();
+    const gScore = new Map<string, number>();
+    const fScore = new Map<string, number>();
+    const keyOf = (n: PathNode) => `${n.chunkId}_${n.blockId}`;
+
+    nodes.forEach(n => {
+      gScore.set(keyOf(n), Infinity);
+      fScore.set(keyOf(n), Infinity);
+    });
+
+    gScore.set(keyOf(startNode), 0);
+    fScore.set(keyOf(startNode), this.hexDistance(startNode.q, startNode.r, targetNode.q, targetNode.r));
+
+    while (openSet.length > 0) {
+      openSet.sort((a, b) => (fScore.get(keyOf(a)) || Infinity) - (fScore.get(keyOf(b)) || Infinity));
+      const current = openSet.shift()!;
+
+      if (current.chunkId === targetChunkId && current.blockId === targetBlockId) {
+        const path: PathNode[] = [current];
+        let currKey = keyOf(current);
+        while (cameFrom.has(currKey)) {
+          const parent = cameFrom.get(currKey)!;
+          path.unshift(parent);
+          currKey = keyOf(parent);
+        }
+        return path;
+      }
+
+      const neighbors = nodes.filter(n => this.hexDistance(current.q, current.r, n.q, n.r) === 1);
+
+      for (const neighbor of neighbors) {
+        const nKey = keyOf(neighbor);
+        const tentativeGScore = (gScore.get(keyOf(current)) ?? 0) + neighbor.cost;
+
+        if (tentativeGScore < (gScore.get(nKey) ?? Infinity)) {
+          cameFrom.set(nKey, current);
+          gScore.set(nKey, tentativeGScore);
+          fScore.set(nKey, tentativeGScore + this.hexDistance(neighbor.q, neighbor.r, targetNode.q, targetNode.r));
+
+          if (!openSet.some(n => n.chunkId === neighbor.chunkId && n.blockId === neighbor.blockId)) {
+            openSet.push(neighbor);
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Validates if a target hex tile is within a specific range/reach from a start hex tile.
    */
   public static validateActionDistance(

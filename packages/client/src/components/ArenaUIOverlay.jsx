@@ -59,7 +59,9 @@ const getCardMetadata = (cardId, entropy = 0.2) => {
     // Void Walker casting rule (Rule 3 Environmental Scaling):
     // If globalEntropy > 0.7, card cost reduces to 0 (W = 0)
     const isVoidCard = cardBase.heroId === 'void_weaver' || cardBase.heroId === 'void_walker';
-    const cost = (isVoidCard && entropy > 0.7) ? 0 : (cardBase.isUltimate ? 2 : 1);
+    const specs = getPhysicsSpecs(cardId) || { cost: undefined };
+    const baseCost = specs.cost !== undefined ? specs.cost : (cardBase.isUltimate ? 2 : 1);
+    const cost = (isVoidCard && entropy > 0.7) ? 0 : baseCost;
 
     return {
         name: trans.name,
@@ -674,6 +676,18 @@ export default function ArenaUIOverlay({
                                     break;
                                 case 'REACH_LEVEL':
                                     objectiveBadge = <span className="text-[7.5px] bg-emerald-950/80 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold uppercase mr-1">📈 Level Up</span>;
+                                    break;
+                                case 'COLLECT_CHEST':
+                                    objectiveBadge = <span className="text-[7.5px] bg-amber-950/80 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/20 font-bold uppercase mr-1">📦 Treasure</span>;
+                                    break;
+                                case 'SPEND_ENERGY':
+                                    objectiveBadge = <span className="text-[7.5px] bg-cyan-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold uppercase mr-1">⚡ Overload</span>;
+                                    break;
+                                case 'CAST_ULTIMATE':
+                                    objectiveBadge = <span className="text-[7.5px] bg-fuchsia-950/80 text-fuchsia-400 px-1.5 py-0.5 rounded border border-fuchsia-500/20 font-bold uppercase mr-1">⭐ Ultimate</span>;
+                                    break;
+                                case 'DEAL_DAMAGE':
+                                    objectiveBadge = <span className="text-[7.5px] bg-orange-950/80 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/20 font-bold uppercase mr-1">💥 Damage</span>;
                                     break;
                                 default:
                                     objectiveBadge = <span className="text-[7.5px] bg-indigo-950/80 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/20 font-bold uppercase mr-1">🎯 Objective</span>;

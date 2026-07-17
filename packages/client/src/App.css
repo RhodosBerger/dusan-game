@@ -422,17 +422,51 @@ body {
   box-shadow: none;
 }
 
-/* Ultimate border/glow styling */
-.hs-card-ultimate {
-  background: linear-gradient(180deg, #372a08 0%, #1a1202 100%) !important;
-  border-color: #eab308 !important;
-  animation: hsUltimateBorderGlow 3s infinite ease-in-out;
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
-@keyframes hsUltimateBorderGlow {
-  0% { border-color: #eab308; box-shadow: 0 0 10px #eab308, inset 0 0 8px rgba(234, 179, 8, 0.2); }
-  50% { border-color: #ef4444; box-shadow: 0 0 20px #ef4444, inset 0 0 12px rgba(239, 68, 68, 0.3); }
-  100% { border-color: #eab308; box-shadow: 0 0 10px #eab308, inset 0 0 8px rgba(234, 179, 8, 0.2); }
+/* Ultimate border/glow styling */
+.hs-card-ultimate {
+  background: linear-gradient(#1a1202, #1a1202) padding-box,
+              conic-gradient(from var(--angle), #ffd700, #ff007f, #aa00ff, #00eeff, #39ff14, #ffd700) border-box !important;
+  border: 3px solid transparent !important;
+  animation: rotateAngle 4s linear infinite, hsUltimateGlowPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes rotateAngle {
+  to {
+    --angle: 360deg;
+  }
+}
+
+@keyframes hsUltimateGlowPulse {
+  0% {
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.45), inset 0 0 8px rgba(234, 179, 8, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 35px rgba(234, 179, 8, 0.95), inset 0 0 15px rgba(234, 179, 8, 0.4);
+  }
+}
+
+@keyframes flashFade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.ultimate-flash-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: white;
+  pointer-events: none;
+  z-index: 9999;
+  animation: flashFade 0.15s ease-out forwards;
 }
 
 /* Glassmorphism Dota 2 HUD Panels */
@@ -546,6 +580,20 @@ body {
   color: #ffffff;
   box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
   z-index: 10;
+}
+
+@keyframes borderPulseGlow {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.biome-border-pulse {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  animation: borderPulseGlow 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 

@@ -16,6 +16,7 @@ import React, { Suspense, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { GeometryModifierStack } from '../utils/GeometryModifierStack';
 
 // ── CDN base URL — controlled via Vite env variable ──────────────────────────
 const CDN_BASE = import.meta.env.VITE_CDN_URL || '';
@@ -115,11 +116,122 @@ function HeroLoadingFallback({ position, faction }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Global models registry cache & GET resolver
+// ────────────────────────────────────────────────────────────────────────────
+let globalModelsRegistry = null;
+let registryPromise = null;
+
+export function getModelsRegistryPromise() {
+    if (!registryPromise) {
+        registryPromise = fetch('/api/assets/3d-models')
+            .then(res => res.ok ? res.json() : [])
+            .then(data => {
+                globalModelsRegistry = data;
+                return data;
+            })
+            .catch(err => {
+                console.warn('Fallback: models registry failed to load', err);
+                globalModelsRegistry = [];
+                return [];
+            });
+    }
+    return registryPromise;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Procedural Gear Primitive Mesh (Rule 10 config loops / 24 bevel teeth)
+// ────────────────────────────────────────────────────────────────────────────
+export function ProceduralGearMesh({ color = '#e2e8f0', emissive = '#00ffff', size = 0.8, position = [0, 0, 0] }) {
+    const gearRef = useRef();
+
+    useFrame((state) => {
+        if (gearRef.current) {
+            // Continuous rotation ref to prevent React state recreation (Rule 10)
+            gearRef.current.rotation.z = state.clock.elapsedTime * 0.8;
+        }
+    });
+
+    const geometry = useMemo(() => {
+        const shape = new THREE.Shape();
+        const teeth = 24;
+        const innerRadius = 0.3 * size;
+        const outerRadius = 0.5 * size;
+
+        for (let i = 0; i < teeth; i++) {
+            const angle = (i / teeth) * Math.PI * 2;
+            const nextAngle = ((i + 0.5) / teeth) * Math.PI * 2;
+            const nextAngle2 = ((i + 1) / teeth) * Math.PI * 2;
+
+            shape.lineTo(Math.cos(angle) * innerRadius, Math.sin(angle) * innerRadius);
+            shape.lineTo(Math.cos(angle) * outerRadius, Math.sin(angle) * outerRadius);
+            shape.lineTo(Math.cos(nextAngle) * outerRadius, Math.sin(nextAngle) * outerRadius);
+            shape.lineTo(Math.cos(nextAngle) * innerRadius, Math.sin(nextAngle) * innerRadius);
+            shape.lineTo(Math.cos(nextAngle2) * innerRadius, Math.sin(nextAngle2) * innerRadius);
+        }
+
+        const hole = new THREE.Path();
+        hole.absarc(0, 0, 0.1 * size, 0, Math.PI * 2, true);
+        shape.holes.push(hole);
+
+        const baseGeom = GeometryModifierStack.applyBevel(
+            shape,
+            0.15 * size,
+            0.02 * size,
+            0.02 * size,
+            2
+        );
+
+        // Apply non-destructive ArrayModifier (Rule 12)
+        return GeometryModifierStack.applyArray(baseGeom, 2, [0, 0, 0.25 * size]);
+    }, [size]);
+
+    return (
+        <group position={position}>
+            <mesh ref={gearRef} geometry={geometry} castShadow receiveShadow>
+                <meshStandardMaterial
+                    color={color}
+                    roughness={0.2}
+                    metalness={0.8}
+                    emissive={emissive}
+                    emissiveIntensity={0.6}
+                />
+            </mesh>
+        </group>
+    );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Inner loader — must be wrapped in Suspense (useGLTF triggers it)
 // ────────────────────────────────────────────────────────────────────────────
 function HeroGLTF({ faction, position, scale = 1, lowHp = false }) {
     const baseFaction = faction.split('_')[0];
-    const url         = MODEL_URLS[faction] || MODEL_URLS[baseFaction] || MODEL_URLS.crystal;
+    const [modelRegistry, setModelRegistry] = React.useState(globalModelsRegistry);
+
+    React.useEffect(() => {
+        if (!modelRegistry) {
+            getModelsRegistryPromise().then(data => {
+                setModelRegistry(data);
+            });
+        }
+    }, [modelRegistry]);
+
+    // Resolve matched model metadata from fetched registry
+    const matchedModel = modelRegistry?.find(m => m.id === `model_${baseFaction}_hero`);
+    
+    // Check if resolved template points to procedural primitives mapping
+    if (matchedModel?.meshType === 'PRIMITIVE_GEAR') {
+        const emissiveTint = FACTION_EMISSIVE[baseFaction] || FACTION_EMISSIVE.crystal;
+        return (
+            <ProceduralGearMesh 
+                position={position} 
+                size={scale} 
+                color="#e2e8f0" 
+                emissive={emissiveTint.getStyle()} 
+            />
+        );
+    }
+
+    const url         = matchedModel?.url || MODEL_URLS[faction] || MODEL_URLS[baseFaction] || MODEL_URLS.crystal;
     const { scene }   = useGLTF(url);      // Draco-decompressed, cached by drei
     const emissiveTint = FACTION_EMISSIVE[baseFaction] || FACTION_EMISSIVE.crystal;
 

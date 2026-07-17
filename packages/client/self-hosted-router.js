@@ -29,6 +29,14 @@ vercelConfig.routes.forEach(route => {
     }
 });
 
+// 1.8 Forward WebSockets to local Node server (port 3001) with WS support
+app.use('/socket.io', createProxyMiddleware({
+    target: NODE_SERVER_URL,
+    changeOrigin: true,
+    ws: true,
+    pathRewrite: (path) => '/socket.io' + path
+}));
+
 // 1.5 DevOps Pipeline Statistics endpoint for Speculative Calculations
 app.get('/api/devops/statistics', (req, res) => {
     res.json({

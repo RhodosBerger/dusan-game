@@ -24,6 +24,9 @@ import ThreadMiniature from './ThreadMiniature';
 import SpellProjectile3D from './SpellProjectile3D';
 import HeroImpactVFX from './HeroImpactVFX';
 import ArenaAmbientParticles from './ArenaAmbientParticles';
+import DesertHeatParticles from './DesertHeatParticles';
+import BarrensDustDevil from './BarrensDustDevil';
+import ForestFireflies from './ForestFireflies';
 import HeroAura from './HeroAura';
 import { AdrenalineDirector } from '../../../shared/src/index';
 import AestheticCompositor from './AestheticCompositor';
@@ -314,7 +317,7 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     return null;
 }
 
-function HardwareGovernorController({ onLimitsChange, globalEntropyStress }) {
+function HardwareGovernorController({ onLimitsChange, globalEntropyStress, isLowPowerGPU }) {
     const { scene } = useThree();
     const lastUniformUpdateRef = useRef(0);
     const prevTier = useRef(HardwareGovernor.currentTier);
@@ -322,8 +325,8 @@ function HardwareGovernorController({ onLimitsChange, globalEntropyStress }) {
     useFrame((state, delta) => {
         const deltaMs = delta * 1000;
         
-        // 1. Update profile based on real frame time
-        const newLimits = HardwareGovernor.updateProfile(deltaMs);
+        // 1. Update profile based on real frame time and GPU profile
+        const newLimits = HardwareGovernor.updateProfile(deltaMs, isLowPowerGPU);
 
         // Notify parent of limits change if Tier changes
         if (HardwareGovernor.currentTier !== prevTier.current) {
@@ -798,6 +801,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 <HardwareGovernorController 
                     onLimitsChange={setLimits} 
                     globalEntropyStress={entropy} 
+                    isLowPowerGPU={isLowPower}
                 />
 
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
@@ -828,7 +832,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 {/* 3D Scéna - Vykreslenie 63 Hexov */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>
                     {visibleGridData.map((node) => {
-                        const isCollapsing = collapsingNodeIds.includes(node.id);
+                        const isCollapsing = collapsingNodeIds.includes(node.id) || !!serverBlock?.isSunk;
                         const serverChunk = map?.find(c => c.id === node.macroIndex);
                         const serverBlock = serverChunk?.blocks?.find(b => b.id === node.subIndex);
                         const hasChest = !!serverBlock?.hasOpportunity || !!serverBlock?.hasChest;
@@ -841,6 +845,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                             if (!selectedCard) {
                                 if (activeHero.freeMovementUsed) return null;
+                                if (serverBlock && serverBlock.walkable === false) return null;
                                 return dist <= (activeHero.movementBase || 1) ? 'move' : null;
                             }
 
@@ -967,6 +972,13 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             if (base) {
                                 voltageVal = selectedCard.voltage || 2;
                             }
+                        } else if (!selectedCard && hoveredNode) {
+                            const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+                            if (!activeHero || activeHero.position?.meta === undefined) return null;
+                            sourceMeta = activeHero.position.meta;
+                            sourceHex = activeHero.position.hex;
+                            targetMeta = hoveredNode.macroIndex;
+                            targetHex = hoveredNode.subIndex;
                         } else if (hudConfig) {
                             const srcThread = threads.find(t => t.id === hudConfig.sourceId) || threads[0];
                             if (!srcThread || srcThread.position?.meta === undefined) return null;
@@ -1010,6 +1022,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                         // Calculate actual path points using Pathfinder
                         let pathSteps = [];
+                        let isHealedPath = false;
                         try {
                             const blocks = map && map.length > 0 ? map.flatMap(c => 
                                 (c.blocks || []).map(b => ({
@@ -1027,6 +1040,24 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 targetHex,
                                 blocks
                             ) || [];
+
+                            if (pathSteps.length === 0) {
+                                pathSteps = Pathfinder.findHealedPath(
+                                    sourceMeta,
+                                    sourceHex,
+                                    targetMeta,
+                                    targetHex,
+                                    blocks
+                                ) || [];
+                                if (pathSteps.length > 0) {
+                                    isHealedPath = true;
+                                    const blockedCount = pathSteps.filter(s => {
+                                        const b = blocks.find(x => x.chunkId === s.chunkId && x.blockId === s.blockId);
+                                        return b && !b.walkable;
+                                    }).length;
+                                    console.log(`[CLIENT_R3F -> SERVER] [PHYSICS] Healing impassable path glitch | start=M${sourceMeta}_S${sourceHex} | end=M${targetMeta}_S${targetHex} | healedTilesCount=${blockedCount}`);
+                                }
+                            }
                         } catch (e) {
                             pathSteps = [
                                 { chunkId: sourceMeta, blockId: sourceHex },
@@ -1055,33 +1086,70 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                         const startVec = points[0];
                         const endVec = points[points.length - 1];
-                        const dirVec = new THREE.Vector3().subVectors(endVec, startVec);
-                        const distanceLen = dirVec.length();
-                        const directionNorm = dirVec.clone().normalize();
-                        const up = new THREE.Vector3(0, 1, 0);
-                        const quaternion = new THREE.Quaternion().setFromUnitVectors(up, directionNorm);
-                        const midPoint = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
+
+                        // Build individual segment meshes to follow the curved path
+                        const segments = [];
+                        for (let i = 0; i < points.length - 1; i++) {
+                            const p1 = points[i];
+                            const p2 = points[i + 1];
+                            const segmentDir = new THREE.Vector3().subVectors(p2, p1);
+                            const segmentLen = segmentDir.length();
+                            if (segmentLen > 0.05) {
+                                const segmentNorm = segmentDir.clone().normalize();
+                                const upVec = new THREE.Vector3(0, 1, 0);
+                                const segmentQuat = new THREE.Quaternion().setFromUnitVectors(upVec, segmentNorm);
+                                const segmentMid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+
+                                // Select color based on action context (Rule 12 RAG & Modern UX design patterns)
+                                let segmentColor = "#ef4444";
+                                if (selectedCard) {
+                                    const base = allBases.find(b => b.id === selectedCard.id);
+                                    const isAttackNode = base ? (base.cardCategorization === 'attack' || base.damage > 0) : false;
+                                    const isMoveNode = selectedCard.id.includes('teleport') || selectedCard.id.includes('gate');
+                                    if (isMoveNode) segmentColor = "#00ffff"; // Cyan for move cards
+                                    else if (isAttackNode) segmentColor = "#ef4444"; // Red for attack cards
+                                    else segmentColor = "#a855f7"; // Purple for spell cards
+                                } else {
+                                    segmentColor = isHealedPath ? "#00ffcc" : "#3b82f6"; // Emerald green for healed, blue for regular movement
+                                }
+
+                                segments.push(
+                                    <group key={`segment_${i}`}>
+                                        <mesh position={[segmentMid.x, segmentMid.y + 0.15, segmentMid.z]} quaternion={segmentQuat}>
+                                            <cylinderGeometry args={[0.02, 0.02, segmentLen, 8]} />
+                                            <meshBasicMaterial color={segmentColor} transparent opacity={0.7} />
+                                        </mesh>
+                                        <mesh position={[p2.x, p2.y + 0.15, p2.z]} quaternion={segmentQuat}>
+                                            <coneGeometry args={[0.1, 0.28, 8]} />
+                                            <meshBasicMaterial color={segmentColor} />
+                                        </mesh>
+                                    </group>
+                                );
+                            }
+                        }
+
+                        // Determine overall path color for spheres
+                        let pathSphereColor = "#ef4444";
+                        if (selectedCard) {
+                            const base = allBases.find(b => b.id === selectedCard.id);
+                            const isAttackNode = base ? (base.cardCategorization === 'attack' || base.damage > 0) : false;
+                            const isMoveNode = selectedCard.id.includes('teleport') || selectedCard.id.includes('gate');
+                            if (isMoveNode) pathSphereColor = "#00ffff";
+                            else if (isAttackNode) pathSphereColor = "#ef4444";
+                            else pathSphereColor = "#a855f7";
+                        } else {
+                            pathSphereColor = isHealedPath ? "#00ffcc" : "#3b82f6";
+                        }
 
                         return (
                             <group>
                                 {points.map((p, idx) => (
                                     <mesh key={idx} position={[p.x, p.y + 0.1, p.z]}>
                                         <sphereGeometry args={[0.08, 16, 16]} />
-                                        <meshBasicMaterial color="#ef4444" />
+                                        <meshBasicMaterial color={pathSphereColor} />
                                     </mesh>
                                 ))}
-                                {distanceLen > 0.2 && (
-                                    <group>
-                                        <mesh position={[midPoint.x, midPoint.y + 0.15, midPoint.z]} quaternion={quaternion}>
-                                            <cylinderGeometry args={[0.02, 0.02, distanceLen, 8]} />
-                                            <meshBasicMaterial color="#ef4444" transparent opacity={0.7} />
-                                        </mesh>
-                                        <mesh position={[endVec.x, endVec.y + 0.15, endVec.z]} quaternion={quaternion}>
-                                            <coneGeometry args={[0.12, 0.35, 8]} />
-                                            <meshBasicMaterial color="#ef4444" />
-                                        </mesh>
-                                    </group>
-                                )}
+                                {segments}
                                 {!isOverlayActive && (
                                     <Html distanceFactor={14} position={[points[points.length - 1].x, points[points.length - 1].y + 1.2, points[points.length - 1].z]} center>
                                         <div className="glass-panel-heavy p-2 text-[8px] text-white border border-red-500 rounded bg-slate-950/90 w-44 backdrop-blur font-mono">
@@ -1110,6 +1178,11 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         entropy={entropy} 
                         hazardIndex={currentHazardIndex}
                     />
+
+                    {/* Chunk-level optimized biome particles */}
+                    <DesertHeatParticles gridData={visibleGridData} map={map} />
+                    <BarrensDustDevil gridData={visibleGridData} map={map} />
+                    <ForestFireflies gridData={visibleGridData} map={map} entropy={entropy} />
 
                     {/* Centrálny magický vír — srdce ostrova */}
                     {portalNode && portalNode.macroIndex < visibleChunksCount && (

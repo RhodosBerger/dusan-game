@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BiomeEngine, AethericDiceEngine } from '../../../shared/src/index';
 import { KeyframeAnimationExtension } from '../utils/KeyframeAnimationExtension';
-import HeroModel3D from './HeroModel3D';
+import HeroModel3D, { getModelsRegistryPromise } from './HeroModel3D';
 
 const textureLoader = new THREE.TextureLoader();
 
@@ -611,6 +611,13 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
     const footprintRef = useRef([]);
     const lastHexRef   = useRef(null);
     const [splashes, setSplashes] = useState([]);
+    const [modelRegistry, setModelRegistry] = useState(null);
+
+    useEffect(() => {
+        getModelsRegistryPromise().then(data => {
+            setModelRegistry(data);
+        });
+    }, []);
 
     // Keyframe Animation States
     const activeAnimationRef = useRef({
@@ -671,10 +678,20 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
         const end = targetPos.clone();
 
         if (start.distanceTo(end) > 0.1) {
-            const keys = KeyframeAnimationExtension.generateKeyframes(
+            // Determine active animation kit from registry templates
+            const baseFaction = faction.split('_')[0];
+            const matchedModel = modelRegistry?.find(m => m.id === `model_${baseFaction}_hero`);
+            let mixamoAnimKit = 'mixamo_walk';
+            if (animProfile === 'teleport_dash') {
+                mixamoAnimKit = 'mixamo_jump';
+            } else if (animProfile === 'slime_trail' || animProfile === 'slow_walk' || animProfile === 'earth_glide') {
+                mixamoAnimKit = matchedModel?.animations?.includes('mixamo_run') ? 'mixamo_run' : 'mixamo_walk';
+            }
+
+            const keys = KeyframeAnimationExtension.generateMixamoSequence(
                 [start.x, start.y, start.z],
                 [end.x, end.y, end.z],
-                animProfile,
+                mixamoAnimKit,
                 thread.isStealthed
             );
             activeAnimationRef.current = {
@@ -686,7 +703,7 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
         }
 
         prevTargetPosRef.current = targetPos.clone();
-    }, [targetPos, animProfile, thread.isStealthed]);
+    }, [targetPos, animProfile, thread.isStealthed, modelRegistry, faction]);
 
     const prevTargetPosRef = useRef(null);
 
@@ -801,7 +818,22 @@ export default function ThreadMiniature({ thread, gridData, onClick, onDoubleCli
             }
         } else {
             if (groupRef.current) {
-                groupRef.current.position.lerp(targetPos, 0.1);
+                // If not moving, play Mixamo idle breathing keyframe interpolation loop (Rule 15: direct mutation)
+                const idleKeys = KeyframeAnimationExtension.generateMixamoSequence(
+                    [targetPos.x, targetPos.y, targetPos.z],
+                    [targetPos.x, targetPos.y, targetPos.z],
+                    'mixamo_idle',
+                    thread.isStealthed
+                );
+                const loopProgress = (t % 1.0); // 1.0s loop cycle
+                const frame = KeyframeAnimationExtension.interpolate(idleKeys, loopProgress);
+                if (frame) {
+                    groupRef.current.position.set(frame.position[0], frame.position[1], frame.position[2]);
+                    currentScale = frame.scale;
+                    currentRotation = frame.rotation;
+                } else {
+                    groupRef.current.position.lerp(targetPos, 0.1);
+                }
             }
             setDecoyTrail([]);
         }

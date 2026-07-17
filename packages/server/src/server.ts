@@ -15,7 +15,7 @@ import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignFailoverGateway, SovereignPhraseGenerator, SovereignTaskScheduler, GoCoreMediator } from '@dusan-game/shared';
+import { BiomeEngine, Pathfinder, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, applyRuleAdjustments, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignFailoverGateway, SovereignPhraseGenerator, SovereignTaskScheduler, GoCoreMediator } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
 import { RenderPriorityBalancer } from '@dusan-game/shared';
@@ -795,6 +795,57 @@ io.on('connection', (socket) => {
       sourceId: activePlayerId
     });
 
+    // Update daily quests progress for the playing thread
+    activePlayerThread.updateQuestProgress('SPEND_ENERGY', Number(instruction.energyCost) || 0);
+    if (isCardUltimate) {
+      activePlayerThread.updateQuestProgress('CAST_ULTIMATE', 1);
+    }
+
+    // Dynamic Terrain Resonator: Check if card action is high-voltage (>5.0V raw, i.e., >75V UI representation)
+    if (payload.targetHex && finalSpecs.voltage > 5.0) {
+      console.log(`[RESONATOR_WAVE] High-voltage action detected: ${finalSpecs.voltage}V (> 5.0V raw). Triggering seismic shockwave!`);
+      const targetChunkId = payload.targetHex.meta;
+      const targetBlockId = payload.targetHex.hex;
+      
+      const targetCoords = BiomeEngine.getHexCoordinates(targetChunkId, targetBlockId);
+      const vibratingHexes: { meta: number; hex: number; cracked: boolean }[] = [];
+
+      engine.map.chunks.forEach(chunk => {
+        chunk.blocks.forEach(block => {
+          const blockCoords = BiomeEngine.getHexCoordinates(chunk.id, block.id);
+          const dist = Pathfinder.hexDistance(targetCoords.q, targetCoords.r, blockCoords.q, blockCoords.r);
+          
+          if (dist <= 1) {
+            // All nodes within radius 1 vibrate
+            (block as any).vibrating = true;
+            
+            // Adjacent tiles (dist === 1) suffer temporary reduction in walkability
+            if (dist === 1) {
+              block.walkable = false;
+              (block as any).restoreWalkability = 1; // will be restored next turn
+              
+              // If already damaged (hazardIndex > 0.6), they crack and collapse in 2 turns
+              if (block.hazardIndex > 0.6) {
+                block.collapseInTurns = 2;
+                vibratingHexes.push({ meta: chunk.id, hex: block.id, cracked: true });
+                console.log(`[RESONATOR_CRACK] Tile M${chunk.id}_S${block.id} is cracked and will collapse in 2 turns!`);
+              } else {
+                vibratingHexes.push({ meta: chunk.id, hex: block.id, cracked: false });
+              }
+            } else {
+              vibratingHexes.push({ meta: chunk.id, hex: block.id, cracked: false });
+            }
+          }
+        });
+      });
+
+      io.to(matchId).emit('resonator_wave', {
+        targetHex: payload.targetHex,
+        seismicRadius: 1,
+        vibratingHexes
+      });
+    }
+
     // ── Log Combat Telemetry to Go Core (GPS/Magnitude/Manner) ───────────────
     if (payload.targetHex) {
       const chunkId = payload.targetHex.meta;
@@ -954,9 +1005,10 @@ io.on('connection', (socket) => {
         const energyCost = (metaDist - 1) * 3;
         if (engine.systemEnergy >= energyCost) {
           engine.systemEnergy -= energyCost;
+          thread.updateQuestProgress('SPEND_ENERGY', energyCost);
           console.log(`[POHYB JUMP] Long range jump to M${payload.targetHex.meta} cost ${energyCost} energy. System energy left: ${engine.systemEnergy}`);
         } else {
-          console.log(`[POHYB BLOK] Príliš ďaleko (vzdialenosť metapozícií ${metaDist} > 1) a nedostatočná energia (potrebné ${energyCost}, k dispozícii ${engine.systemEnergy}).`);
+          console.log(`[POHYB BLOK] Príliš ďaleko (vzdialenosť metapozícií ${metaDist} > 1) and nedostatočná energia (potrebné ${energyCost}, k dispozícii ${engine.systemEnergy}).`);
           return;
         }
       }
@@ -1000,6 +1052,7 @@ io.on('connection', (socket) => {
     const targetBlock = targetChunk?.blocks.find(b => b.id === payload.targetHex.hex);
     if (targetBlock && targetBlock.hasChest) {
       targetBlock.hasChest = false; // consume
+      thread.updateQuestProgress('COLLECT_CHEST', 1);
       
       const roll = Math.random();
       let chestMsg = '';
@@ -1073,8 +1126,8 @@ io.on('connection', (socket) => {
     }
 
     const biomeDetails = BiomeEngine.getBiomeForHex(payload.targetHex.meta, payload.targetHex.hex);
-    if (biomeDetails && biomeDetails.biome === 'TOXIC_SWAMP') {
-      thread.updateQuestProgress('REACH_BIOME', 1, 'TOXIC_SWAMP');
+    if (biomeDetails) {
+      thread.updateQuestProgress('REACH_BIOME', 1, biomeDetails.biome);
     }
 
     // Trigger trap check for moved player!
@@ -1946,6 +1999,68 @@ app.post('/api/b2b/connections/mock-disconnect', (req, res) => {
   }
 });
 
+app.get('/api/b2b/clickhouse/status', (req, res) => {
+  try {
+    const fallbackRecords = ClickHouseTelemetryClient.readFallbackFile();
+    const isOnline = (ClickHouseTelemetryClient as any).isInitialized;
+    
+    const fallbackCounts = {
+      VISION: fallbackRecords.filter(r => r.type === 'VISION').length,
+      COMBAT: fallbackRecords.filter(r => r.type === 'COMBAT').length,
+      SHORT_CIRCUIT: fallbackRecords.filter(r => r.type === 'SHORT_CIRCUIT').length
+    };
+
+    res.status(200).json({
+      online: isOnline,
+      url: (ClickHouseTelemetryClient as any).clickhouseUrl,
+      fallbackPath: (ClickHouseTelemetryClient as any).fallbackPath,
+      fallbackRecordsCount: fallbackRecords.length,
+      fallbackCounts
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/clickhouse/mock', (req, res) => {
+  try {
+    const { type } = req.body;
+    if (type === 'VISION') {
+      ClickHouseTelemetryClient.logVision({
+        session_id: "mock_b2b_session_" + Math.floor(Math.random() * 100),
+        fps: 59.9,
+        latency_ms: 12.4,
+        defect_class: 1,
+        confidence: 0.94,
+        timestamp: Date.now()
+      });
+    } else if (type === 'COMBAT') {
+      ClickHouseTelemetryClient.logCombat({
+        match_id: "mock_b2b_match_" + Math.floor(Math.random() * 100),
+        player_id: "mock_player",
+        card_id: "voltage_surge",
+        voltage: 7.2,
+        current: 2.1,
+        timestamp: Date.now()
+      });
+    } else if (type === 'SHORT_CIRCUIT') {
+      ClickHouseTelemetryClient.logShortCircuit({
+        sector_id: "M1_S2",
+        voltage: 15.0,
+        resistance: 1.2,
+        current_load: 12.5,
+        timestamp: Date.now()
+      });
+    } else {
+      res.status(400).json({ error: 'Invalid mock event type' });
+      return;
+    }
+    res.status(200).json({ success: true, loggedType: type });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/scenarios/semantic-sector/:threadId', (req, res) => {
   try {
     const threadId = req.params.threadId;
@@ -2489,6 +2604,57 @@ app.get('/api/system/statistics-report', (req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.get('/api/assets/3d-models', (req, res) => {
+  const models = [
+    {
+      id: 'model_crystal_hero',
+      name: 'Crystal Hero (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_crystal.glb',
+      meshType: 'GLTF',
+      walkProfile: 'slow_walk',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_run', 'mixamo_jump', 'mixamo_attack']
+    },
+    {
+      id: 'model_toxic_hero',
+      name: 'Toxic Swamer (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_toxic.glb',
+      meshType: 'GLTF',
+      walkProfile: 'slime_trail',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_run', 'mixamo_attack']
+    },
+    {
+      id: 'model_void_hero',
+      name: 'Void Infiltrator (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_void.glb',
+      meshType: 'GLTF',
+      walkProfile: 'teleport_dash',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_jump', 'mixamo_attack']
+    },
+    {
+      id: 'model_druid_hero',
+      name: 'Druid Glider (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_druid.glb',
+      meshType: 'GLTF',
+      walkProfile: 'earth_glide',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_run', 'mixamo_jump', 'mixamo_attack']
+    },
+    {
+      id: 'model_gear_tech',
+      name: 'Procedural Gear Tech (Static)',
+      category: 'prop',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/gear_tech.glb',
+      meshType: 'PRIMITIVE_GEAR',
+      walkProfile: 'static',
+      animations: ['rotate_y_loop']
+    }
+  ];
+  res.json(models);
 });
 
 app.post('/api/telemetry/evaluate-spawn', async (req, res) => {
@@ -3299,8 +3465,46 @@ app.post('/api/trades/accept', async (req, res) => {
   }
 });
 
+function setupRuleWatcher() {
+  const adjustmentsPath = path.join(__dirname, 'models', 'rule_adjustments.json');
+  
+  const loadAdjustments = () => {
+    try {
+      if (fs.existsSync(adjustmentsPath)) {
+        const raw = fs.readFileSync(adjustmentsPath, 'utf8');
+        const adjustments = JSON.parse(raw);
+        applyRuleAdjustments(adjustments);
+        console.log('[RULE_WATCHER] Loaded rule adjustments from disk:', adjustments);
+      }
+    } catch (err: any) {
+      console.warn('[RULE_WATCHER] Error loading rule adjustments:', err.message);
+    }
+  };
+
+  // Load initially
+  loadAdjustments();
+
+  // Watch for changes (fs.watch)
+  try {
+    fs.watch(adjustmentsPath, (eventType) => {
+      if (eventType === 'change') {
+        console.log('[RULE_WATCHER] rule_adjustments.json changed, reloading...');
+        // Debounce slightly to allow writes to finish
+        setTimeout(loadAdjustments, 100);
+      }
+    });
+    console.log('[RULE_WATCHER] Watching adjustments file for dynamic rule patches:', adjustmentsPath);
+  } catch (err: any) {
+    console.warn('[RULE_WATCHER] Failed to watch adjustments file:', err.message);
+  }
+}
+
 server.listen(PORT, async () => {
   console.log(`SovereignEngine listening on port ${PORT}`);
+  
+  // Initialize dynamic rule hot-reloader
+  setupRuleWatcher();
+
   try {
      await ClickHouseTelemetryClient.init();
   } catch (err: any) {

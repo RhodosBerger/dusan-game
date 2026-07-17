@@ -220,3 +220,28 @@
 *   **Go Core UUID Mapping**: Telemetry bridges connecting the B2B backoffice server and the Go Core must query and map session connections using unique UUIDs assigned authoritatively by the Go Core.
 *   **Linear Priority Balancer**: Tile render culling and priority calculations must reduce planning complexity to linear relationships by combining physical telemetry variables (voltage, temperature) and Cartesian distance into a single weighted priority coefficient.
 *   **Backoffice State Mutations**: Character movement or state updates directed by the B2B backoffice application layer must go through POST routes (e.g. `/api/backoffice/movement`) that update the game engine state authoritatively rather than direct frontend mutations.
+
+## 40. Telemetry & Database Fallback Testing Rules
+*   **Fallback Isolation in Tests**: Any test that verifies local file fallback logging (e.g. JSONL logging when ClickHouse or other databases are offline) must dynamically override the service URL to an unreachable address (e.g. `http://localhost:9999`) prior to execution. This prevents active database instances in the dev environment from consuming the telemetry events and bypassing the local fallback assertion block. Always restore the default connection URL at the end of the test.
+
+## 41. Containerized Local Development & Autopilot Practices
+*   **Passwordless Container Access**: In local development Docker Compose environments, configure container services (such as ClickHouse) with explicit skip-credential flags (e.g. `CLICKHOUSE_SKIP_USER_SETUP=1`) to prevent default network restriction lockouts on container-to-container boundaries.
+*   **Autopilot Goal Verification**: Prior to performing long-running `/goal` or refactoring runs, execute the workspace compilation scripts and the test engine (`yarn workspace @dusan-game/server test`) sequentially to establish 100% green compilation as a development baseline.
+
+## 42. Strict Focus on Defined Target Features
+*   **Scope Isolation**: During any implementation or refactoring cycle, focus exclusively on the specific files, modules, and functionalities defined in the approved implementation plan. Do NOT perform speculative refactoring, dead code cleanup, or cosmetic adjustments in unrelated files unless explicitly authorized in the task checklist.
+*   **Feature Boundary Checks**: Ensure that changes remain tightly coupled to the active sprint goal, preserving all surrounding system components and codebase interfaces in their original state to prevent accidental regression.
+
+## 43. Native WebAssembly Vulkan Rendering & Memory Synchronization
+*   **Bridge Architecture**: The rendering backend must support compiling native C++/Go Vulkan source elements to WebAssembly, executing directly inside browser worker threads and blitting directly to the canvas frame buffer.
+*   **Pre-Compiled Pipeline States (PSOs)**: To guarantee low latency without runtime shader compilation stutter, the Vulkan WebAssembly pipeline must pre-cache specialized PSOs for all 4 governor performance tiers (LEGACY, LOW_END, NOMINAL, HIGH_END) at initialization and swap them dynamically on HardwareGovernor transitions.
+*   **Zero-Copy Memory Synchronization**: State communication between simulation threads in `go-core` and the WebAssembly Vulkan renderer must utilize `SharedArrayBuffer` memory topologies. Avoid JSON, MessagePack, or WebSocket serialization bridges for gameplay-graphics state coordination.
+
+## 44. Cross-Component Logging Nomenclature & State Visibility Matrix
+*   **Structured Log Format**: All custom log messages across `packages/go-core`, `packages/server`, `packages/client`, and `packages/babylon-sovereign` must conform to the unified string pattern:
+    `[<SourceComponent> -> <TargetComponent>] [<LogCategory>] <ActionString> | <Key1>=<Value1> | <Key2>=<Value2>`
+*   **Component Identifiers**: Use exactly `GO_CORE`, `SERVER`, `CLIENT_R3F`, or `CLIENT_BABYLON`.
+*   **Log Categories**: Use exactly `TELEMETRY`, `STATE_SYNC`, `PHYSICS`, `ML_INFERENCE`, or `FRAMEWORK_ERR`.
+*   **Zero-State Mutations in Logs**: Log statements must be pure and free of side effects; they must never mutate component memory, database state, or trigger network state changes.
+
+

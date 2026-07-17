@@ -7,7 +7,7 @@ import { DatabaseSyncManager } from './DatabaseSyncManager';
 import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
 import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
 import { SovereignIslandSystem } from './SovereignIslandSystem';
-import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator, ITEMS_CATALOG, getPhysicsSpecs, SpatialGuidanceSystem, DusanAdaptedMassacreModel } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator, ITEMS_CATALOG, getPhysicsSpecs, SpatialGuidanceSystem, DusanAdaptedMassacreModel, Pathfinder } from '@dusan-game/shared';
 import { SovereignLayerLogger } from '../utils/SovereignLayerLogger';
 
 // Register Server-Side Interactive Quest Triggers (Rule 6 decoupling)
@@ -431,6 +431,11 @@ export class SovereignEngine {
             armor: baseArmor,
             timestamp: Date.now(),
             message: combatLog
+          });
+
+          // Update daily quests progress for dealing damage
+          QuestTriggerManager.updateQuestProgress(source, 'DEAL_DAMAGE', finalDamage, undefined, (quest) => {
+            QuestTriggerManager.triggerInteractiveContent(this, source, quest);
           });
 
           // Zníženie životnosti (durability) aktívnej zbrane útočníka o 5 bodov
@@ -1043,6 +1048,43 @@ export class SovereignEngine {
         timestamp: Date.now()
       } as any);
     }
+  }
+
+  healGridPath(startChunkId: number, startBlockId: number, targetChunkId: number, targetBlockId: number): number {
+    const blocksList = this.map.chunks.flatMap(c => 
+      c.blocks.map(b => ({
+        chunkId: c.id,
+        blockId: b.id,
+        walkable: b.walkable !== false,
+        energyCostMultiplier: b.energyCostMultiplier || 1.0
+      }))
+    );
+
+    const healedPath = Pathfinder.findHealedPath(startChunkId, startBlockId, targetChunkId, targetBlockId, blocksList);
+    if (!healedPath) return 0;
+
+    let healedCount = 0;
+    healedPath.forEach(node => {
+      const chunk = this.map.chunks.find(c => c.id === node.chunkId);
+      const block = chunk?.blocks.find(b => b.id === node.blockId);
+      if (block && (!block.walkable || (block as any).isSunk)) {
+        block.walkable = true;
+        (block as any).isSunk = false;
+        block.hazardIndex = 0.0;
+        healedCount++;
+      }
+    });
+
+    if (healedCount > 0) {
+      console.log(`[SERVER -> CLIENT_R3F] [STATE_SYNC] Autoritative path repair completed | start=M${startChunkId}_S${startBlockId} | end=M${targetChunkId}_S${targetBlockId} | repairedCount=${healedCount}`);
+      this.traceLog.push({
+        type: 'TileRepaired',
+        threadId: 'system',
+        message: `Repaired ${healedCount} blocked tiles to restore connection between M${startChunkId}_S${startBlockId} and M${targetChunkId}_S${targetBlockId}.`,
+        timestamp: Date.now()
+      } as any);
+    }
+    return healedCount;
   }
 
   getStaticMapState(): any {

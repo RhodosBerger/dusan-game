@@ -116,8 +116,43 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
     // Socket-Thread Mapper & Geometric Culling States
     const [activeConnections, setActiveConnections] = useState([]);
     const [geoCoordinates, setGeoCoordinates] = useState([]);
-    const [mockSocketId, setMockSocketId] = useState('socket_' + Math.floor(Math.random() * 1000));
+    const [mockSocketId, setMockSocketId] = useState('socket_' + Math.floor(Math.random() * 100));
     const [mockThreadId, setMockThreadId] = useState('thread_crystal_shards');
+
+    const [clickhouseStatus, setClickhouseStatus] = useState({
+        online: false,
+        url: '',
+        fallbackPath: '',
+        fallbackRecordsCount: 0,
+        fallbackCounts: { VISION: 0, COMBAT: 0, SHORT_CIRCUIT: 0 }
+    });
+
+    const fetchClickhouseStatus = async () => {
+        try {
+            const res = await fetch('/api/b2b/clickhouse/status');
+            if (res.ok) {
+                const data = await res.json();
+                setClickhouseStatus(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch ClickHouse status:', err);
+        }
+    };
+
+    const handleMockClickhouse = async (type) => {
+        try {
+            const res = await fetch('/api/b2b/clickhouse/mock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type })
+            });
+            if (res.ok) {
+                fetchClickhouseStatus();
+            }
+        } catch (err) {
+            console.error('Failed to mock ClickHouse event:', err);
+        }
+    };
 
     const fetchConnections = async () => {
         try {
@@ -134,6 +169,7 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
 
     useEffect(() => {
         fetchConnections();
+        fetchClickhouseStatus();
     }, []);
 
     const handleMockConnect = async () => {
@@ -584,48 +620,106 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                                     </div>
                                 </div>
 
-                                {/* Right Side: Geometric Priority Balancer */}
-                                <div style={{ width: 300, display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12 }}>
-                                    <span style={{ fontSize: 11, color: '#ffd700', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Geometric Culling Priority
-                                    </span>
-                                    
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
-                                        <div style={{ fontSize: 10, color: '#888', lineHeight: 1.4 }}>
-                                            Tiles are partitioned into rendering layers based on proximity to active connection anchors.
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 4 }}>
-                                            {geoCoordinates.map((coord, idx) => {
-                                                const layerColor = coord.layer === 'CRITICAL' ? '#ef4444' : coord.layer === 'STRUCTURAL' ? '#eab308' : '#3b82f6';
-                                                return (
-                                                    <div 
-                                                        key={idx}
-                                                        style={{
-                                                            background: '#13131a',
-                                                            border: `1px solid ${layerColor}${coord.cullActive ? '40' : 'ff'}`,
-                                                            borderRadius: 6,
-                                                            padding: '6px 4px',
-                                                            display: 'flex',
-                                                            flexDirection: 'column',
-                                                            alignItems: 'center',
-                                                            opacity: coord.cullActive ? 0.4 : 1,
-                                                            transition: 'all 0.3s ease'
-                                                        }}
-                                                    >
-                                                        <span style={{ fontSize: 9, color: '#fff', fontWeight: 'bold' }}>{coord.coord}</span>
-                                                        <span style={{ fontSize: 8, color: layerColor, marginTop: 2 }}>{coord.layer}</span>
-                                                        {coord.cullActive && <span style={{ fontSize: 8, color: '#888', fontStyle: 'italic' }}>Culled</span>}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <div style={{ marginTop: 'auto', borderTop: '1px solid #1c1c28', paddingTop: 8 }}>
-                                            <div style={{ display: 'flex', justifySelf: 'space-between', width: '100%', fontSize: 10, color: '#888', marginBottom: 4 }}>
-                                                <span>Active Culling Limit:</span>
+                                {/* Right Side Panel Stack */}
+                                <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    {/* Geometric Culling Priority Card */}
+                                    <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12, minHeight: 0 }}>
+                                        <span style={{ fontSize: 11, color: '#ffd700', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Geometric Culling Priority
+                                        </span>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+                                            <div style={{ fontSize: 9, color: '#888', lineHeight: 1.3 }}>
+                                                Tiles are partitioned into rendering layers based on proximity to active anchors.
                                             </div>
-                                            <div style={{ fontSize: 9, color: '#a855f7', fontStyle: 'italic' }}>Mapped to global DDA Config</div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 2 }}>
+                                                {geoCoordinates.map((coord, idx) => {
+                                                    const layerColor = coord.layer === 'CRITICAL' ? '#ef4444' : coord.layer === 'STRUCTURAL' ? '#eab308' : '#3b82f6';
+                                                    return (
+                                                        <div 
+                                                            key={idx}
+                                                            style={{
+                                                                background: '#13131a',
+                                                                border: `1px solid ${layerColor}${coord.cullActive ? '40' : 'ff'}`,
+                                                                borderRadius: 6,
+                                                                padding: '4px 2px',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                alignItems: 'center',
+                                                                opacity: coord.cullActive ? 0.4 : 1,
+                                                                transition: 'all 0.3s ease'
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: 9, color: '#fff', fontWeight: 'bold' }}>{coord.coord}</span>
+                                                            <span style={{ fontSize: 8, color: layerColor, marginTop: 2 }}>{coord.layer}</span>
+                                                            {coord.cullActive && <span style={{ fontSize: 8, color: '#888', fontStyle: 'italic' }}>Culled</span>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div style={{ marginTop: 'auto', borderTop: '1px solid #1c1c28', paddingTop: 6 }}>
+                                                <div style={{ display: 'flex', justifySelf: 'space-between', width: '100%', fontSize: 9, color: '#888' }}>
+                                                    <span>Active Culling Limit:</span>
+                                                </div>
+                                                <div style={{ fontSize: 8, color: '#a855f7', fontStyle: 'italic' }}>Mapped to global DDA Config</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ClickHouse Telemetry Card */}
+                                    <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12, minHeight: 0 }}>
+                                        <span style={{ fontSize: 11, color: '#00ffff', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            ClickHouse Data Pool
+                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: clickhouseStatus.online ? '#10b981' : '#f59e0b', boxShadow: clickhouseStatus.online ? '0 0 8px #10b981' : '0 0 8px #f59e0b' }} />
+                                            <span style={{ fontSize: 10, fontWeight: 'bold', color: clickhouseStatus.online ? '#10b981' : '#f59e0b' }}>
+                                                {clickhouseStatus.online ? 'ONLINE (MergeTree)' : 'FALLBACK MODE (JSONL)'}
+                                            </span>
+                                        </div>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', fontSize: 10 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #14141d', paddingBottom: 4 }}>
+                                                <span style={{ color: '#888' }}>Endpoint:</span>
+                                                <span style={{ fontFamily: 'monospace', color: '#8b5cf6' }}>{clickhouseStatus.url}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #14141d', paddingBottom: 4 }}>
+                                                <span style={{ color: '#888' }}>Fallback Records:</span>
+                                                <span style={{ fontWeight: 'bold', color: '#ffd700' }}>{clickhouseStatus.fallbackRecordsCount}</span>
+                                            </div>
+                                            <div style={{ padding: 4, background: '#101017', borderRadius: 4, marginTop: 4 }}>
+                                                <div style={{ fontSize: 8, color: '#68687a', textTransform: 'uppercase', marginBottom: 4, fontWeight: 'bold' }}>Local JSONL Counts</div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                                                    <span>Vision:</span>
+                                                    <span style={{ color: '#a855f7' }}>{clickhouseStatus.fallbackCounts?.VISION || 0}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                                                    <span>Combat:</span>
+                                                    <span style={{ color: '#3b82f6' }}>{clickhouseStatus.fallbackCounts?.COMBAT || 0}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>Short-Circuit:</span>
+                                                    <span style={{ color: '#ef4444' }}>{clickhouseStatus.fallbackCounts?.SHORT_CIRCUIT || 0}</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 8 }}>
+                                                <button 
+                                                    onClick={() => handleMockClickhouse('VISION')}
+                                                    style={{ flex: 1, padding: '4px 0', background: '#a855f7', color: '#fff', border: 'none', borderRadius: 3, fontSize: 8, fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    + Vision
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleMockClickhouse('COMBAT')}
+                                                    style={{ flex: 1, padding: '4px 0', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 3, fontSize: 8, fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    + Combat
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleMockClickhouse('SHORT_CIRCUIT')}
+                                                    style={{ flex: 1, padding: '4px 0', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 3, fontSize: 8, fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    + Short
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
