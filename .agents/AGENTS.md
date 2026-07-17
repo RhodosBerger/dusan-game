@@ -136,6 +136,7 @@
   1. Build shared packages: `yarn workspace @dusan-game/shared build`
   2. Build viewport clients: `yarn workspace client build` or `yarn workspace @dusan-game/babylon-sovereign build`
 *   **Health and Telemetry Checks**: Verify that the Go Core microservice (port `8081`) is online and responding before running game engine tests. Running server files in isolated Docker environments must pass target bridge networks or `--network=host` parameters to avoid false connection drops on the localhost interface.
+*   **Dynamic Path Resolution (Optimal File Coordinates)**: When resolving file system paths (coordinates) to load configs, datasets, or execute ML scripts, always inspect the active `process.cwd()`. If the working directory is already inside a package subdirectory (e.g. `packages/server`), dynamically adjust the relative path mapping to prevent duplicate folder path prefixes.
 
 ## 22. Monorepo Package Dependency Tree & Build Pipeline
 *   **Dependency Hierarchy**:
