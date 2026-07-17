@@ -71,6 +71,13 @@ const socketToThread = new Map<string, string>();
 const matchmakingQueue: WaitingPlayer[] = [];
 const activeMatches = new Map<string, { engine: SovereignEngine; players: string[]; interval: NodeJS.Timeout; aiDirector?: AIOpponentDirector; aiThreadId?: string }>();
 
+const globalDdaConfig = {
+  winChance: 0.65,
+  stepsAhead: 3,
+  cullingDistance: 8,
+  proceduralSpawnsEnabled: true
+};
+
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
 import { SovereignIntrospectionEngine } from './models/SovereignIntrospectionEngine';
 
@@ -1794,6 +1801,85 @@ app.get('/api/db/players', (req, res) => {
   }
 });
 
+app.get('/api/leaderboard', (req, res) => {
+  try {
+    const entries = dbSync.getAllLeaderboards();
+    res.status(200).json(entries);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/leaderboard/evaluate', (req, res) => {
+  try {
+    const { playerId, stepsTaken, npcWins, npcMatches, aiWins, aiMatches, playerWins, playerMatches } = req.body;
+    const { SovereignLeaderboardEvaluator } = require('@dusan-game/shared');
+    
+    const rawData = {
+      playerId: playerId || 'crystal_king',
+      stepsTaken: stepsTaken || 0,
+      npcWins: npcWins || 0,
+      npcMatches: npcMatches || 0,
+      aiWins: aiWins || 0,
+      aiMatches: aiMatches || 0,
+      playerWins: playerWins || 0,
+      playerMatches: playerMatches || 0
+    };
+
+    const evaluated = SovereignLeaderboardEvaluator.evaluatePlayerStats(rawData);
+    const dbEntry = SovereignLeaderboardEvaluator.generateDatabaseEntry(evaluated);
+    
+    dbSync.savePlayerLeaderboard(dbEntry);
+
+    res.status(200).json({ success: true, evaluated });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/premium-items', (req, res) => {
+  try {
+    const items = dbSync.getPremiumItems();
+    res.status(200).json(items);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/purchase', (req, res) => {
+  try {
+    const { playerId, premiumItemId } = req.body;
+    const purchase = {
+      id: `purch_${Date.now()}`,
+      playerId,
+      premiumItemId,
+      status: 'COMPLETED'
+    };
+    dbSync.savePremiumPurchase(purchase);
+    res.status(200).json({ success: true, purchase });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/modifiers/:skill', (req, res) => {
+  try {
+    const modifiers = dbSync.getSkillModifiers(req.params.skill);
+    res.status(200).json(modifiers);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/purchases/:playerId', (req, res) => {
+  try {
+    const purchases = dbSync.getPlayerPurchases(req.params.playerId);
+    res.status(200).json(purchases);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/scenarios/semantic-sector/:threadId', (req, res) => {
   try {
     const threadId = req.params.threadId;
@@ -2146,6 +2232,23 @@ app.post('/api/admin/phase/override', (req, res) => {
     }
     io.emit('state_resolved', defaultEngine.getState());
     res.json({ success: true, phase: defaultEngine.turnStateMachine.currentPhase, activePlayerId: defaultEngine.turnStateMachine.activePlayerId });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/dda/config', (req, res) => {
+  res.json(globalDdaConfig);
+});
+
+app.post('/api/admin/dda/config', (req, res) => {
+  try {
+    const { winChance, stepsAhead, cullingDistance, proceduralSpawnsEnabled } = req.body;
+    if (typeof winChance === 'number') globalDdaConfig.winChance = winChance;
+    if (typeof stepsAhead === 'number') globalDdaConfig.stepsAhead = stepsAhead;
+    if (typeof cullingDistance === 'number') globalDdaConfig.cullingDistance = cullingDistance;
+    if (typeof proceduralSpawnsEnabled === 'boolean') globalDdaConfig.proceduralSpawnsEnabled = proceduralSpawnsEnabled;
+    res.json({ success: true, config: globalDdaConfig });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

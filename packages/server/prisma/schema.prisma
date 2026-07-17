@@ -27,6 +27,7 @@ model Player {
   quests       PlayerQuest[]
   items        PlayerItem[]
   artifacts    PlayerArtifact[]
+  premiumPurchases PlayerPremiumPurchase[]
 }
 
 // ── Inventory Surovin (Materials obtained from chests) ────────────────────────
@@ -119,5 +120,57 @@ model CardTrade {
 
   @@index([senderId])
   @@index([receiverId])
+}
+
+// ── Leaderboard Statistics (Score telemetry, steps, wins vs NPC/AI/Players) ──
+model PlayerLeaderboard {
+  id               String   @id @default(uuid())
+  playerId         String   @unique
+  stepsTaken       Int      @default(0)
+  npcWins          Int      @default(0)
+  npcMatches       Int      @default(0)
+  aiWins           Int      @default(0)
+  aiMatches        Int      @default(0)
+  playerWins       Int      @default(0)
+  playerMatches    Int      @default(0)
+  overallScore     Float    @default(0)
+  updatedAt        DateTime @updatedAt
+}
+
+// ── Katalóg prémiových položiek (Premium Items Catalog) ──────────────────────
+model PremiumItem {
+  id          String   @id @default(uuid())
+  key         String   @unique // napr. "VOLTAGE_CORE", "GLACIER_SHIELD"
+  name        String
+  description String
+  priceCredits Float
+  createdAt   DateTime @default(now())
+
+  purchases   PlayerPremiumPurchase[]
+  modifiers   SkillDecimalModifier[]
+}
+
+// ── Transakcie prémiových nákupov (Premium Transactions) ────────────────────
+model PlayerPremiumPurchase {
+  id            String   @id @default(uuid())
+  playerId      String
+  premiumItemId String
+  purchasedAt   DateTime @default(now())
+  status        String   // "COMPLETED", "FAILED"
+
+  player        Player      @relation(fields: [playerId], references: [username], onDelete: Cascade)
+  item          PremiumItem @relation(fields: [premiumItemId], references: [id], onDelete: Cascade)
+}
+
+// ── Desatinné modifikátory skillov (Decimal Skill Modifiers) ────────────────
+model SkillDecimalModifier {
+  id            String   @id @default(uuid())
+  premiumItemId String
+  targetSkill   String   // napr. "crystal_laser_burst"
+  attackBonus   Float    @default(0.0) // napr. +0.15 k sile útoku
+  reachBonus    Float    @default(0.0) // napr. +0.1 k dosahu
+  cooldownReduction Float @default(0.0)
+
+  item          PremiumItem @relation(fields: [premiumItemId], references: [id], onDelete: Cascade)
 }
 

@@ -203,6 +203,141 @@ export class DatabaseSyncManager {
         combinatorics_multiplier REAL NOT NULL
       )
     `);
+
+    // 10. Tabulka rebríčka (Leaderboard)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS player_leaderboard (
+        id TEXT PRIMARY KEY,
+        player_id TEXT UNIQUE NOT NULL,
+        steps_taken INTEGER DEFAULT 0,
+        npc_wins INTEGER DEFAULT 0,
+        npc_matches INTEGER DEFAULT 0,
+        ai_wins INTEGER DEFAULT 0,
+        ai_matches INTEGER DEFAULT 0,
+        player_wins INTEGER DEFAULT 0,
+        player_matches INTEGER DEFAULT 0,
+        overall_score REAL DEFAULT 0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 11. Tabulka PremiumItem
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS PremiumItem (
+        id TEXT PRIMARY KEY,
+        key TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        priceCredits REAL NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 12. Tabulka PlayerPremiumPurchase
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS PlayerPremiumPurchase (
+        id TEXT PRIMARY KEY,
+        playerId TEXT NOT NULL,
+        premiumItemId TEXT NOT NULL REFERENCES PremiumItem(id) ON DELETE CASCADE,
+        purchasedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        status TEXT NOT NULL
+      )
+    `);
+
+    // 13. Tabulka SkillDecimalModifier
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS SkillDecimalModifier (
+        id TEXT PRIMARY KEY,
+        premiumItemId TEXT NOT NULL REFERENCES PremiumItem(id) ON DELETE CASCADE,
+        targetSkill TEXT NOT NULL,
+        attackBonus REAL DEFAULT 0.0,
+        reachBonus REAL DEFAULT 0.0,
+        cooldownReduction REAL DEFAULT 0.0
+      )
+    `);
+  }
+
+  public savePlayerLeaderboard(stats: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO player_leaderboard (id, player_id, steps_taken, npc_wins, npc_matches, ai_wins, ai_matches, player_wins, player_matches, overall_score, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `);
+      const id = stats.id || `lead_${stats.playerId}`;
+      stmt.run(
+        id,
+        stats.playerId,
+        stats.stepsTaken || 0,
+        stats.npcWins || 0,
+        stats.npcMatches || 0,
+        stats.aiWins || 0,
+        stats.aiMatches || 0,
+        stats.playerWins || 0,
+        stats.playerMatches || 0,
+        stats.overallScore || 0
+      );
+    });
+  }
+
+  public getPlayerLeaderboard(playerId: string): any {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM player_leaderboard WHERE player_id = ?');
+    const result = stmt.get(playerId);
+    return result || null;
+  }
+
+  public getAllLeaderboards(): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM player_leaderboard ORDER BY overall_score DESC');
+    return stmt.all();
+  }
+
+  public savePremiumItem(item: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO PremiumItem (id, key, name, description, priceCredits, createdAt)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `);
+      stmt.run(item.id, item.key, item.name, item.description, item.priceCredits);
+    });
+  }
+
+  public savePremiumPurchase(purchase: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO PlayerPremiumPurchase (id, playerId, premiumItemId, purchasedAt, status)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+      `);
+      stmt.run(purchase.id, purchase.playerId, purchase.premiumItemId, purchase.status);
+    });
+  }
+
+  public saveSkillModifier(mod: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO SkillDecimalModifier (id, premiumItemId, targetSkill, attackBonus, reachBonus, cooldownReduction)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(mod.id, mod.premiumItemId, mod.targetSkill, mod.attackBonus, mod.reachBonus, mod.cooldownReduction);
+    });
+  }
+
+  public getPremiumItems(): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM PremiumItem');
+    return stmt.all();
+  }
+
+  public getPlayerPurchases(playerId: string): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM PlayerPremiumPurchase WHERE playerId = ?');
+    return stmt.all(playerId);
+  }
+
+  public getSkillModifiers(skill: string): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM SkillDecimalModifier WHERE targetSkill = ?');
+    return stmt.all(skill);
   }
 
   public saveComposition(inst: any): void {

@@ -6,11 +6,49 @@ async function main() {
   console.log('[SEED] Starting Prisma Database Seeding...');
 
   // 1. Clean up existing records to make seeder idempotent
+  await prisma.skillDecimalModifier.deleteMany({});
+  await prisma.playerPremiumPurchase.deleteMany({});
+  await prisma.premiumItem.deleteMany({});
   await prisma.playerCard.deleteMany({});
   await prisma.inventory.deleteMany({});
   await prisma.player.deleteMany({});
 
   console.log('[SEED] Cleaned up existing Player, PlayerCard, and Inventory records.');
+
+  // 1.5 Seed Premium Items
+  const voltageCore = await prisma.premiumItem.create({
+    data: {
+      key: 'VOLTAGE_CORE',
+      name: 'Voltage Core Injector',
+      description: 'Increases attack power by 15% and reach by 10% for Crystal Laser Burst.',
+      priceCredits: 4.99,
+      modifiers: {
+        create: {
+          targetSkill: 'crystal_laser_burst',
+          attackBonus: 0.15,
+          reachBonus: 0.10
+        }
+      }
+    }
+  });
+
+  const glacierShield = await prisma.premiumItem.create({
+    data: {
+      key: 'GLACIER_SHIELD',
+      name: 'Glacial Barrier Shield',
+      description: 'Enhances Glacier Shield reach by 0.5 hex units.',
+      priceCredits: 2.99,
+      modifiers: {
+        create: {
+          targetSkill: 'crystal_shield_01',
+          attackBonus: 0.0,
+          reachBonus: 0.50
+        }
+      }
+    }
+  });
+
+  console.log(`[SEED] Seeded Premium Items: ${voltageCore.key}, ${glacierShield.key}`);
 
   // 2. Create Crystal King Player
   const crystalPlayer = await prisma.player.create({

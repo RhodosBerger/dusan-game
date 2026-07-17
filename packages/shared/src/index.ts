@@ -51,3 +51,5 @@ export * from './core/SovereignTaskScheduler';
 export * from './core/EvolutionaryDeckGenerator';
 export * from './core/questEvolution';
 export * from './core/DusanAdaptedMassacreModel';
+export * from './core/SovereignBridgeCoordinator';
+export * from './core/SovereignLeaderboardEvaluator';
