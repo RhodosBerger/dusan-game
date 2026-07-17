@@ -113,6 +113,62 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
     ]);
     const [newCoordInput, setNewCoordInput] = useState('');
 
+    // Socket-Thread Mapper & Geometric Culling States
+    const [activeConnections, setActiveConnections] = useState([]);
+    const [geoCoordinates, setGeoCoordinates] = useState([]);
+    const [mockSocketId, setMockSocketId] = useState('socket_' + Math.floor(Math.random() * 1000));
+    const [mockThreadId, setMockThreadId] = useState('thread_crystal_shards');
+
+    const fetchConnections = async () => {
+        try {
+            const res = await fetch('/api/b2b/connections');
+            if (res.ok) {
+                const data = await res.json();
+                setActiveConnections(data.activeConnections || []);
+                setGeoCoordinates(data.coordinates || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch connections:', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchConnections();
+    }, []);
+
+    const handleMockConnect = async () => {
+        try {
+            const res = await fetch('/api/b2b/connections/mock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ socketId: mockSocketId, threadId: mockThreadId })
+            });
+            if (res.ok) {
+                logToConsole(`[Socket-Thread Mapper] Connected socket ${mockSocketId} to ${mockThreadId}`);
+                setMockSocketId('socket_' + Math.floor(Math.random() * 1000));
+                fetchConnections();
+            }
+        } catch (err) {
+            logToConsole(`[Socket-Thread Mapper Error] Failed to register mock connection.`);
+        }
+    };
+
+    const handleMockDisconnect = async (socketId) => {
+        try {
+            const res = await fetch('/api/b2b/connections/mock-disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ socketId })
+            });
+            if (res.ok) {
+                logToConsole(`[Socket-Thread Mapper] Disconnected socket ${socketId}`);
+                fetchConnections();
+            }
+        } catch (err) {
+            logToConsole(`[Socket-Thread Mapper Error] Failed to disconnect socket.`);
+        }
+    };
+
     const handleRegisterEntity = async () => {
         const coord = newCoordInput.trim() || '0x2B';
         try {
@@ -385,6 +441,24 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                         >
                             Elementor Sandbox
                         </button>
+                        <button 
+                            onClick={() => setActiveTab3D('CONNECTIONS')}
+                            style={{
+                                padding: '6px 12px',
+                                background: activeTab3D === 'CONNECTIONS' ? '#ffd700' : '#1c1c28',
+                                color: activeTab3D === 'CONNECTIONS' ? '#000' : '#fff',
+                                border: 'none',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; }}
+                        >
+                            Socket-Thread Mapper
+                        </button>
                     </div>
                 </div>
 
@@ -402,6 +476,161 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                 }}>
                     {activeTab3D === 'ELEMENTOR' ? (
                         <SovereignElementorSandbox />
+                    ) : activeTab3D === 'CONNECTIONS' ? (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16, color: '#fff', boxSizing: 'border-box' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0b0b12', padding: 12, borderRadius: 8, border: '1px solid #1c1c28' }}>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Socket ID" 
+                                        value={mockSocketId}
+                                        onChange={(e) => setMockSocketId(e.target.value)}
+                                        style={{ width: 120, padding: '6px 10px', background: '#101017', color: '#00ffff', border: '1px solid #1c1c28', borderRadius: 4, fontSize: 11, outline: 'none' }}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Thread ID" 
+                                        value={mockThreadId}
+                                        onChange={(e) => setMockThreadId(e.target.value)}
+                                        style={{ width: 150, padding: '6px 10px', background: '#101017', color: '#00ffff', border: '1px solid #1c1c28', borderRadius: 4, fontSize: 11, outline: 'none' }}
+                                    />
+                                    <button 
+                                        onClick={handleMockConnect}
+                                        style={{ 
+                                            padding: '6px 14px', 
+                                            background: '#ffd700', 
+                                            color: '#000', 
+                                            border: 'none', 
+                                            borderRadius: 4, 
+                                            fontWeight: 'bold', 
+                                            fontSize: 10, 
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 0 10px #ffd700'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    >
+                                        + Mock Connect
+                                    </button>
+                                </div>
+                                <button 
+                                    onClick={fetchConnections}
+                                    style={{ 
+                                        padding: '6px 12px', 
+                                        background: '#1c1c28', 
+                                        color: '#00ffff', 
+                                        border: '1px solid #00ffff', 
+                                        borderRadius: 4, 
+                                        fontSize: 10, 
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; }}
+                                >
+                                    🔄 Refresh
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+                                {/* Left Side: Active Mappings */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12 }}>
+                                    <span style={{ fontSize: 11, color: '#ffd700', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        Active Bridge Mappings ({activeConnections.length})
+                                    </span>
+                                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                                        {activeConnections.length === 0 ? (
+                                            <div style={{ padding: '20px 0', textAlign: 'center', color: '#68687a', fontSize: 11 }}>
+                                                No active socket-thread mappings.
+                                            </div>
+                                        ) : (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                                                <thead>
+                                                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #1c1c28', color: '#888' }}>
+                                                        <th style={{ padding: '6px 4px' }}>Socket ID</th>
+                                                        <th style={{ padding: '6px 4px' }}>Thread ID</th>
+                                                        <th style={{ padding: '6px 4px', textAlign: 'right' }}>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {activeConnections.map((conn, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid #14141d' }}>
+                                                            <td style={{ padding: '8px 4px', color: '#00ffff', fontFamily: 'monospace' }}>{conn.socketId}</td>
+                                                            <td style={{ padding: '8px 4px', color: '#a855f7', fontFamily: 'monospace' }}>{conn.threadId}</td>
+                                                            <td style={{ padding: '8px 4px', textAlign: 'right' }}>
+                                                                <button 
+                                                                    onClick={() => handleMockDisconnect(conn.socketId)}
+                                                                    style={{ 
+                                                                        padding: '3px 8px', 
+                                                                        background: '#ff4d4d', 
+                                                                        color: '#fff', 
+                                                                        border: 'none', 
+                                                                        borderRadius: 3, 
+                                                                        fontSize: 9, 
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                                    }}
+                                                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; }}
+                                                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; }}
+                                                                >
+                                                                    Disconnect
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Geometric Priority Balancer */}
+                                <div style={{ width: 300, display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12 }}>
+                                    <span style={{ fontSize: 11, color: '#ffd700', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        Geometric Culling Priority
+                                    </span>
+                                    
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+                                        <div style={{ fontSize: 10, color: '#888', lineHeight: 1.4 }}>
+                                            Tiles are partitioned into rendering layers based on proximity to active connection anchors.
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 4 }}>
+                                            {geoCoordinates.map((coord, idx) => {
+                                                const layerColor = coord.layer === 'CRITICAL' ? '#ef4444' : coord.layer === 'STRUCTURAL' ? '#eab308' : '#3b82f6';
+                                                return (
+                                                    <div 
+                                                        key={idx}
+                                                        style={{
+                                                            background: '#13131a',
+                                                            border: `1px solid ${layerColor}${coord.cullActive ? '40' : 'ff'}`,
+                                                            borderRadius: 6,
+                                                            padding: '6px 4px',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            alignItems: 'center',
+                                                            opacity: coord.cullActive ? 0.4 : 1,
+                                                            transition: 'all 0.3s ease'
+                                                        }}
+                                                    >
+                                                        <span style={{ fontSize: 9, color: '#fff', fontWeight: 'bold' }}>{coord.coord}</span>
+                                                        <span style={{ fontSize: 8, color: layerColor, marginTop: 2 }}>{coord.layer}</span>
+                                                        {coord.cullActive && <span style={{ fontSize: 8, color: '#888', fontStyle: 'italic' }}>Culled</span>}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div style={{ marginTop: 'auto', borderTop: '1px solid #1c1c28', paddingTop: 8 }}>
+                                            <div style={{ display: 'flex', justifySelf: 'space-between', width: '100%', fontSize: 10, color: '#888', marginBottom: 4 }}>
+                                                <span>Active Culling Limit:</span>
+                                            </div>
+                                            <div style={{ fontSize: 9, color: '#a855f7', fontStyle: 'italic' }}>Mapped to global DDA Config</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     ) : activeTab3D === 'HTML5' ? (
                         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

@@ -19,6 +19,17 @@ export class SovereignBridgeCoordinator {
     constructor() {}
 
     /**
+     * Lists active connection socket to thread ID mappings.
+     */
+    public getActiveMappings(): Array<{ socketId: string; threadId: string }> {
+        const mappings: Array<{ socketId: string; threadId: string }> = [];
+        this.socketToThreadMap.forEach((threadId, socketId) => {
+            mappings.push({ socketId, threadId });
+        });
+        return mappings;
+    }
+
+    /**
      * Registers a mapping between a socket connection and an engine player thread.
      * Can be registered in any order.
      */

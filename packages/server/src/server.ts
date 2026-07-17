@@ -34,6 +34,7 @@ import { SovereignCombinatoricsRegistry } from './models/SovereignCombinatoricsR
 import { ClickHouseTelemetryClient } from './models/ClickHouseTelemetryClient';
 import { SovereignLayerLogger } from './utils/SovereignLayerLogger';
 import { DevOpsTelemetryWatcher } from './utils/devopsTelemetryWatcher';
+import { SovereignBridgeCoordinator } from '@dusan-game/shared';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
 
@@ -68,6 +69,7 @@ interface WaitingPlayer {
 }
 
 const socketToThread = new Map<string, string>();
+const bridgeCoordinator = new SovereignBridgeCoordinator();
 const matchmakingQueue: WaitingPlayer[] = [];
 const activeMatches = new Map<string, { engine: SovereignEngine; players: string[]; interval: NodeJS.Timeout; aiDirector?: AIOpponentDirector; aiThreadId?: string }>();
 
@@ -203,6 +205,7 @@ io.on('connection', (socket) => {
 
   if (sandboxThreadId && defaultEngine.addPlayer(sandboxThreadId)) {
     socketToThread.set(socket.id, sandboxThreadId);
+    bridgeCoordinator.registerMapping(socket.id, sandboxThreadId);
     console.log(`${socket.id} joined the default game as ${sandboxThreadId}.`);
   } else {
     console.log(`${socket.id} joined as spectator.`);
@@ -366,6 +369,8 @@ io.on('connection', (socket) => {
 
       socketToThread.set(p1.socketId, 'thread_king_ai');
       socketToThread.set(p2.socketId, 'thread_hacker_root');
+      bridgeCoordinator.registerMapping(p1.socketId, 'thread_king_ai');
+      bridgeCoordinator.registerMapping(p2.socketId, 'thread_hacker_root');
 
       // Automaticky spustíme hru po pridaní oboch hráčov
       matchEngine.startGame();
@@ -475,6 +480,7 @@ io.on('connection', (socket) => {
     }
 
     socketToThread.set(socket.id, chosenHero);
+    bridgeCoordinator.registerMapping(socket.id, chosenHero);
 
     // Automaticky spustíme hru
     matchEngine.startGame();
@@ -512,6 +518,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     socketToThread.delete(socket.id);
+    bridgeCoordinator.removeMapping(socket.id);
     
     // Odstránenie z queue ak sa odpojil pred spustením zápasu
     const qIndex = matchmakingQueue.findIndex(p => p.socketId === socket.id);
@@ -1875,6 +1882,65 @@ app.get('/api/b2b/purchases/:playerId', (req, res) => {
   try {
     const purchases = dbSync.getPlayerPurchases(req.params.playerId);
     res.status(200).json(purchases);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/connections', (req, res) => {
+  try {
+    const mappings = bridgeCoordinator.getActiveMappings();
+    const hexCoords = ['0x12', '0x2B', '0x35', '0x71', '0x1C', '0x4D', '0x5E', '0x8F'];
+    const coordinates = hexCoords.map((coord, idx) => {
+      const distance = idx + 1;
+      let layer = 'COSMETIC';
+      if (distance <= 3) {
+        layer = 'CRITICAL';
+      } else if (distance <= globalDdaConfig.cullingDistance) {
+        layer = 'STRUCTURAL';
+      }
+      return {
+        coord,
+        distance,
+        layer,
+        cullActive: distance > globalDdaConfig.cullingDistance
+      };
+    });
+
+    res.status(200).json({
+      activeConnections: mappings,
+      coordinates
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/connections/mock', (req, res) => {
+  try {
+    const { socketId, threadId } = req.body;
+    if (!socketId || !threadId) {
+      res.status(400).json({ error: 'Missing socketId or threadId' });
+      return;
+    }
+    bridgeCoordinator.registerMapping(socketId, threadId);
+    socketToThread.set(socketId, threadId);
+    res.status(200).json({ success: true, registered: { socketId, threadId } });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/connections/mock-disconnect', (req, res) => {
+  try {
+    const { socketId } = req.body;
+    if (!socketId) {
+      res.status(400).json({ error: 'Missing socketId' });
+      return;
+    }
+    bridgeCoordinator.removeMapping(socketId);
+    socketToThread.delete(socketId);
+    res.status(200).json({ success: true, disconnected: socketId });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
