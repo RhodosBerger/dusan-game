@@ -214,3 +214,8 @@
 
 ## 38. Automated Match State Completion
 *   **AI Phase Completion**: Any game phase that requires active confirmation from all players (e.g. Mulligan confirm) must automatically resolve and complete for any AI-controlled threads (`Sovereign AI`) in the match engine to prevent the match state from freezing.
+
+## 39. B2B Backoffice & Go Core Telemetry Integration
+*   **Go Core UUID Mapping**: Telemetry bridges connecting the B2B backoffice server and the Go Core must query and map session connections using unique UUIDs assigned authoritatively by the Go Core.
+*   **Linear Priority Balancer**: Tile render culling and priority calculations must reduce planning complexity to linear relationships by combining physical telemetry variables (voltage, temperature) and Cartesian distance into a single weighted priority coefficient.
+*   **Backoffice State Mutations**: Character movement or state updates directed by the B2B backoffice application layer must go through POST routes (e.g. `/api/backoffice/movement`) that update the game engine state authoritatively rather than direct frontend mutations.

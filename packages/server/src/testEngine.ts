@@ -41,6 +41,13 @@ declare var __dirname: string;
 const fs = require('fs');
 const pathModule = require('path');
 
+function resolvePath(rel: string): string {
+  if (process.cwd().endsWith('packages/server')) {
+    return pathModule.join(process.cwd(), rel.replace(/^packages\/server\//, ''));
+  }
+  return pathModule.join(process.cwd(), rel);
+}
+
 function assert(condition: boolean, message: string) {
   if (!condition) {
     throw new Error(`TEST FAIL: ${message}`);
@@ -736,8 +743,7 @@ async function runTests() {
   console.log("\nTest 21: Level Datasets & Scenario Triggers");
   
   // Verify levels JSON loading
-  const pathMod = require('path');
-  const levelsFilePath = pathMod.join(process.cwd(), 'packages/server/src/data/levels.json');
+  const levelsFilePath = resolvePath('packages/server/src/data/levels.json');
   assert(fs.existsSync(levelsFilePath) === true, "Súbor levels.json s datasetmi levelov musí existovať.");
   const levelsData = JSON.parse(fs.readFileSync(levelsFilePath, 'utf8'));
   assert(levelsData.length === 5, "Počet definovaných levelov musí byť 5.");
@@ -808,8 +814,8 @@ async function runTests() {
   const { execSync } = require('child_process');
   const pathModule = require('path');
   
-  const predictorScript = pathModule.join(process.cwd(), 'packages/server/src/ml/movement_predictor.py');
-  const venvPython = pathModule.join(process.cwd(), 'packages/server/.venv/bin/python3');
+  const predictorScript = resolvePath('packages/server/src/ml/movement_predictor.py');
+  const venvPython = resolvePath('packages/server/.venv/bin/python3');
   
   const mockPayload = JSON.stringify({
     turn: 4,
@@ -881,7 +887,7 @@ async function runTests() {
   // Test 25: ML Hero Spawner Predictor
   console.log("\nTest 25: ML Hero Spawner Predictor");
   
-  const spawnerScript = pathModule.join(process.cwd(), 'packages/server/src/ml/hero_spawner_predictor.py');
+  const spawnerScript = resolvePath('packages/server/src/ml/hero_spawner_predictor.py');
   
   const swampPayload = JSON.stringify({
     meta: 5,
@@ -905,7 +911,7 @@ async function runTests() {
 
   // Test 26: LLM-like Dialogue Generator
   console.log("\nTest 26: LLM-like Dialogue Generator");
-  const dialogueScript = pathModule.join(process.cwd(), 'packages/server/src/ml/dialogue_generator.py');
+  const dialogueScript = resolvePath('packages/server/src/ml/dialogue_generator.py');
   
   // Run CLI for Spellweaver archetype
   const runSpellweaverCmd = `"${venvPython}" "${dialogueScript}" AETHER_SPELLWEAVER FetchQuest INTRO`;
@@ -922,7 +928,7 @@ async function runTests() {
   console.log(`  [PASS] Generovaný text pre Behemoth: "${behemothOutput.generated_dialogue}"`);
 
   // Verify dataset file exists
-  const datasetFilePath = pathModule.join(process.cwd(), 'packages/server/src/data/dialogue_dataset.json');
+  const datasetFilePath = resolvePath('packages/server/src/data/dialogue_dataset.json');
   assert(fs.existsSync(datasetFilePath), "Súbor datasetu dialogue_dataset.json musí existovať.");
   const dataset = JSON.parse(fs.readFileSync(datasetFilePath, 'utf8'));
   assert(dataset.length === 72, "Počet záznamov v datasete by mal byť 72.");
@@ -930,7 +936,7 @@ async function runTests() {
 
   // Test 27: Database-driven Word Problem Quest Generator
   console.log("\nTest 27: Database-driven Word Problem Quest Generator");
-  const dbQuestScript = pathModule.join(process.cwd(), 'packages/server/src/ml/db_quest_generator.py');
+  const dbQuestScript = resolvePath('packages/server/src/ml/db_quest_generator.py');
   
   const dbManagerQuestTest = new DatabaseSyncManager();
   
@@ -965,7 +971,7 @@ async function runTests() {
   console.log(`  [PASS] Vygenerovaná slovná úloha: "${questGenOutput.prompt}"`);
 
   // Verify compiled quests file
-  const generatedQuestsPath = pathModule.join(process.cwd(), 'packages/server/src/data/generated_quests.json');
+  const generatedQuestsPath = resolvePath('packages/server/src/data/generated_quests.json');
   assert(fs.existsSync(generatedQuestsPath), "Súbor generovaných úloh generated_quests.json musí existovať.");
   console.log(`  [PASS] Databázové šablóny a premenné úspešne vygenerované na základe inventára hráča.`);
 

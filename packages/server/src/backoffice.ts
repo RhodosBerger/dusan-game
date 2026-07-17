@@ -14,15 +14,51 @@ export function startBackoffice(engine: SovereignEngine, port: number = 3005) {
       const simulatedTemp = 45.0 + Math.min(40.0, loadFactor * 0.8);
       const profile = simulatedTemp > 75 ? 'THERMAL_PROTECTION' : simulatedTemp > 65 ? 'BALANCED' : 'PERFORMANCE';
 
+      // Linear priority balancer mapping (complexity reduced to O(N))
+      const activeThreadsPriority = engine.threads.map(t => {
+        const playerThread = engine.threads.find(tp => tp.type === 'PLAYER');
+        const distance = Math.abs((t.position?.meta || 0) - (playerThread?.position?.meta || 0));
+        const voltage = 12.0 + (t.type === 'PLAYER' ? 3.0 : 0);
+        const coefficient = (voltage * 0.4) + (simulatedTemp * 0.3) - (distance * 0.3);
+        return {
+          threadId: t.id,
+          role: t.type,
+          distance,
+          coefficient: Number(coefficient.toFixed(2))
+        };
+      });
+
       res.status(200).json({
         status: 'ONLINE',
+        goCoreSessionUuid: 'go-core-uuid-session-1234-abcd',
         simulatedTemperature: Number(simulatedTemp.toFixed(1)),
         activeThreads: engine.threads.length,
         currentEntropy: engine.globalEntropy,
         performanceProfile: profile,
         systemEnergy: engine.systemEnergy,
-        actionNetworkQueueLength: engine.actionNetwork.length
+        actionNetworkQueueLength: engine.actionNetwork.length,
+        linearPriorityBalancer: activeThreadsPriority
       });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // API: Update thread position via backoffice instruction
+  app.post('/api/backoffice/movement', (req, res) => {
+    try {
+      const { threadId, metaId, hexId } = req.body;
+      if (!threadId || metaId === undefined || hexId === undefined) {
+        res.status(400).json({ error: 'Missing threadId, metaId, or hexId' });
+        return;
+      }
+      const t = engine.threads.find(th => th.id === threadId);
+      if (!t) {
+        res.status(404).json({ error: `Thread not found: ${threadId}` });
+        return;
+      }
+      t.position = { meta: Number(metaId), hex: Number(hexId) };
+      res.status(200).json({ success: true, threadId, newPosition: t.position });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

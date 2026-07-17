@@ -8,6 +8,7 @@
     "start": "ts-node src/server.ts",
     "dev": "nodemon --exec ts-node src/server.ts",
     "db:seed": "ts-node src/prismaSeed.ts",
+    "test": "ts-node src/testEngine.ts",
     "debug": "nodemon --exec \"node --inspect=0.0.0.0:9229 -r ts-node/register src/server.ts\""
   },
   "dependencies": {
