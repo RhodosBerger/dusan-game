@@ -1,6 +1,7 @@
 import { ActionNode } from './ActionNode';
 import { SovereignEngine } from './SovereignEngine';
-import { CombinatoricProbabilityEngine, getPhysicsSpecs } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, getPhysicsSpecs, Pathfinder, SpatialGuidanceSystem } from '@dusan-game/shared';
+import { DeterministicTurnBalancer } from './DeterministicTurnBalancer';
 
 export type TurnPhase = 'MULLIGAN' | 'PREPARATION' | 'ACTION' | 'INTERRUPT_WINDOW' | 'RESOLVE_NETWORK' | 'END_TURN';
 
@@ -11,6 +12,7 @@ export class TurnStateMachine {
   timerLeft: number; // Zostávajúci čas v sekundách
   currentAction: ActionNode | null;
   turnNumber: number;
+  balancer: DeterministicTurnBalancer;
 
   lastPlayedSpecs: Record<string, { voltage: number; resistance: number }> = {};
   mulliganComplete: Record<string, boolean> = {};
@@ -18,6 +20,7 @@ export class TurnStateMachine {
   constructor(private engine: SovereignEngine) {
     this.activePlayerId = '';
     this.baseActivePlayerId = '';
+    this.balancer = new DeterministicTurnBalancer([]);
     this.currentPhase = 'PREPARATION';
     this.timerLeft = 0;
     this.currentAction = null;
@@ -80,6 +83,11 @@ export class TurnStateMachine {
    * Spustí nové kolo pre daného hráča
    */
   startTurn(playerId: string): void {
+    // Ensure balancer is initialized with the correct players once they are added
+    if (this.engine.playerIds.length > 0 && (!this.balancer || !this.balancer.getPlayerState(this.engine.playerIds[0]))) {
+      this.balancer = new DeterministicTurnBalancer(this.engine.playerIds);
+    }
+
     this.activePlayerId = playerId;
     this.baseActivePlayerId = playerId;
     this.currentPhase = 'PREPARATION';
@@ -106,6 +114,23 @@ export class TurnStateMachine {
     if (this.currentPhase !== 'ACTION') {
       console.log(`[STATE_MACHINE] Varovanie: Akciu nie je možné vykonať mimo fázy ACTION (aktuálna: ${this.currentPhase}).`);
       return;
+    }
+
+    const cardId = node.instruction.id;
+    let baseCost = 2;
+    try {
+      const specs = getPhysicsSpecs(cardId);
+      baseCost = Math.max(1, Math.round(specs.voltage + specs.resistance));
+    } catch (e) {}
+
+    const playerThread = this.engine.threads.find(t => t.id === node.sourceId);
+    if (playerThread && playerThread.type === 'PLAYER') {
+      const health = playerThread.health;
+      const maxHealth = playerThread.maxHealth || 15;
+      const isLow = (health / maxHealth) < 0.4;
+      
+      const costResult = this.balancer.registerActionCost(node.sourceId, baseCost, isLow);
+      console.log(`[INITIATIVE_BALANCER] Cost registered for ${node.sourceId}: base=${baseCost}, final=${costResult.finalCost} (Fatigue: ${costResult.fatigueApplied}, CatchUp: ${costResult.catchUpApplied})`);
     }
 
     const isAttackOrMagic = node.instruction.damage > 0;
@@ -309,6 +334,41 @@ export class TurnStateMachine {
   endTurn(): void {
     this.currentPhase = 'END_TURN';
     
+    // Decrement tile collapse timers and execute collapses (Dynamic Terrain Resonator)
+    this.engine.map.chunks.forEach(chunk => {
+      chunk.blocks.forEach(block => {
+        if (block.collapseInTurns !== undefined && block.collapseInTurns !== null) {
+          block.collapseInTurns--;
+          if (block.collapseInTurns <= 0) {
+            block.walkable = false;
+            block.hazardIndex = 1.0;
+            block.collapseInTurns = undefined;
+            console.log(`[TILE_COLLAPSE] Chunk ${chunk.id} Block ${block.id} has collapsed into the void!`);
+            this.engine.traceLog.push({
+              type: 'TileCollapse',
+              threadId: 'system',
+              message: `Chunk ${chunk.id} Block ${block.id} collapsed into the void!`,
+              timestamp: Date.now()
+            } as any);
+          }
+        }
+      });
+    });
+
+    // Restore walkability for temporary seismic reduction (Dynamic Terrain Resonator)
+    this.engine.map.chunks.forEach(chunk => {
+      chunk.blocks.forEach(block => {
+        if ((block as any).restoreWalkability !== undefined && (block as any).restoreWalkability !== null) {
+          (block as any).restoreWalkability--;
+          if ((block as any).restoreWalkability <= 0) {
+            block.walkable = true;
+            (block as any).restoreWalkability = undefined;
+            console.log(`[RESONATOR_RESTORE] Walkability restored on Chunk ${chunk.id} Block ${block.id}`);
+          }
+        }
+      });
+    });
+    
     // 1. Pravdepodobnostný drop suroviny pre aktívneho hráča na konci ťahu
     const activeThread = this.engine.threads.find(t => t.id === this.activePlayerId);
     if (activeThread && activeThread.type === 'PLAYER') {
@@ -397,10 +457,121 @@ export class TurnStateMachine {
       }
     });
 
-    // Zmena aktívneho hráča
-    const nextPlayerId = this.baseActivePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
+    // Zmena aktívneho hráča na základe deterministického turn balancera
+    const playerHealths: Record<string, number> = {};
+    this.engine.threads.forEach(t => {
+      if (t.type === 'PLAYER') {
+        playerHealths[t.id] = t.health;
+      }
+    });
+    let nextPlayerId = this.balancer ? this.balancer.getNextPlayerId(playerHealths) : '';
+    if (!nextPlayerId) {
+      nextPlayerId = this.baseActivePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
+    }
+    
     if (nextPlayerId === 'thread_king_ai') {
       this.turnNumber++;
+
+      // Mode A: Entropy Collapse Survival (Every 3 turns)
+      if (this.turnNumber > 0 && this.turnNumber % 3 === 0) {
+        const findNearestWalkableNode = (startChunk: number, startHex: number): { chunkId: number; blockId: number } | null => {
+          const startAxial = SpatialGuidanceSystem.resolveAxial(startChunk, startHex);
+          let nearest: { chunkId: number; blockId: number } | null = null;
+          let minDistance = Infinity;
+
+          this.engine.map.chunks.forEach(chunk => {
+            chunk.blocks.forEach(block => {
+              if (block.walkable && !(block as any).isSunk) {
+                const blockAxial = SpatialGuidanceSystem.resolveAxial(chunk.id, block.id);
+                const dist = Pathfinder.hexDistance(startAxial.q, startAxial.r, blockAxial.q, blockAxial.r);
+                if (dist < minDistance) {
+                  minDistance = dist;
+                  nearest = { chunkId: chunk.id, blockId: block.id };
+                }
+              }
+            });
+          });
+          return nearest;
+        };
+
+        const sinkingTiles: { chunkId: number; blockId: number }[] = [];
+        this.engine.map.chunks.forEach(chunk => {
+          chunk.blocks.forEach(block => {
+            if (block.hazardIndex > 0.7 && !(block as any).isSunk) {
+              sinkingTiles.push({ chunkId: chunk.id, blockId: block.id });
+            }
+          });
+        });
+
+        if (sinkingTiles.length > 0) {
+          sinkingTiles.forEach(({ chunkId, blockId }) => {
+            const chunk = this.engine.map.chunks.find(c => c.id === chunkId);
+            const block = chunk?.blocks.find(b => b.id === blockId);
+            if (block) {
+              (block as any).isSunk = true;
+              block.walkable = false;
+              
+              console.log(`[ENTROPY_COLLAPSE] Chunk ${chunkId} Block ${blockId} has sunk below the fog line!`);
+              this.engine.traceLog.push({
+                type: 'TileCollapse',
+                threadId: 'system',
+                message: `Chunk ${chunkId} Block ${blockId} sunk below the fog line (Entropy Collapse)!`,
+                timestamp: Date.now()
+              } as any);
+
+              // Relocate standing threads
+              this.engine.threads.forEach(t => {
+                if (t.position && t.position.meta === chunkId && t.position.hex === blockId && !t.isDeallocated()) {
+                  t.applySemanticErosion(5);
+                  console.log(`[ENTROPY_EROSION] Thread ${t.id} caught on sinking tile: took -5 HP erosion damage!`);
+                  
+                  const nearest = findNearestWalkableNode(chunkId, blockId);
+                  if (nearest) {
+                    const oldPos = { ...t.position };
+                    t.position = { meta: nearest.chunkId, hex: nearest.blockId };
+                    this.engine.map.placeThread(t.id, nearest.chunkId, nearest.blockId);
+                    console.log(`[ENTROPY_RELOCATE] Relocated thread ${t.id} from M${oldPos.meta}_S${oldPos.hex} to nearest stable tile M${nearest.chunkId}_S${nearest.blockId}.`);
+                    
+                    this.engine.traceLog.push({
+                      type: 'Move',
+                      threadId: t.id,
+                      from: oldPos as any,
+                      to: { meta: nearest.chunkId, hex: nearest.blockId },
+                      cost: 0.0,
+                      timestamp: Date.now()
+                    });
+                  }
+                }
+              });
+            }
+          });
+
+          // Spawn dynamic escape portals (SURGE_NODE) on stable tiles
+          let spawnedPortals = 0;
+          const maxPortals = Math.min(3, sinkingTiles.length);
+          const stableBlocks: { chunkId: number; block: any }[] = [];
+          this.engine.map.chunks.forEach(chunk => {
+            chunk.blocks.forEach(block => {
+              if (block.walkable && !(block as any).isSunk && !block.hasChest && !block.hasOpportunity) {
+                const occupied = this.engine.threads.some(t =>
+                  t.position && t.position.meta === chunk.id && t.position.hex === block.id
+                );
+                if (!occupied) {
+                  stableBlocks.push({ chunkId: chunk.id, block });
+                }
+              }
+            });
+          });
+
+          for (let i = 0; i < maxPortals && stableBlocks.length > 0; i++) {
+            const idx = Math.floor(Math.random() * stableBlocks.length);
+            const pick = stableBlocks.splice(idx, 1)[0];
+            pick.block.hasOpportunity = 'SURGE_NODE';
+            spawnedPortals++;
+            console.log(`[ESCAPE_PORTAL] Spawned escape portal (Surge Node) at Chunk ${pick.chunkId} Block ${pick.block.id}`);
+          }
+        }
+      }
     }
     this.startTurn(nextPlayerId);
   }

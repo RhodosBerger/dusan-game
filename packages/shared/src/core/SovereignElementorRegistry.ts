@@ -3,6 +3,7 @@ export interface GameWidgetAttributes {
   friction: number;
   walkable: boolean;
   voltageLoad: number;
+  steelness?: number; // Scriptable steelness (metalness/roughness factor)
 }
 
 export interface GameWidgetDefinition {
@@ -32,7 +33,8 @@ export const WIDGET_CATALOG: GameWidgetDefinition[] = [
       hazardIndex: 0.45,
       friction: 1.0,
       walkable: true,
-      voltageLoad: 15
+      voltageLoad: 15,
+      steelness: 0.75
     }
   },
   {
@@ -44,7 +46,8 @@ export const WIDGET_CATALOG: GameWidgetDefinition[] = [
       hazardIndex: 0.90,
       friction: 1.5,
       walkable: false,
-      voltageLoad: 45
+      voltageLoad: 45,
+      steelness: 0.10
     }
   },
   {
@@ -56,7 +59,8 @@ export const WIDGET_CATALOG: GameWidgetDefinition[] = [
       hazardIndex: 0.15,
       friction: 0.8,
       walkable: true,
-      voltageLoad: 8
+      voltageLoad: 8,
+      steelness: 0.40
     }
   },
   {
@@ -68,7 +72,8 @@ export const WIDGET_CATALOG: GameWidgetDefinition[] = [
       hazardIndex: 0.60,
       friction: 1.2,
       walkable: true,
-      voltageLoad: 25
+      voltageLoad: 25,
+      steelness: 0.95
     }
   }
 ];

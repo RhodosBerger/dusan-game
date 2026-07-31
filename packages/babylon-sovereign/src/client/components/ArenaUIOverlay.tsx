@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface ArenaUIOverlayProps {
   gameState: any;
   cards: any[];
   selectedCard: any;
+  selectedCards: any[];
   setSelectedCard: (card: any) => void;
   selectedNode: any;
   setSelectedNode: (node: any) => void;
   hoveredNode: any;
   onMoveHero: (node: any) => void;
   onExecuteAction: () => void;
+  onFuseCards: () => void;
   onEndTurn: () => void;
   myThreadId: string;
 }
@@ -18,18 +20,33 @@ export default function ArenaUIOverlay({
   gameState,
   cards,
   selectedCard,
+  selectedCards,
   setSelectedCard,
   selectedNode,
   setSelectedNode,
   hoveredNode,
   onMoveHero,
   onExecuteAction,
+  onFuseCards,
   onEndTurn,
   myThreadId
 }: ArenaUIOverlayProps) {
   const [selectedMulliganCardIds, setSelectedMulliganCardIds] = useState<string[]>([]);
   const [mulliganSubmitted, setMulliganSubmitted] = useState<boolean>(false);
   const [isStealthed, setIsStealthed] = useState<boolean>(false);
+  const [goCoreOnline, setGoCoreOnline] = useState<boolean>(true);
+
+  useEffect(() => {
+    const checkHealth = () => {
+      fetch('/api/health/go-core')
+        .then(res => res.json())
+        .then(data => setGoCoreOnline(!!data.online))
+        .catch(() => setGoCoreOnline(false));
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const activePlayer = gameState?.threads?.find((t: any) => t.id === myThreadId);
   const activeOpponent = gameState?.threads?.find((t: any) => t.id !== myThreadId);
@@ -137,6 +154,12 @@ export default function ArenaUIOverlay({
           <div className="text-sm font-bold text-white font-mono mt-0.5">
             Turn: {gameState.turnsElapsed} | Active Phase: {gameState.turnStateMachine.currentPhase}
           </div>
+          <div className="flex items-center gap-1.5 mt-1 border-t border-slate-800 pt-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${goCoreOnline ? 'bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`} />
+            <span className="text-[8px] font-mono uppercase tracking-wider text-slate-400">
+              Go Core: {goCoreOnline ? 'ONLINE' : 'BYPASSED (TS FALLBACK)'}
+            </span>
+          </div>
         </div>
 
         <div className="glass-panel-heavy p-3 rounded-xl border border-cyan-500/25 pointer-events-auto text-right font-mono text-xs flex gap-4">
@@ -156,7 +179,25 @@ export default function ArenaUIOverlay({
       <div className="w-full h-[30vh] flex flex-col items-center justify-center gap-2 pointer-events-auto bg-slate-950/20 backdrop-blur-md border-t border-cyan-500/25 px-6 py-2 mt-auto">
         
         {/* Spectrometer & Node Actions */}
-        {selectedCard && (
+        {selectedCards.length === 2 && (
+          <div className="flex gap-4 items-stretch justify-center max-w-full mb-1">
+            <div className="glass-panel-heavy text-white px-4 py-2 rounded-xl shadow-xl text-xs font-mono text-center flex flex-col justify-center min-w-[260px] border border-purple-400/40">
+              <div>
+                Syntéza: <span className="text-purple-400 font-bold">{selectedCards[0].name}</span> + <span className="text-cyan-400 font-bold">{selectedCards[1].name}</span>
+              </div>
+              <div className="mt-1.5">
+                <button
+                  onClick={onFuseCards}
+                  className="bg-purple-950 hover:bg-purple-900 border border-purple-400 text-purple-200 px-4 py-1.5 rounded font-bold transition-all cursor-pointer text-[10px] mt-1 shadow-[0_0_15px_rgba(168,85,247,0.4)] animate-pulse uppercase tracking-wider"
+                >
+                  ⚡ Spojiť Karty (Fuse)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedCard && selectedCards.length < 2 && (
           <div className="flex gap-4 items-stretch justify-center max-w-full mb-1">
             {/* Card Dock */}
             <div className="glass-panel-heavy text-white px-4 py-2 rounded-xl shadow-xl text-xs font-mono text-center flex flex-col justify-center min-w-[260px] border border-cyan-400/30">
@@ -198,7 +239,7 @@ export default function ArenaUIOverlay({
         )}
 
         {/* Move hero preview */}
-        {!selectedCard && selectedNode && (
+        {selectedCards.length === 0 && selectedNode && (
           <div className="bg-slate-900 border border-slate-700 text-white px-4 py-1.5 rounded-xl text-xs font-mono text-center flex flex-col gap-1 min-w-[250px] mb-1">
             <div>
               Vybrané políčko: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
@@ -215,11 +256,11 @@ export default function ArenaUIOverlay({
         {/* Cards hand slider */}
         <div className="flex gap-3 max-w-full overflow-x-auto custom-scrollbar p-1">
           {cards.map((card, idx) => {
-            const isSelected = selectedCard?.id === card.id;
+            const isSelected = selectedCards.some(c => c.id === card.id);
             return (
               <div
                 key={`${card.id}_${idx}`}
-                onClick={() => setSelectedCard(isSelected ? null : card)}
+                onClick={() => setSelectedCard(card)}
                 className={`w-20 h-28 flex-shrink-0 bg-gradient-to-b from-[#181824] to-[#0b0b11] border rounded-xl p-2 flex flex-col justify-between text-white cursor-pointer transition-all duration-200 relative ${
                   isSelected ? 'border-cyan-400 -translate-y-2 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'border-slate-800 hover:-translate-y-1'
                 }`}

@@ -100,34 +100,16 @@ Uisti sa, že zmeny sú plne integrované a neporušujú testovaciu sadu testEng
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: '80px',
-            left: '20px',
-            width: '460px',
-            height: 'calc(100vh - 120px)',
-            background: 'rgba(8, 9, 14, 0.93)',
-            border: '1px solid rgba(45, 211, 241, 0.3)',
-            borderRadius: '16px',
-            padding: '24px',
-            boxSizing: 'border-box',
-            color: '#ececf1',
-            zIndex: 998,
-            display: 'flex',
-            flexDirection: 'column',
-            fontFamily: 'monospace',
-            backdropFilter: 'blur(12px)',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.85)'
-        }}>
+        <div className="fixed top-20 left-5 w-[460px] h-[calc(100vh-120px)] bg-[#08090e]/95 border border-cyan-500/30 rounded-2xl p-6 box-border text-[#ececf1] z-50 flex flex-col font-mono backdrop-blur-lg shadow-2xl">
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px', marginBottom: '16px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#2dd3f1', letterSpacing: '1px' }}>🧠 METAKOGNITÍVNY RÁMEC</span>
-                    <span style={{ fontSize: '9px', color: '#64748b', textTransform: 'uppercase', marginTop: '2px' }}>Codebase Analogy & Prompting Interface</span>
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4 flex-shrink-0">
+                <div className="flex flex-col">
+                    <span className="text-sm font-bold text-cyan-400 tracking-wider">🧠 METAKOGNITÍVNY RÁMEC</span>
+                    <span className="text-[9px] text-slate-500 uppercase mt-0.5">Codebase Analogy & Prompting Interface</span>
                 </div>
                 <button 
                     onClick={onClose}
-                    style={{ background: 'none', border: 'none', color: '#f43f5e', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}
+                    className="background-none border-none text-red-500 hover:text-red-400 font-bold text-sm cursor-pointer transition-colors"
                 >
                     ✕
                 </button>

@@ -1,11 +1,9 @@
 # Build stage
 FROM golang:alpine AS builder
 WORKDIR /app
-COPY packages/go-core/go.mod ./packages/go-core/
-COPY packages/go-core/engine ./packages/go-core/engine
-COPY packages/go-core/main.go ./packages/go-core/
+COPY packages/go-core/ ./packages/go-core/
 WORKDIR /app/packages/go-core
-RUN go build -o go-core main.go
+RUN go build -o go-core .
 
 # Production stage
 FROM alpine:latest

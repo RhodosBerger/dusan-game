@@ -7,7 +7,7 @@ import { DatabaseSyncManager } from './DatabaseSyncManager';
 import { SovereignSpawningPlanner } from './SovereignSpawningPlanner';
 import { SovereignNeuralMathResolver } from './SovereignNeuralMathResolver';
 import { SovereignIslandSystem } from './SovereignIslandSystem';
-import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, DungeonDirector, DungeonState, NPCScriptDirector, CharacterTraceInstance, PredictiveBalanceDirector, AethericDiceEngine, AlgebraicOpportunityGenerator, QuestTriggerManager, VOID_CARDS_BASE, SovereignSignalMediator, ITEMS_CATALOG, getPhysicsSpecs, SpatialGuidanceSystem, DusanAdaptedMassacreModel, Pathfinder } from '@dusan-game/shared';
 import { SovereignLayerLogger } from '../utils/SovereignLayerLogger';
 
 // Register Server-Side Interactive Quest Triggers (Rule 6 decoupling)
@@ -80,8 +80,10 @@ export class SovereignEngine {
   spawningPlanner: SovereignSpawningPlanner;
   isIslandCampaign: boolean;
   islandSystem: SovereignIslandSystem;
+  ddaModel: DusanAdaptedMassacreModel;
 
   constructor() {
+    this.ddaModel = new DusanAdaptedMassacreModel();
     this.map = new GameMap();
     this.threads = [];
     this.traceLog = [];
@@ -332,6 +334,21 @@ export class SovereignEngine {
 
   turnCount: number = 1;
 
+  // --- Combo Tracker per turn (Goal 1a + 1b) ---
+  lastComboEvent: 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null = null;
+  lastComboPlayerId: string | null = null;
+  private _turnVoltage: number = 0;
+  private _turnLastResistance: number = 0;
+  private _turnCardsPlayed: number = 0;
+
+  private _resetComboTracker(): void {
+    this._turnVoltage = 0;
+    this._turnLastResistance = 0;
+    this._turnCardsPlayed = 0;
+    this.lastComboEvent = null;
+    this.lastComboPlayerId = null;
+  }
+
   pushInstructionToNetwork(node: ActionNode): void {
     this.actionNetwork.push(node);
   }
@@ -405,7 +422,7 @@ export class SovereignEngine {
           const currentDamage = damageDiffMap.get(target.id) || 0;
           damageDiffMap.set(target.id, currentDamage + finalDamage);
 
-          // Logovanie algebraického combat eventu
+           // Logovanie algebraického combat eventu
           this.traceLog.push({
             type: 'Combat',
             attackerId: source.id,
@@ -415,6 +432,50 @@ export class SovereignEngine {
             timestamp: Date.now(),
             message: combatLog
           });
+
+          // Update daily quests progress for dealing damage
+          QuestTriggerManager.updateQuestProgress(source, 'DEAL_DAMAGE', finalDamage, undefined, (quest) => {
+            QuestTriggerManager.triggerInteractiveContent(this, source, quest);
+          });
+
+          // Zníženie životnosti (durability) aktívnej zbrane útočníka o 5 bodov
+          if (source.items && Array.isArray(source.items)) {
+            const equippedWeapon = source.items.find((item: any) => {
+              const catalogItem = ITEMS_CATALOG[item.itemKey];
+              const itemDurability = item.durability !== undefined ? item.durability : 100;
+              return catalogItem && catalogItem.category === 'WEAPON' && itemDurability > 0;
+            });
+            if (equippedWeapon) {
+              const currentDur = equippedWeapon.durability !== undefined ? equippedWeapon.durability : 100;
+              equippedWeapon.durability = Math.max(0, currentDur - 5);
+              console.log(`[DURABILITY] Hráčovi ${source.id} klesla životnosť zbrane ${equippedWeapon.itemKey} na ${equippedWeapon.durability}%.`);
+            }
+          }
+
+          // Dynamic Terrain Resonator: high-voltage moves cause adjacent blocks with hazardIndex > 0.6 to collapse
+          const cardSpecs = getPhysicsSpecs(node.instruction.id);
+          if (cardSpecs && cardSpecs.voltage * 15 > 75 && target.position && target.position.meta !== null && target.position.hex !== null) {
+            const targetAxial = SpatialGuidanceSystem.resolveAxial(target.position.meta, target.position.hex);
+            this.map.chunks.forEach(chunk => {
+              chunk.blocks.forEach(block => {
+                const blockAxial = SpatialGuidanceSystem.resolveAxial(chunk.id, block.id);
+                const dist = (Math.abs(targetAxial.q - blockAxial.q) + Math.abs(targetAxial.q + targetAxial.r - blockAxial.q - blockAxial.r) + Math.abs(targetAxial.r - blockAxial.r)) / 2;
+                if (dist === 1) {
+                  console.log(`[DYNAMIC_RESONATOR] Adjacent Block vibrating: Chunk ${chunk.id} Block ${block.id} (hazard: ${block.hazardIndex})`);
+                  if (block.hazardIndex > 0.6) {
+                    block.collapseInTurns = 2;
+                    console.log(`[DYNAMIC_RESONATOR] Block marked for collapse in 2 turns: Chunk ${chunk.id} Block ${block.id}`);
+                    this.traceLog.push({
+                      type: 'TerrainVibration',
+                      threadId: 'system',
+                      message: `Chunk ${chunk.id} Block ${block.id} is unstable and will collapse in 2 turns!`,
+                      timestamp: Date.now()
+                    } as any);
+                  }
+                }
+              });
+            });
+          }
 
           // Aplikácia negatívnych stavov
           if (node.instruction.effects.chronoLock) target.isRooted = true;
@@ -447,10 +508,53 @@ export class SovereignEngine {
 
       const costMultiplier = energyCostInfo.costMultiplier;
       const isVoidCard = VOID_CARDS_BASE.some(c => c.id === node.instruction.id);
+
+      // --- COMBO TRACKER (Goal 1a Voltage Surge + 1b Short Circuit) ---
+      const nodeVoltage = node.instruction.energyCost || 1;
+      const nodeResistance = Math.max(0.1, 1 / (node.instruction.energyCost || 1));
+      this._turnVoltage += nodeVoltage;
+      this._turnCardsPlayed++;
+
+      if (this._turnCardsPlayed >= 2) {
+        // Goal 1a: Voltage Surge
+        if (this._turnVoltage >= 8.0) {
+          this.lastComboEvent = 'VOLTAGE_SURGE';
+          this.lastComboPlayerId = source.id;
+          if (finalDamage > 0) {
+            const currentDmg = damageDiffMap.get(target.id) || 0;
+            damageDiffMap.set(target.id, currentDmg + 2); // +2 bonus damage
+          }
+          console.log(`[COMBO] VOLTAGE_SURGE! Player=${source.id}, V=${this._turnVoltage.toFixed(1)} → +2 bonus damage`);
+        }
+        // Goal 1b: Short Circuit — R1*R2 ≤ 1.0 → opponent discards random card
+        if (this._turnLastResistance > 0 &&
+            this._turnLastResistance * nodeResistance <= 1.0 &&
+            this.lastComboEvent !== 'VOLTAGE_SURGE') {
+          this.lastComboEvent = 'SHORT_CIRCUIT';
+          this.lastComboPlayerId = source.id;
+          const opponent = this.threads.find(t => t.id !== source.id && t.type === 'PLAYER');
+          if (opponent && opponent.currentBuffer && opponent.currentBuffer.length > 0) {
+            const discardIdx = Math.floor(Math.random() * opponent.currentBuffer.length);
+            const discarded = opponent.currentBuffer.splice(discardIdx, 1)[0];
+            opponent.discardPile.push(discarded);
+            console.log(`[COMBO] SHORT_CIRCUIT! Player=${source.id} → ${opponent.id} forced discard from hand`);
+          }
+        }
+      }
+      this._turnLastResistance = nodeResistance;
+      // --- END COMBO TRACKER ---
+
       if (isVoidCard) {
-        const entropyDelta = node.instruction.energyCost * 0.05 * costMultiplier;
-        this.globalEntropy = Math.min(1.0, this.globalEntropy + entropyDelta);
-        console.log(`[VOID_ENERGY] Void card ${node.instruction.id} played: added ${entropyDelta.toFixed(2)} to globalEntropy (current: ${this.globalEntropy.toFixed(2)}).`);
+        // Void Walker casting rule (Rule 3 Environmental Scaling):
+        // If globalEntropy > 0.7, card cost reduces to 0 (both accumulated energy and entropy delta become 0)
+        if (this.globalEntropy > 0.7) {
+          console.log(`[VOID_ENERGY] Void card ${node.instruction.id} cost reduced to 0 because globalEntropy (${this.globalEntropy.toFixed(2)}) > 0.7.`);
+        } else {
+          const entropyDelta = node.instruction.energyCost * 0.05 * costMultiplier;
+          this.globalEntropy = Math.min(1.0, this.globalEntropy + entropyDelta);
+          console.log(`[VOID_ENERGY] Void card ${node.instruction.id} played: added ${entropyDelta.toFixed(2)} to globalEntropy (current: ${this.globalEntropy.toFixed(2)}).`);
+          accumulatedEnergy += energyCostInfo.cost;
+        }
       } else {
         accumulatedEnergy += energyCostInfo.cost;
       }
@@ -628,6 +732,38 @@ export class SovereignEngine {
       this.islandSystem.evaluateWaveProgress(this);
     }
 
+    // Reset combo tracker on turn end
+    this._resetComboTracker();
+
+    // --- LOOT CHEST SPAWN (Goal 3 — 15% chance per turn) ---
+    if (Math.random() < 0.15) {
+      const eligibleBlocks: { chunk: any; block: any }[] = [];
+      for (const chunk of this.map.chunks) {
+        for (const block of chunk.blocks) {
+          if (block.walkable && !block.hasChest && !block.hasTrap) {
+            const occupied = this.threads.some(
+              t => t.position.meta === chunk.id && t.position.hex === block.id
+            );
+            if (!occupied && block.hazardIndex < 0.9) {
+              eligibleBlocks.push({ chunk, block });
+            }
+          }
+        }
+      }
+      if (eligibleBlocks.length > 0) {
+        const pick = eligibleBlocks[Math.floor(Math.random() * eligibleBlocks.length)];
+        pick.block.hasChest = true;
+        console.log(`[LOOT] Chest spawned at chunk ${pick.chunk.id}, block ${pick.block.id}`);
+        this.traceLog.push({
+          type: 'Spawn',
+          threadId: 'loot_chest',
+          chunkId: pick.chunk.id,
+          blockId: pick.block.id,
+          timestamp: Date.now()
+        });
+      }
+    }
+
     this.turnCount++;
   }
 
@@ -718,6 +854,19 @@ export class SovereignEngine {
         const netDmg = Math.max(0, dmg - thread.armor);
         thread.applySemanticErosion(netDmg);
         thread.isSlowed = true; // slow player
+        this.traceLog.push({
+          type: 'Combat',
+          attackerId: ownerId || 'SYSTEM',
+          targetId: thread.id,
+          damage: netDmg,
+          armor: thread.armor,
+          timestamp: Date.now()
+        });
+      } else if (trapType === 'STATIC_CHARGE_TRAP') {
+        const dmg = 4;
+        const netDmg = Math.max(0, dmg - thread.armor);
+        thread.applySemanticErosion(netDmg);
+        this.systemEnergy = Math.max(0, this.systemEnergy - 15);
         this.traceLog.push({
           type: 'Combat',
           attackerId: ownerId || 'SYSTEM',
@@ -899,6 +1048,43 @@ export class SovereignEngine {
         timestamp: Date.now()
       } as any);
     }
+  }
+
+  healGridPath(startChunkId: number, startBlockId: number, targetChunkId: number, targetBlockId: number): number {
+    const blocksList = this.map.chunks.flatMap(c => 
+      c.blocks.map(b => ({
+        chunkId: c.id,
+        blockId: b.id,
+        walkable: b.walkable !== false,
+        energyCostMultiplier: b.energyCostMultiplier || 1.0
+      }))
+    );
+
+    const healedPath = Pathfinder.findHealedPath(startChunkId, startBlockId, targetChunkId, targetBlockId, blocksList);
+    if (!healedPath) return 0;
+
+    let healedCount = 0;
+    healedPath.forEach(node => {
+      const chunk = this.map.chunks.find(c => c.id === node.chunkId);
+      const block = chunk?.blocks.find(b => b.id === node.blockId);
+      if (block && (!block.walkable || (block as any).isSunk)) {
+        block.walkable = true;
+        (block as any).isSunk = false;
+        block.hazardIndex = 0.0;
+        healedCount++;
+      }
+    });
+
+    if (healedCount > 0) {
+      console.log(`[SERVER -> CLIENT_R3F] [STATE_SYNC] Autoritative path repair completed | start=M${startChunkId}_S${startBlockId} | end=M${targetChunkId}_S${targetBlockId} | repairedCount=${healedCount}`);
+      this.traceLog.push({
+        type: 'TileRepaired',
+        threadId: 'system',
+        message: `Repaired ${healedCount} blocked tiles to restore connection between M${startChunkId}_S${startBlockId} and M${targetChunkId}_S${targetBlockId}.`,
+        timestamp: Date.now()
+      } as any);
+    }
+    return healedCount;
   }
 
   getStaticMapState(): any {

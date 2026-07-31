@@ -40,3 +40,16 @@ export * from './core/SovereignElementorRegistry';
 export * from './core/SovereignGenerativeOrchestrator';
 export * from './core/SovereignRealityMatrix';
 export * from './core/SovereignLIFOArbiter';
+export * from './core/SovereignPredictiveGenerator';
+export * from './core/SovereignFailoverGateway';
+export * from './core/SovereignPhraseGenerator';
+export * from './core/SovereignRuleDrivenCompositionManager';
+export * from './core/HardwareGovernor';
+export * from './core/RenderPriorityBalancer';
+
+export * from './core/SovereignTaskScheduler';
+export * from './core/EvolutionaryDeckGenerator';
+export * from './core/questEvolution';
+export * from './core/DusanAdaptedMassacreModel';
+export * from './core/SovereignBridgeCoordinator';
+export * from './core/SovereignLeaderboardEvaluator';

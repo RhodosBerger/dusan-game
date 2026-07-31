@@ -113,10 +113,102 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
     ]);
     const [newCoordInput, setNewCoordInput] = useState('');
 
+    // Socket-Thread Mapper & Geometric Culling States
+    const [activeConnections, setActiveConnections] = useState([]);
+    const [geoCoordinates, setGeoCoordinates] = useState([]);
+    const [mockSocketId, setMockSocketId] = useState('socket_' + Math.floor(Math.random() * 100));
+    const [mockThreadId, setMockThreadId] = useState('thread_crystal_shards');
+
+    const [clickhouseStatus, setClickhouseStatus] = useState({
+        online: false,
+        url: '',
+        fallbackPath: '',
+        fallbackRecordsCount: 0,
+        fallbackCounts: { VISION: 0, COMBAT: 0, SHORT_CIRCUIT: 0 }
+    });
+
+    const fetchClickhouseStatus = async () => {
+        try {
+            const res = await fetch('/api/b2b/clickhouse/status');
+            if (res.ok) {
+                const data = await res.json();
+                setClickhouseStatus(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch ClickHouse status:', err);
+        }
+    };
+
+    const handleMockClickhouse = async (type) => {
+        try {
+            const res = await fetch('/api/b2b/clickhouse/mock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type })
+            });
+            if (res.ok) {
+                fetchClickhouseStatus();
+            }
+        } catch (err) {
+            console.error('Failed to mock ClickHouse event:', err);
+        }
+    };
+
+    const fetchConnections = async () => {
+        try {
+            const res = await fetch('/api/b2b/connections');
+            if (res.ok) {
+                const data = await res.json();
+                setActiveConnections(data.activeConnections || []);
+                setGeoCoordinates(data.coordinates || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch connections:', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchConnections();
+        fetchClickhouseStatus();
+    }, []);
+
+    const handleMockConnect = async () => {
+        try {
+            const res = await fetch('/api/b2b/connections/mock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ socketId: mockSocketId, threadId: mockThreadId })
+            });
+            if (res.ok) {
+                logToConsole(`[Socket-Thread Mapper] Connected socket ${mockSocketId} to ${mockThreadId}`);
+                setMockSocketId('socket_' + Math.floor(Math.random() * 1000));
+                fetchConnections();
+            }
+        } catch (err) {
+            logToConsole(`[Socket-Thread Mapper Error] Failed to register mock connection.`);
+        }
+    };
+
+    const handleMockDisconnect = async (socketId) => {
+        try {
+            const res = await fetch('/api/b2b/connections/mock-disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ socketId })
+            });
+            if (res.ok) {
+                logToConsole(`[Socket-Thread Mapper] Disconnected socket ${socketId}`);
+                fetchConnections();
+            }
+        } catch (err) {
+            logToConsole(`[Socket-Thread Mapper Error] Failed to disconnect socket.`);
+        }
+    };
+
     const handleRegisterEntity = async () => {
         const coord = newCoordInput.trim() || '0x2B';
         try {
-            const res = await fetch('http://localhost:3001/api/scenarios/html5-entities', {
+            const res = await fetch('/api/scenarios/html5-entities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ hexCoord: coord })
@@ -385,6 +477,24 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                         >
                             Elementor Sandbox
                         </button>
+                        <button 
+                            onClick={() => setActiveTab3D('CONNECTIONS')}
+                            style={{
+                                padding: '6px 12px',
+                                background: activeTab3D === 'CONNECTIONS' ? '#ffd700' : '#1c1c28',
+                                color: activeTab3D === 'CONNECTIONS' ? '#000' : '#fff',
+                                border: 'none',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; }}
+                        >
+                            Socket-Thread Mapper
+                        </button>
                     </div>
                 </div>
 
@@ -402,6 +512,219 @@ export default function SovereignB2BPortal({ onLoadDataset, onApplyCSS }) {
                 }}>
                     {activeTab3D === 'ELEMENTOR' ? (
                         <SovereignElementorSandbox />
+                    ) : activeTab3D === 'CONNECTIONS' ? (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16, color: '#fff', boxSizing: 'border-box' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0b0b12', padding: 12, borderRadius: 8, border: '1px solid #1c1c28' }}>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Socket ID" 
+                                        value={mockSocketId}
+                                        onChange={(e) => setMockSocketId(e.target.value)}
+                                        style={{ width: 120, padding: '6px 10px', background: '#101017', color: '#00ffff', border: '1px solid #1c1c28', borderRadius: 4, fontSize: 11, outline: 'none' }}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Thread ID" 
+                                        value={mockThreadId}
+                                        onChange={(e) => setMockThreadId(e.target.value)}
+                                        style={{ width: 150, padding: '6px 10px', background: '#101017', color: '#00ffff', border: '1px solid #1c1c28', borderRadius: 4, fontSize: 11, outline: 'none' }}
+                                    />
+                                    <button 
+                                        onClick={handleMockConnect}
+                                        style={{ 
+                                            padding: '6px 14px', 
+                                            background: '#ffd700', 
+                                            color: '#000', 
+                                            border: 'none', 
+                                            borderRadius: 4, 
+                                            fontWeight: 'bold', 
+                                            fontSize: 10, 
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 0 10px #ffd700'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    >
+                                        + Mock Connect
+                                    </button>
+                                </div>
+                                <button 
+                                    onClick={fetchConnections}
+                                    style={{ 
+                                        padding: '6px 12px', 
+                                        background: '#1c1c28', 
+                                        color: '#00ffff', 
+                                        border: '1px solid #00ffff', 
+                                        borderRadius: 4, 
+                                        fontSize: 10, 
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; }}
+                                >
+                                    🔄 Refresh
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+                                {/* Left Side: Active Mappings */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12 }}>
+                                    <span style={{ fontSize: 11, color: '#ffd700', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        Active Bridge Mappings ({activeConnections.length})
+                                    </span>
+                                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                                        {activeConnections.length === 0 ? (
+                                            <div style={{ padding: '20px 0', textAlign: 'center', color: '#68687a', fontSize: 11 }}>
+                                                No active socket-thread mappings.
+                                            </div>
+                                        ) : (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                                                <thead>
+                                                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #1c1c28', color: '#888' }}>
+                                                        <th style={{ padding: '6px 4px' }}>Socket ID</th>
+                                                        <th style={{ padding: '6px 4px' }}>Thread ID</th>
+                                                        <th style={{ padding: '6px 4px', textAlign: 'right' }}>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {activeConnections.map((conn, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid #14141d' }}>
+                                                            <td style={{ padding: '8px 4px', color: '#00ffff', fontFamily: 'monospace' }}>{conn.socketId}</td>
+                                                            <td style={{ padding: '8px 4px', color: '#a855f7', fontFamily: 'monospace' }}>{conn.threadId}</td>
+                                                            <td style={{ padding: '8px 4px', textAlign: 'right' }}>
+                                                                <button 
+                                                                    onClick={() => handleMockDisconnect(conn.socketId)}
+                                                                    style={{ 
+                                                                        padding: '3px 8px', 
+                                                                        background: '#ff4d4d', 
+                                                                        color: '#fff', 
+                                                                        border: 'none', 
+                                                                        borderRadius: 3, 
+                                                                        fontSize: 9, 
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                                    }}
+                                                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; }}
+                                                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; }}
+                                                                >
+                                                                    Disconnect
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Side Panel Stack */}
+                                <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    {/* Geometric Culling Priority Card */}
+                                    <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12, minHeight: 0 }}>
+                                        <span style={{ fontSize: 11, color: '#ffd700', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Geometric Culling Priority
+                                        </span>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+                                            <div style={{ fontSize: 9, color: '#888', lineHeight: 1.3 }}>
+                                                Tiles are partitioned into rendering layers based on proximity to active anchors.
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 2 }}>
+                                                {geoCoordinates.map((coord, idx) => {
+                                                    const layerColor = coord.layer === 'CRITICAL' ? '#ef4444' : coord.layer === 'STRUCTURAL' ? '#eab308' : '#3b82f6';
+                                                    return (
+                                                        <div 
+                                                            key={idx}
+                                                            style={{
+                                                                background: '#13131a',
+                                                                border: `1px solid ${layerColor}${coord.cullActive ? '40' : 'ff'}`,
+                                                                borderRadius: 6,
+                                                                padding: '4px 2px',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                alignItems: 'center',
+                                                                opacity: coord.cullActive ? 0.4 : 1,
+                                                                transition: 'all 0.3s ease'
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: 9, color: '#fff', fontWeight: 'bold' }}>{coord.coord}</span>
+                                                            <span style={{ fontSize: 8, color: layerColor, marginTop: 2 }}>{coord.layer}</span>
+                                                            {coord.cullActive && <span style={{ fontSize: 8, color: '#888', fontStyle: 'italic' }}>Culled</span>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div style={{ marginTop: 'auto', borderTop: '1px solid #1c1c28', paddingTop: 6 }}>
+                                                <div style={{ display: 'flex', justifySelf: 'space-between', width: '100%', fontSize: 9, color: '#888' }}>
+                                                    <span>Active Culling Limit:</span>
+                                                </div>
+                                                <div style={{ fontSize: 8, color: '#a855f7', fontStyle: 'italic' }}>Mapped to global DDA Config</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ClickHouse Telemetry Card */}
+                                    <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', background: '#0b0b12', border: '1px solid #1c1c28', borderRadius: 8, padding: 12, minHeight: 0 }}>
+                                        <span style={{ fontSize: 11, color: '#00ffff', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            ClickHouse Data Pool
+                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: clickhouseStatus.online ? '#10b981' : '#f59e0b', boxShadow: clickhouseStatus.online ? '0 0 8px #10b981' : '0 0 8px #f59e0b' }} />
+                                            <span style={{ fontSize: 10, fontWeight: 'bold', color: clickhouseStatus.online ? '#10b981' : '#f59e0b' }}>
+                                                {clickhouseStatus.online ? 'ONLINE (MergeTree)' : 'FALLBACK MODE (JSONL)'}
+                                            </span>
+                                        </div>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', fontSize: 10 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #14141d', paddingBottom: 4 }}>
+                                                <span style={{ color: '#888' }}>Endpoint:</span>
+                                                <span style={{ fontFamily: 'monospace', color: '#8b5cf6' }}>{clickhouseStatus.url}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #14141d', paddingBottom: 4 }}>
+                                                <span style={{ color: '#888' }}>Fallback Records:</span>
+                                                <span style={{ fontWeight: 'bold', color: '#ffd700' }}>{clickhouseStatus.fallbackRecordsCount}</span>
+                                            </div>
+                                            <div style={{ padding: 4, background: '#101017', borderRadius: 4, marginTop: 4 }}>
+                                                <div style={{ fontSize: 8, color: '#68687a', textTransform: 'uppercase', marginBottom: 4, fontWeight: 'bold' }}>Local JSONL Counts</div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                                                    <span>Vision:</span>
+                                                    <span style={{ color: '#a855f7' }}>{clickhouseStatus.fallbackCounts?.VISION || 0}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                                                    <span>Combat:</span>
+                                                    <span style={{ color: '#3b82f6' }}>{clickhouseStatus.fallbackCounts?.COMBAT || 0}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>Short-Circuit:</span>
+                                                    <span style={{ color: '#ef4444' }}>{clickhouseStatus.fallbackCounts?.SHORT_CIRCUIT || 0}</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 8 }}>
+                                                <button 
+                                                    onClick={() => handleMockClickhouse('VISION')}
+                                                    style={{ flex: 1, padding: '4px 0', background: '#a855f7', color: '#fff', border: 'none', borderRadius: 3, fontSize: 8, fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    + Vision
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleMockClickhouse('COMBAT')}
+                                                    style={{ flex: 1, padding: '4px 0', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 3, fontSize: 8, fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    + Combat
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleMockClickhouse('SHORT_CIRCUIT')}
+                                                    style={{ flex: 1, padding: '4px 0', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 3, fontSize: 8, fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    + Short
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     ) : activeTab3D === 'HTML5' ? (
                         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

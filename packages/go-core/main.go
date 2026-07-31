@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"dusan-game/go-core/engine"
@@ -328,6 +329,31 @@ func handleSolve(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
+func handleKCLGrid(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req engine.KCLRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	res, err := engine.SolveKCL(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
 func handleInfer(w http.ResponseWriter, r *http.Request) {
 	if setupCORS(w, r) {
 		return
@@ -590,12 +616,267 @@ func handleHTMLEntities(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ── Tag-Pair Simulation Structures ──────────────────────────────────────────
+type GoLayerCritical struct {
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
+	Depth  float64 `json:"depth"`
+}
+
+type GoLayerStructural struct {
+	Diameter     float64 `json:"diameter"`
+	Height       float64 `json:"height"`
+	Tessellation int     `json:"tessellation"`
+}
+
+type GoLayerCosmetic struct {
+	Speed    float64 `json:"speed"`
+	ColorHex string  `json:"colorHex"`
+	Scale    float64 `json:"scale"`
+}
+
+type GoGeometryLayers struct {
+	Critical   GoLayerCritical   `json:"critical"`
+	Structural GoLayerStructural `json:"structural"`
+	Cosmetic   GoLayerCosmetic   `json:"cosmetic"`
+}
+
+type GoSimulationResponse struct {
+	Verb             string           `json:"verb"`
+	Target           string           `json:"target"`
+	HeightMultiplier float64          `json:"heightMultiplier"`
+	BevelOffset      float64          `json:"bevelOffset"`
+	Conductivity     float64          `json:"conductivity"`
+	HazardIndex      float64          `json:"hazardIndex"`
+	ColorHex         string           `json:"colorHex"`
+	RotationSpeed    float64          `json:"rotationSpeed"`
+	TeethCount       int              `json:"teethCount"`
+	Layers           GoGeometryLayers `json:"layers"`
+}
+
+func goHashString(s string) int {
+	hash := 0
+	for i := 0; i < len(s); i++ {
+		hash = (hash << 5) - hash + int(s[i])
+		hash = hash | 0
+	}
+	if hash < 0 {
+		return -hash
+	}
+	return hash
+}
+
+var goColorPalette = []string{
+	"#06b6d4", // Cyan
+	"#a855f7", // Purple
+	"#10b981", // Emerald
+	"#eab308", // Amber
+	"#ef4444", // Rose
+	"#3b82f6", // Blue
+	"#ec4899", // Pink
+}
+
+func handleSimulation(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type SimulationRequest struct {
+		Verb   string `json:"verb"`
+		Target string `json:"target"`
+	}
+
+	var req SimulationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	verbUpper := strings.ToUpper(strings.TrimSpace(req.Verb))
+	targetUpper := strings.ToUpper(strings.TrimSpace(req.Target))
+
+	vHash := goHashString(verbUpper)
+	tHash := goHashString(targetUpper)
+	combinedHash := vHash ^ tHash
+	if combinedHash < 0 {
+		combinedHash = -combinedHash
+	}
+
+	heightMultiplier := 0.5 + (float64(combinedHash%200) / 100.0)
+	bevelOffset := 0.05 + (float64(combinedHash%30) / 100.0)
+	conductivity := 0.1 + (float64(combinedHash%81) / 100.0)
+	hazardIndex := 0.0 + (float64(combinedHash%96) / 100.0)
+	colorHex := goColorPalette[combinedHash%len(goColorPalette)]
+	rotationSpeed := 0.01 + (float64(combinedHash%70) / 1000.0)
+	teethCount := 6 + (combinedHash % 19)
+
+	tess := 12
+	if targetUpper == "HEX" {
+		tess = 6
+	} else if targetUpper == "GEAR" {
+		tess = 8
+	}
+
+	layers := GoGeometryLayers{
+		Critical: GoLayerCritical{
+			Width:  0.8 + (float64(combinedHash%40) / 100.0),
+			Height: heightMultiplier * 0.9,
+			Depth:  0.8 + (float64(combinedHash%40) / 100.0),
+		},
+		Structural: GoLayerStructural{
+			Diameter:     1.0 + (float64(combinedHash%50) / 100.0),
+			Height:       heightMultiplier,
+			Tessellation: tess,
+		},
+		Cosmetic: GoLayerCosmetic{
+			Speed:    rotationSpeed,
+			ColorHex: colorHex,
+			Scale:    1.0 + bevelOffset,
+		},
+	}
+
+	resp := GoSimulationResponse{
+		Verb:             verbUpper,
+		Target:           targetUpper,
+		HeightMultiplier: heightMultiplier,
+		BevelOffset:      bevelOffset,
+		Conductivity:     conductivity,
+		HazardIndex:      hazardIndex,
+		ColorHex:         colorHex,
+		RotationSpeed:    rotationSpeed,
+		TeethCount:       teethCount,
+		Layers:           layers,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func handleStateInit(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	threads := []engine.Thread{
+		{ID: "thread_king_ai", Name: "AI Overlord", Type: "PLAYER", Health: 30, MaxHealth: 30, Energy: 100},
+		{ID: "thread_hacker_root", Name: "Root Hacker", Type: "AI", Health: 30, MaxHealth: 30, Energy: 100},
+	}
+
+	state := &engine.StateEngine{
+		MatchID:        "match_simulation_01",
+		TurnsElapsed:   1,
+		ActivePhase:    "ACTION",
+		ActivePlayerID: "thread_king_ai",
+		SystemEnergy:   80,
+		Threads:        threads,
+		PlayedVoltage:  0.0,
+		PlayedResist:   0.0,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
+func handleStateResolveAction(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type ActionRequest struct {
+		State  engine.StateEngine  `json:"state"`
+		Action engine.ActionPayload `json:"action"`
+	}
+
+	var req ActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp, err := req.State.ResolveAction(req.Action)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func handleEnvironmentFlux(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req engine.EnvironmentFluxRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp, err := engine.CalculateFlux(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+type PositionTelemetryRequest struct {
+	Log     engine.TelemetryLog `json:"log"`
+	Terrain string              `json:"terrain"`
+}
+
+func handlePositionTelemetry(w http.ResponseWriter, r *http.Request) {
+	if setupCORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req PositionTelemetryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	req.Log.Timestamp = time.Now()
+	questResp := engine.GenerateProceduralQuest(req.Log, req.Terrain)
+
+	fmt.Printf("[TELEMETRY] Logged player position at %s (HP: %d, Lvl: %d)\n", req.Log.HexCoord, req.Log.HP, req.Log.Level)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(questResp)
+}
+
 func main() {
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/api/physics/energy-cost", handlePhysicsCost)
 	http.HandleFunc("/api/combat/resolve", handleCombatResolve)
 	http.HandleFunc("/api/physics/solve", handleSolve)
+	http.HandleFunc("/api/telemetry/position", handlePositionTelemetry)
 	http.HandleFunc("/api/tensor/infer-unknown", handleInfer)
+	http.HandleFunc("/api/physics/kcl-grid", handleKCLGrid)
 	http.HandleFunc("/api/synthesize", handleSynthesize)
 	http.HandleFunc("/api/synthesize/batch", handleSynthesizeBatch)
 	http.HandleFunc("/api/telemetry/combat", func(w http.ResponseWriter, r *http.Request) {
@@ -608,6 +889,12 @@ func main() {
 	http.HandleFunc("/api/telemetry/vision", handleVisionTelemetry)
 	http.HandleFunc("/api/telemetry/analytics", handleGetAnalytics)
 	http.HandleFunc("/api/scenarios/html5-entities", handleHTMLEntities)
+	http.HandleFunc("/api/simulation/geometry-nodes", handleSimulation)
+	http.HandleFunc("/api/state/init", handleStateInit)
+	http.HandleFunc("/api/state/resolve-action", handleStateResolveAction)
+	http.HandleFunc("/api/pathfinding/search", handlePathfinding)
+	http.HandleFunc("/api/environment/flux", handleEnvironmentFlux)
+	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/health", handleHealth)
 
 	port := 8081

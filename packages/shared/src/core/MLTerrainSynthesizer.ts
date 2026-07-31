@@ -135,16 +135,29 @@ export class MLTerrainSynthesizer {
       return this.sigmoid(dot + this.bias_practical[idx]);
     });
 
-    // Mapovanie hodnôt do praktických rozsahov
-    const walkable = pracOutputs[0] > 0.4;
+    // Mapovanie hodnôt do praktických rozsahov s ohľadom na dostupnosť terénu (Rule 5 & 12, Area expansion accessibility)
+    const distFromCenter = Math.sqrt(qNorm * qNorm + rNorm * rNorm);
+
+    // Threshold pre priechodnosť (walkable) sa dynamicky znižuje so zväčšovaním plochy (rastúca vzdialelosť od stredu),
+    // čím garantujeme, že novovzniknuté uzly pri expanzii budú vysoko dostupné.
+    const walkThreshold = Math.max(0.15, 0.4 - distFromCenter * 0.25);
+    const walkable = pracOutputs[0] > walkThreshold;
     
-    // energyCostMultiplier škálujeme od 0.6 do 2.5
-    const energyCostMultiplier = 0.6 + pracOutputs[1] * 1.9;
+    // energyCostMultiplier škálujeme od 0.6 do 2.5 a pre vonkajšie oblasti ho tlmíme
+    let energyCostMultiplier = 0.6 + pracOutputs[1] * 1.9;
+    if (distFromCenter > 0.25) {
+      energyCostMultiplier = Math.max(0.6, energyCostMultiplier * (1.0 - (distFromCenter - 0.25) * 0.5));
+    }
 
     // rangeModifier škálujeme od -1 do +1, zaokrúhlené na celé číslo
     const rangeModifier = Math.round((pracOutputs[2] - 0.5) * 2);
 
-    const hazardIndex = pracOutputs[3];
+    // Hazard index pre expanziu tlmíme pre zachovanie bezpečnej mobility
+    let hazardIndex = pracOutputs[3];
+    if (distFromCenter > 0.25) {
+      hazardIndex = Math.max(0.0, hazardIndex * (1.0 - (distFromCenter - 0.25) * 0.4));
+    }
+
     const lootProbability = pracOutputs[4];
 
     return {

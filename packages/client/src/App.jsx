@@ -19,7 +19,7 @@ import { arenaAudio } from './utils/ArenaAudio';
 import './App.css';
 
 // Socket.io klient
-const socket = io('http://localhost:3001', { autoConnect: false });
+const socket = io({ autoConnect: false });
 
 function App() {
   const [activeLayoutView, setActiveLayoutView] = useState('LOBBY');
@@ -40,10 +40,10 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [shakeIntensity, setShakeIntensity] = useState(0);
   
-  // Audio state trackers
-  const [lastActivePlayerId, setLastActivePlayerId] = useState(null);
-  const [lastHandCount, setLastHandCount] = useState(0);
-  const [gameEnded, setGameEnded] = useState(false);
+  // Audio state trackers using refs to prevent infinite loop (Goal 9)
+  const lastActivePlayerIdRef = useRef(null);
+  const lastHandCountRef = useRef(0);
+  const gameEndedRef = useRef(false);
   const [ultimateFlash, setUltimateFlash] = useState(false);
   const [weatherOverride, setWeatherOverride] = useState(null);
   const [isManualWeather, setIsManualWeather] = useState(false);
@@ -60,10 +60,20 @@ function App() {
   const [semanticSector, setSemanticSector] = useState(null);
   const [terrainTelemetry, setTerrainTelemetry] = useState(null);
 
+  const isOverlayActive = useMemo(() => {
+    return gameState?.state === 'MULLIGAN' || gameState?.state === 'GAME_OVER';
+  }, [gameState?.state]);
+
   const myThreadId = useMemo(() => {
-    return socket.id || gameState?.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI')?.id || gameState?.threads?.[0]?.id;
+    const hasSocketThread = gameState?.threads?.some(t => t.id === socket.id);
+    if (hasSocketThread) {
+      return socket.id;
+    }
+    const playerThread = gameState?.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
+    return playerThread?.id || gameState?.threads?.[0]?.id || socket.id;
   }, [gameState, socket.id]);
   const [activeTransitions, setActiveTransitions] = useState([]);
+  const [biomePulse, setBiomePulse] = useState(null);
   const [lastPosition, setLastPosition] = useState({ meta: null, hex: null });
   const [surgeTile, setSurgeTile] = useState(null);
   const [scorchedTiles, setScorchedTiles] = useState([]);
@@ -136,10 +146,24 @@ function App() {
       setRealityPhase(payload.realityPhase);
     };
 
+    const handleWeatherChanged = (payload) => {
+      setWeatherOverride(payload.weather === 'TOXIC_STORM' ? 'TOXIC_HAZE' : payload.weather === 'BLIZZARD' ? 'VOID_ECLIPSE' : null);
+      setActionLogs(prev => [`🌧️ WEATHER TENSOR EFFECT: Mutated environment to ${payload.weather}!`, ...prev]);
+    };
+
+    const handleResonatorWave = (payload) => {
+      setActionLogs(prev => [`⚡ SEISMIC RESONATOR: High-voltage shockwave deforms adjacent tiles!`, ...prev]);
+      setShakeIntensity(1.5);
+      setTimeout(() => setShakeIntensity(0), 120);
+      window.dispatchEvent(new CustomEvent('resonator_wave_start', { detail: payload }));
+    };
+
     socket.on('match_started', handleMatchStarted);
     socket.on('voltage_surge', handleVoltageSurge);
     socket.on('short_circuit', handleShortCircuit);
     socket.on('reality_phase_changed', handleRealityPhaseChanged);
+    socket.on('weather_change', handleWeatherChanged);
+    socket.on('resonator_wave', handleResonatorWave);
 
     // ── Audio + VFX wire-up ─────────────────────────────────────────────────
     const handleCardEffect = (e) => {
@@ -179,6 +203,8 @@ function App() {
       socket.off('voltage_surge', handleVoltageSurge);
       socket.off('short_circuit', handleShortCircuit);
       socket.off('reality_phase_changed', handleRealityPhaseChanged);
+      socket.off('weather_change', handleWeatherChanged);
+      socket.off('resonator_wave', handleResonatorWave);
       window.removeEventListener('card_played_effect', handleCardEffect);
     };
   }, [connectionEngine, isSandbox]);
@@ -242,12 +268,12 @@ function App() {
     const fetchTelemetry = () => {
       // res.ok guard: 404/500 vracia JSON s chybou — uložený ako dáta by zhodil
       // renderovanie (napr. terrainTelemetry.difficulty je undefined)
-      fetch(`http://localhost:3001/api/scenarios/semantic-sector/${activePlayerId}`)
+      fetch(`/api/scenarios/semantic-sector/${activePlayerId}`)
         .then(res => (res.ok ? res.json() : null))
         .then(data => { if (data) setSemanticSector(data); })
         .catch(err => console.warn('[TELEMETRY] Semantic Sector offline'));
 
-      fetch(`http://localhost:3001/api/scenarios/terrain-telemetry/${activePlayerId}`)
+      fetch(`/api/scenarios/terrain-telemetry/${activePlayerId}`)
         .then(res => (res.ok ? res.json() : null))
         .then(data => { if (data && data.difficulty) setTerrainTelemetry(data); })
         .catch(err => console.warn('[TELEMETRY] Terrain Telemetry offline'));
@@ -263,24 +289,24 @@ function App() {
     if (!gameState) return;
 
     // 1. Turn Start Chime
-    if (gameState.activePlayerId && gameState.activePlayerId !== lastActivePlayerId) {
+    if (gameState.activePlayerId && gameState.activePlayerId !== lastActivePlayerIdRef.current) {
       const faction = gameState.activePlayerId === 'thread_king_ai' 
         ? 'crystal' 
         : gameState.activePlayerId === 'thread_hacker_root' 
         ? 'toxic' 
         : 'void';
       arenaAudio.playTurnStart(faction);
-      setLastActivePlayerId(gameState.activePlayerId);
+      lastActivePlayerIdRef.current = gameState.activePlayerId;
     }
 
     // 2. Card Draw Sound
     const myThreadId = socket.id || gameState.threads?.[0]?.id;
     const localThread = gameState.threads?.find(t => t.id === myThreadId) || gameState.threads?.find(t => t.type === 'PLAYER' && t.name !== 'Sovereign AI');
     const localHandCount = localThread?.currentBuffer?.length || 0;
-    if (localHandCount > lastHandCount) {
+    if (localHandCount > lastHandCountRef.current) {
       arenaAudio.playCardDraw();
     }
-    setLastHandCount(localHandCount);
+    lastHandCountRef.current = localHandCount;
 
     // 3. Collapse Warning Drone
     if (gameState.turnsElapsed >= 8) {
@@ -301,15 +327,15 @@ function App() {
     // 4. End Game Fanfare
     const kingHp = gameState.threads?.find(t => t.id === 'thread_king_ai')?.health ?? 15;
     const hackerHp = gameState.threads?.find(t => t.id === 'thread_hacker_root')?.health ?? 15;
-    if ((kingHp <= 0 || hackerHp <= 0) && !gameEnded) {
+    if ((kingHp <= 0 || hackerHp <= 0) && !gameEndedRef.current) {
       const winner = kingHp <= 0 ? 'thread_hacker_root' : 'thread_king_ai';
       arenaAudio.playEndGame(winner);
-      setGameEnded(true);
-    } else if (kingHp > 0 && hackerHp > 0 && gameEnded) {
-      setGameEnded(false);
+      gameEndedRef.current = true;
+    } else if (kingHp > 0 && hackerHp > 0 && gameEndedRef.current) {
+      gameEndedRef.current = false;
     }
 
-  }, [gameState, lastActivePlayerId, lastHandCount, gameEnded]);
+  }, [gameState]);
 
   // Biome Transition VFX triggers on local player movement
   useEffect(() => {
@@ -339,6 +365,8 @@ function App() {
             ...prev,
             { id: transId, position: node.position, color }
           ]);
+          setBiomePulse(color);
+          setTimeout(() => setBiomePulse(null), 800);
         }
       }
       setLastPosition({ meta: newMeta, hex: newHex });
@@ -438,11 +466,16 @@ function App() {
         }
       }
 
-      connectionEngine.playCard(
-        card.id,
-        hoveredNode.macroIndex,
-        hoveredNode.subIndex
-      );
+      // Trigger Hearthstone casting transition before playing!
+      window.dispatchEvent(new CustomEvent('card_drag_cast', { detail: { cardId: card.id } }));
+
+      setTimeout(() => {
+        connectionEngine.playCard(
+          card.id,
+          hoveredNode.macroIndex,
+          hoveredNode.subIndex
+        );
+      }, 300);
 
       arenaAudio.playSpellCast();
       setActionLogs(prev => [
@@ -671,12 +704,12 @@ function App() {
 
   return (
     <div 
-      className="w-full h-screen flex flex-col bg-black overflow-hidden"
+      className="w-full h-screen relative bg-black overflow-hidden"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleCanvasDrop}
     >
-      {/* Top 70% Viewport: Zoomable Hexagon World */}
-      <div className="w-full h-[70vh] relative overflow-hidden">
+      {/* Fullscreen 3D Viewport: Zoomable Hexagon World */}
+      <div className="absolute inset-0 w-full h-full z-0">
         <CanvasRenderer3D 
           entropy={entropy} 
           threads={gameState?.threads || []}
@@ -700,11 +733,8 @@ function App() {
           hoveredNode={hoveredNode}
           setHoveredNode={setHoveredNode}
           realityPhase={realityPhase}
+          isOverlayActive={isOverlayActive}
         />
-      </div>
-
-      {/* Bottom 30% Viewport: Translucent Card Hand Area */}
-      <div className="w-full h-[30vh] relative bg-[#090a10] border-t border-cyan-500/20 overflow-hidden">
       </div>
       
       {/* Cyber-Glassmorphism Tailwind UI */}
@@ -712,6 +742,7 @@ function App() {
         realityPhase={realityPhase}
         setRealityPhase={setRealityPhase}
         gameState={gameState} 
+        matchId={matchId}
         entropy={entropy}
         setEntropy={setEntropy}
         selectedCard={selectedCard}
@@ -745,7 +776,10 @@ function App() {
       />
       {/* Fullscreen white flash overlay for Ultimate actions */}
       {ultimateFlash && (
-        <div className="fixed inset-0 bg-white pointer-events-none z-50 animate-pulse" style={{ animationDuration: '0.15s' }}></div>
+        <div className="ultimate-flash-overlay"></div>
+      )}
+      {biomePulse && (
+        <div className="biome-border-pulse" style={{ boxShadow: `inset 0 0 35px ${biomePulse}` }}></div>
       )}
       {/* Koniec hry — výsledok a návrat do lobby */}
       {gameState?.state === 'GAME_OVER' && (() => {
@@ -769,41 +803,40 @@ function App() {
           </div>
         );
       })()}
-      {/* Floating button to open Combinatorics Sandbox */}
-      <button 
-        onClick={() => setIsCombinatoricsSandboxOpen(true)}
-        className="fixed top-4 left-[240px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        🧪 Sandbox Kombinatoriky
-      </button>
-      {/* Floating button to open Telemetry Dashboard */}
-      <button 
-        onClick={() => setIsTelemetryDashboardOpen(true)}
-        className="fixed top-4 left-[445px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-purple-500/40 text-purple-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        📊 Telemetry & DB
-      </button>
-      {/* Floating button to open RPG Class Board */}
-      <button 
-        onClick={() => setIsRPGClassBoardOpen(true)}
-        className="fixed top-4 left-[615px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-amber-500/40 text-amber-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        👑 RPG Class Board
-      </button>
-      {/* Floating button to open Admin Diagnostics */}
-      <button 
-        onClick={() => setIsAdminDiagnosticsOpen(true)}
-        className="fixed top-4 left-[785px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-emerald-500/40 text-emerald-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        🛠️ Admin Diagnostics
-      </button>
-      {/* Floating button to open Metacognitive Architecture Hub */}
-      <button 
-        onClick={() => setIsMetaHubOpen(true)}
-        className="fixed top-4 left-[975px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all uppercase tracking-wider"
-      >
-        🧠 Metacognitive Hub
-      </button>
+      {/* Desktop Top-Left Unified Dev Tools Bar */}
+      <div className="hidden lg:flex justify-start gap-2 pointer-events-auto z-40 absolute top-4 left-4 glass-panel-heavy p-2 rounded-xl border border-cyan-500/20 shadow-lg">
+        <span className="text-[9px] text-cyan-400 font-mono font-bold self-center px-2 border-r border-cyan-500/25 mr-1 uppercase tracking-widest">DEV CONTROL</span>
+        <button 
+          onClick={() => setIsCombinatoricsSandboxOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-cyan-500/40 text-cyan-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(6,182,212,0.3)] btn-springy"
+        >
+          🧪 Sandbox
+        </button>
+        <button 
+          onClick={() => setIsTelemetryDashboardOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-purple-500/40 text-purple-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.3)] btn-springy"
+        >
+          📊 Telemetria DB
+        </button>
+        <button 
+          onClick={() => setIsRPGClassBoardOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-amber-500/40 text-amber-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(245,158,11,0.3)] btn-springy"
+        >
+          👑 Class Board
+        </button>
+        <button 
+          onClick={() => setIsAdminDiagnosticsOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-emerald-500/40 text-emerald-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(16,185,129,0.3)] btn-springy"
+        >
+          🛠️ Diagnostika
+        </button>
+        <button 
+          onClick={() => setIsMetaHubOpen(true)}
+          className="cyber-btn px-2.5 py-1.5 border border-cyan-500/40 text-cyan-400 bg-slate-900/60 hover:bg-slate-800 text-[10px] font-heading font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:shadow-[0_0_10px_rgba(6,182,212,0.3)] btn-springy"
+        >
+          🧠 Meta Hub
+        </button>
+      </div>
       {/* Interaktívny Sandbox Modul */}
       {isCombinatoricsSandboxOpen && (
         <CombinatoricsSandbox onClose={() => setIsCombinatoricsSandboxOpen(false)} />

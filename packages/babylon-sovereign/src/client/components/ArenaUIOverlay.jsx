@@ -45,7 +45,7 @@ const getFactionHoverClass = (cardId) => {
     return 'card-hover-void';
 };
 
-const getCardMetadata = (cardId) => {
+const getCardMetadata = (cardId, entropy = 0.2) => {
     const cardBase = allBases.find(c => c.id === cardId);
     if (!cardBase) {
         return { name: cardId, type: 'Inštrukcia', desc: 'Simulácia Ohmovho zákona', cost: 1 };
@@ -55,7 +55,11 @@ const getCardMetadata = (cardId) => {
     
     const typeLabel = cardBase.cardCategorization.toUpperCase() + (cardBase.isUnit ? ' // JEDNOTKA' : ' // AKCIA');
     const descLabel = trans.description || (cardBase.effect ? `Efekt: ${cardBase.effect}` : 'Základná inštrukcia');
-    const cost = cardBase.isUltimate ? 2 : 1;
+    
+    // Void Walker casting rule (Rule 3 Environmental Scaling):
+    // If globalEntropy > 0.7, card cost reduces to 0 (W = 0)
+    const isVoidCard = cardBase.heroId === 'void_weaver' || cardBase.heroId === 'void_walker';
+    const cost = (isVoidCard && entropy > 0.7) ? 0 : (cardBase.isUltimate ? 2 : 1);
 
     return {
         name: trans.name,
@@ -143,6 +147,9 @@ export default function ArenaUIOverlay({
 
     const [selectedMulliganCardIds, setSelectedMulliganCardIds] = React.useState([]);
     const [mulliganSubmitted, setMulliganSubmitted] = React.useState(false);
+    const [isCompact, setIsCompact] = React.useState(false);
+    const [isHudHovered, setIsHudHovered] = React.useState(false);
+    const [showFlash, setShowFlash] = React.useState(false);
 
     React.useEffect(() => {
         if (gameState?.state === 'MULLIGAN') {
@@ -166,6 +173,13 @@ export default function ArenaUIOverlay({
     const handleExecuteClick = () => {
         if (!selectedCard) return;
         setCastingCard(selectedCard);
+        
+        // Fullscreen flash for ultimate cards
+        if (selectedCard.isUltimate) {
+            setShowFlash(true);
+            setTimeout(() => setShowFlash(false), 150);
+        }
+
         // Wait for card lift animation to finish
         setTimeout(() => {
             onExecuteAction();
@@ -794,7 +808,7 @@ export default function ArenaUIOverlay({
                                     const nextPhase = e.target.checked ? 'GRAVITY_WELL' : 'STANDARD';
                                     if (setRealityPhase) setRealityPhase(nextPhase);
                                     // Also notify server via POST /api/scenarios/realities/active
-                                    fetch('http://localhost:3001/api/scenarios/realities/active', {
+                                    fetch('/api/scenarios/realities/active', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ phase: nextPhase })
@@ -885,6 +899,9 @@ export default function ArenaUIOverlay({
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 z-10 font-sans">
+            {showFlash && (
+                <div className="fixed inset-0 bg-white z-50 pointer-events-none animate-flash-out" />
+            )}
             {/* FULLSCREEN MULLIGAN OVERLAY */}
             {gameState?.state === 'MULLIGAN' && (() => {
                 const oponentId = activePlayer?.id === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
@@ -902,7 +919,7 @@ export default function ArenaUIOverlay({
 
                         <div className="flex flex-wrap justify-center gap-6 max-w-4xl mb-8">
                             {cards.map((card, idx) => {
-                                const meta = getCardMetadata(card.id);
+                                const meta = getCardMetadata(card.id, entropy);
                                 const isSelected = selectedMulliganCardIds.includes(card.id);
                                 const isAttack = meta.type.includes('ATTACK') || card.id.toLowerCase().includes('attack') || card.id.toLowerCase().includes('cleave') || card.id.toLowerCase().includes('shards') || card.id.toLowerCase().includes('meteor');
                                 const isMagic = meta.type.includes('MAGIC') || card.id.toLowerCase().includes('spell') || card.id.toLowerCase().includes('lance') || card.id.toLowerCase().includes('shield');
@@ -969,7 +986,7 @@ export default function ArenaUIOverlay({
                                 <button
                                     onClick={() => {
                                         setMulliganSubmitted(true);
-                                        fetch('http://localhost:3001/api/match/mulligan', {
+                                        fetch('/api/match/mulligan', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ playerId: activePlayer?.id, cardIds: selectedMulliganCardIds })
@@ -998,7 +1015,7 @@ export default function ArenaUIOverlay({
                 const currentAction = gameState?.turnStateMachine?.currentAction;
                 const attacker = gameState?.threads?.find(t => t.id === currentAction?.sourceId);
                 const attackerName = attacker ? attacker.name : (currentAction?.sourceId || 'Nepriateľ');
-                const cardMeta = currentAction ? getCardMetadata(currentAction.instruction.id) : null;
+                const cardMeta = currentAction ? getCardMetadata(currentAction.instruction.id, entropy) : null;
                 const timerVal = gameState?.turnStateMachine?.timerLeft ?? 3;
                 const circumference = 2 * Math.PI * 16; // r=16 -> ~100.53
                 const strokeDashoffset = circumference - (timerVal / 3) * circumference;
@@ -1189,14 +1206,32 @@ export default function ArenaUIOverlay({
 
 
             {/* Spodná ruka kariet (Spodný HUD z bodu 2 checklistu) */}
-            <div className="w-full h-[30vh] flex flex-col items-center justify-center gap-2 pointer-events-auto bg-slate-950/20 backdrop-blur-md border-t border-cyan-500/25 px-6 py-2 mt-auto">
+            <div 
+                onMouseEnter={() => setIsHudHovered(true)}
+                onMouseLeave={() => setIsHudHovered(false)}
+                style={isCompact ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, backgroundColor: isHudHovered && !selectedCard ? 'rgba(8, 8, 15, 0.85)' : 'rgba(0, 0, 0, 0.15)' } : {}}
+                className={`w-full flex flex-col items-center justify-center gap-2 pointer-events-auto border-t border-cyan-500/25 px-6 py-2 transition-all duration-500 ease-in-out relative ${
+                    isCompact 
+                    ? isHudHovered && !selectedCard
+                      ? 'h-[30vh] backdrop-blur-md shadow-[0_-10px_35px_rgba(0,0,0,0.9)]'
+                      : 'h-[18vh] backdrop-blur-sm shadow-[0_-5px_25px_rgba(0,0,0,0.8)]'
+                    : 'h-[30vh] bg-slate-950/20 backdrop-blur-md mt-auto'
+                }`}
+            >
+                {/* Compact Mode Toggle Button */}
+                <button 
+                    onClick={() => setIsCompact(prev => !prev)}
+                    className="bg-[#0e0e16]/80 hover:bg-slate-800/80 border border-cyan-500/40 text-cyan-400 font-bold px-2 py-0.5 rounded text-[8px] font-mono transition-all duration-300 absolute top-2 right-4 z-50 cursor-pointer uppercase shadow-md pointer-events-auto"
+                >
+                    {isCompact ? 'Standard HUD' : 'Kompaktný HUD'}
+                </button>
                 {/* Compact Horizontal Action / Node Dock */}
                 {selectedCard && (
                     <div className="flex flex-col md:flex-row gap-3 items-stretch justify-center max-w-full mb-1">
                          {/* Action Header Panel */}
                          <div className="glass-panel-heavy text-white px-4 py-2 rounded-xl shadow-xl text-xs font-mono text-center flex flex-col justify-center min-w-[260px] border border-cyan-400/30">
                              <div>
-                                 Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
+                                 Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id, entropy).name}</span>
                              </div>
                              {selectedNode ? (
                                  <div className="mt-1.5">
@@ -1341,91 +1376,116 @@ export default function ArenaUIOverlay({
                     </div>
                 )}
 
-                <div className="flex gap-2.5 md:gap-3 max-w-full overflow-x-auto custom-scrollbar p-1">
-                    {cards.length === 0 ? (
-                        <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>
-                    ) : (
-                        cards.map((card, idx) => {
-                            const meta = getCardMetadata(card.id);
-                            const isSelected = selectedCard === card;
-                            const isCasting = castingCard === card;
-                            const hoverClass = getFactionHoverClass(card.id);
-                            const isUlt = card.isUltimate;
-                            const isReactive = gameState?.turnStateMachine?.currentPhase === 'INTERRUPT_WINDOW' && 
-                                (card.id.includes('magic') || card.id.includes('shield') || card.id.includes('pulse'));
-                            
-                            const isHovered = hoveredCardIndex === idx;
-                            let inlineStyle = {};
-                            if (isHovered) {
-                                if (isUlt) {
+                <div className="flex items-center justify-center gap-4 w-full max-w-full overflow-hidden transition-all duration-500">
+                    <div className="flex gap-2.5 md:gap-3 max-w-full overflow-x-auto custom-scrollbar p-1 flex-1 justify-center items-center">
+                        {cards.length === 0 ? (
+                            <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>
+                        ) : (
+                            cards.map((card, idx) => {
+                                const meta = getCardMetadata(card.id, entropy);
+                                const isSelected = selectedCard === card;
+                                const isCasting = castingCard === card;
+                                const hoverClass = getFactionHoverClass(card.id);
+                                const isUlt = card.isUltimate;
+                                const isReactive = gameState?.turnStateMachine?.currentPhase === 'INTERRUPT_WINDOW' && 
+                                    (card.id.includes('magic') || card.id.includes('shield') || card.id.includes('pulse'));
+                                
+                                const isHovered = hoveredCardIndex === idx;
+                                let inlineStyle = {};
+                                if (isHovered) {
+                                    if (isUlt) {
+                                        inlineStyle = {
+                                            boxShadow: '0 0 35px rgba(172, 242, 39, 0.9), inset 0 0 15px rgba(172, 242, 39, 0.3)',
+                                            borderColor: 'var(--accent-loot)',
+                                        };
+                                    } else if (card.id.includes('crystal') || card.id.includes('laser') || card.id.includes('shield') || card.id.includes('pulse')) {
+                                        inlineStyle = {
+                                            boxShadow: '0 0 25px rgba(0, 238, 255, 0.75), inset 0 0 10px rgba(0, 238, 255, 0.2)',
+                                            borderColor: '#00eeff',
+                                        };
+                                    } else if (card.id.includes('toxic') || card.id.includes('snake') || card.id.includes('acid') || card.id.includes('hook') || card.id.includes('mud')) {
+                                        inlineStyle = {
+                                            boxShadow: '0 0 30px rgba(57, 255, 20, 0.8), inset 0 0 12px rgba(57, 255, 20, 0.2)',
+                                            borderColor: '#39ff14',
+                                        };
+                                    } else if (card.id.includes('bear') || card.id.includes('forest') || card.id.includes('wind') || card.id.includes('nature')) {
+                                        inlineStyle = {
+                                            boxShadow: '0 0 25px rgba(255, 204, 0, 0.8), inset 0 0 10px rgba(255, 204, 0, 0.2)',
+                                            borderColor: '#ffcc00',
+                                        };
+                                    } else {
+                                        inlineStyle = {
+                                            boxShadow: '0 0 25px rgba(170, 0, 255, 0.8), inset 0 0 10px rgba(170, 0, 255, 0.2)',
+                                            borderColor: '#aa00ff',
+                                        };
+                                    }
+                                } else if (isSelected) {
                                     inlineStyle = {
-                                        boxShadow: '0 0 35px rgba(172, 242, 39, 0.9), inset 0 0 15px rgba(172, 242, 39, 0.3)',
-                                        borderColor: 'var(--accent-loot)',
-                                        transform: 'translateY(-20px) scale(1.05)',
-                                    };
-                                } else if (card.id.includes('crystal') || card.id.includes('laser') || card.id.includes('shield') || card.id.includes('pulse')) {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 25px rgba(0, 238, 255, 0.75), inset 0 0 10px rgba(0, 238, 255, 0.2)',
-                                        borderColor: '#00eeff',
-                                        transform: 'translateY(-16px)',
-                                    };
-                                } else if (card.id.includes('toxic') || card.id.includes('snake') || card.id.includes('acid') || card.id.includes('hook') || card.id.includes('mud')) {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 30px rgba(57, 255, 20, 0.8), inset 0 0 12px rgba(57, 255, 20, 0.2)',
-                                        borderColor: '#39ff14',
-                                        transform: 'translateY(-16px)',
-                                    };
-                                } else if (card.id.includes('bear') || card.id.includes('forest') || card.id.includes('wind') || card.id.includes('nature')) {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 25px rgba(255, 204, 0, 0.8), inset 0 0 10px rgba(255, 204, 0, 0.2)',
-                                        borderColor: '#ffcc00',
-                                        transform: 'translateY(-16px)',
-                                    };
-                                } else {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 25px rgba(170, 0, 255, 0.8), inset 0 0 10px rgba(170, 0, 255, 0.2)',
-                                        borderColor: '#aa00ff',
-                                        transform: 'translateY(-16px)',
+                                        borderColor: '#22d3ee',
+                                        boxShadow: '0 0 15px rgba(34, 211, 238, 0.4)'
                                     };
                                 }
-                            } else if (isSelected) {
-                                inlineStyle = {
-                                    transform: 'translateY(-16px)',
-                                    borderColor: '#22d3ee',
-                                    boxShadow: '0 0 15px rgba(34, 211, 238, 0.4)'
-                                };
-                            }
 
-                            return (
-                                <div 
-                                    key={`${card.id}_${idx}`}
-                                    onClick={() => setSelectedCard(isSelected ? null : card)}
-                                    onMouseEnter={() => setHoveredCardIndex(idx)}
-                                    onMouseLeave={() => setHoveredCardIndex(null)}
-                                    style={inlineStyle}
-                                    className={`w-20 h-28 md:w-26 md:h-36 flex-shrink-0 bg-gradient-to-b from-[#181824] to-[#0b0b11] border rounded-xl p-2 md:p-2.5 flex flex-col justify-between text-white cursor-pointer transition-all duration-200 relative ${
-                                        isUlt ? 'card-ultimate' : ''
-                                    } ${isReactive ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''} ${isCasting ? 'card-cast-lift' : ''}`}
-                                >
-                                    {/* Hotkey Indicator Badge */}
-                                    <div className="absolute -top-1.5 -left-1.5 bg-[#14141e]/95 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-lg pointer-events-none z-20">
-                                        {idx + 1}
-                                    </div>
-                                    {isReactive && (
-                                        <div className="absolute -top-2 -right-1 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_6px_#ef4444] animate-pulse font-mono tracking-wide z-10">
-                                            ⚡ REACT
+                                return (
+                                    <div 
+                                        key={`${card.id}_${idx}`}
+                                        onClick={() => setSelectedCard(isSelected ? null : card)}
+                                        onMouseEnter={() => setHoveredCardIndex(idx)}
+                                        onMouseMove={(e) => {
+                                            const cardEl = e.currentTarget;
+                                            const rect = cardEl.getBoundingClientRect();
+                                            const x = e.clientX - rect.left;
+                                            const y = e.clientY - rect.top;
+                                            const centerX = rect.width / 2;
+                                            const centerY = rect.height / 2;
+                                            const rotateX = ((centerY - y) / centerY) * 15;
+                                            const rotateY = ((x - centerX) / centerX) * 15;
+                                            const translateOffset = isSelected || isHovered ? -16 : 0;
+                                            cardEl.style.transform = `perspective(500px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(${translateOffset}px) scale(${isHovered ? 1.05 : 1})`;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            setHoveredCardIndex(null);
+                                            const cardEl = e.currentTarget;
+                                            const translateOffset = isSelected ? -16 : 0;
+                                            cardEl.style.transform = `perspective(500px) rotateX(0deg) rotateY(0deg) translateY(${translateOffset}px) scale(1)`;
+                                        }}
+                                        style={inlineStyle}
+                                        className={`flex-shrink-0 border rounded-xl p-2 md:p-2.5 flex flex-col justify-between text-white cursor-pointer transition-all duration-200 relative ${
+                                            isCompact 
+                                            ? 'w-16 h-22 md:w-20 md:h-28 bg-slate-900/10 border-slate-700/30' 
+                                            : 'w-20 h-28 md:w-26 md:h-36 bg-gradient-to-b from-[#181824] to-[#0b0b11] border-slate-700'
+                                        } ${isUlt ? 'card-ultimate' : ''} ${isReactive ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''} ${isCasting ? 'card-cast-lift' : ''}`}
+                                    >
+                                        {/* Hotkey Indicator Badge */}
+                                        <div className="absolute -top-1.5 -left-1.5 bg-[#14141e]/95 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-lg pointer-events-none z-20">
+                                            {idx + 1}
                                         </div>
-                                    )}
-                                    <div className="text-[7px] md:text-[8px] font-mono text-[color:var(--accent-magic)] uppercase tracking-wider">{meta.type}</div>
-                                    <div className="text-[10px] md:text-xs font-bold text-center mt-1 text-slate-200 truncate">{meta.name}</div>
-                                    <div className="text-[8px] md:text-[9px] text-slate-400 text-center font-mono leading-tight line-clamp-3">{meta.desc}</div>
-                                    <div className="bg-[color:var(--panel-bg)] text-[7px] md:text-[8px] text-center font-mono text-[color:var(--accent-magic)] py-0.5 md:py-1 rounded border border-[color:var(--accent-magic)]">
-                                        {card.isUltimate ? 'Ultimate' : 'Normal'}
+                                        {isReactive && (
+                                            <div className="absolute -top-2 -right-1 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_6px_#ef4444] animate-pulse font-mono tracking-wide z-10">
+                                                ⚡ REACT
+                                            </div>
+                                        )}
+                                        <div className="text-[7px] md:text-[8px] font-mono text-[color:var(--accent-magic)] uppercase tracking-wider">{meta.type}</div>
+                                        <div className="text-[10px] md:text-xs font-bold text-center mt-1 text-slate-200 truncate">{meta.name}</div>
+                                        {!isCompact && <div className="text-[8px] md:text-[9px] text-slate-400 text-center font-mono leading-tight line-clamp-3">{meta.desc}</div>}
+                                        <div className="bg-[color:var(--panel-bg)] text-[7px] md:text-[8px] text-center font-mono text-[color:var(--accent-magic)] py-0.5 md:py-1 rounded border border-[color:var(--accent-magic)] mt-1">
+                                            {card.isUltimate ? 'Ultimate' : 'Normal'}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {isCompact && (
+                        <div className="hidden md:flex flex-col gap-1 items-center justify-center bg-slate-950/10 border border-cyan-500/15 p-1 rounded-lg h-24 w-28 overflow-hidden relative shadow-inner flex-shrink-0 pointer-events-auto">
+                            <span className="text-[6.5px] text-cyan-400 font-bold uppercase tracking-wider mb-0.5 select-none z-10 absolute top-1">Composition Canvas</span>
+                            <div className="w-full h-full opacity-65">
+                                <GameplayCompositorTemplate activeThreadId={activePlayer?.id} realityPhase={realityPhase} setRealityPhase={setRealityPhase} mini={true} />
+                            </div>
+                        </div>
                     )}
+                </div>
                     
                     {/* Tlačidlo Ukončiť Kolo z bodu 2 checklistu */}
                     {isPlayerInTown && (
@@ -1455,7 +1515,6 @@ export default function ArenaUIOverlay({
                         End Turn [E]
                     </button>
                 </div>
-            </div>
 
             {/* Taktický Kódex Sliding Drawer */}
             {isCodexOpen && (

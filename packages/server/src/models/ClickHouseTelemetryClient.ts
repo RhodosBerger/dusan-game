@@ -34,6 +34,10 @@ export class ClickHouseTelemetryClient {
   private static clickhouseUrl = (process.env && process.env.CLICKHOUSE_URL) || 'http://localhost:8123';
   private static fallbackPath = (process.env && process.env.CLICKHOUSE_FALLBACK_PATH) ||
     require('path').join(require('os').tmpdir(), 'sovereign-engine', 'clickhouse_fallback.jsonl');
+
+  public static setClickHouseUrl(url: string): void {
+    this.clickhouseUrl = url;
+  }
   
   private static visionBuffer: ClickHouseVisionEvent[] = [];
   private static combatBuffer: ClickHouseCombatEvent[] = [];

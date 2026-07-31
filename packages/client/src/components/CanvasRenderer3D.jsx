@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { MapControls, PerspectiveCamera, Html } from '@react-three/drei';
 import { EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, Pathfinder, SpatialGuidanceSystem } from '../../../shared/src/index';
+import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, Pathfinder, SpatialGuidanceSystem, HardwareGovernor } from '../../../shared/src/index';
 import { generate3DGrid } from '../utils/HexMath3D';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
@@ -24,6 +24,9 @@ import ThreadMiniature from './ThreadMiniature';
 import SpellProjectile3D from './SpellProjectile3D';
 import HeroImpactVFX from './HeroImpactVFX';
 import ArenaAmbientParticles from './ArenaAmbientParticles';
+import DesertHeatParticles from './DesertHeatParticles';
+import BarrensDustDevil from './BarrensDustDevil';
+import ForestFireflies from './ForestFireflies';
 import HeroAura from './HeroAura';
 import { AdrenalineDirector } from '../../../shared/src/index';
 import AestheticCompositor from './AestheticCompositor';
@@ -66,44 +69,48 @@ function ArenaGroup({ children, shakeIntensity }) {
 
 function UltimateOrbVFX({ active }) {
     const meshRef = useRef();
-    const [scale, setScale] = useState(0.01);
-    const [visible, setVisible] = useState(false);
+    const materialRef = useRef();
 
     useEffect(() => {
-        if (active) {
-            setVisible(true);
-            setScale(0.01);
+        if (active && meshRef.current) {
+            meshRef.current.visible = true;
+            meshRef.current.scale.setScalar(0.01);
+            if (materialRef.current) {
+                materialRef.current.opacity = 0.85;
+            }
         }
     }, [active]);
 
     useFrame((state, delta) => {
-        if (visible && meshRef.current) {
+        if (meshRef.current && meshRef.current.visible) {
             meshRef.current.rotation.y += delta * 3.5;
             meshRef.current.rotation.x += delta * 1.5;
             const nextScale = meshRef.current.scale.x + delta * 28;
             if (nextScale > 18) {
-                setVisible(false);
-                setScale(0.01);
+                meshRef.current.visible = false;
             } else {
-                setScale(nextScale);
+                meshRef.current.scale.setScalar(nextScale);
+                if (materialRef.current) {
+                    materialRef.current.opacity = 0.85 * (1.0 - nextScale / 18);
+                }
             }
         }
     });
 
-    if (!visible) return null;
-
     return (
-        <mesh ref={meshRef} position={[0, 1.2, 0]} scale={scale}>
+        <mesh ref={meshRef} position={[0, 1.2, 0]} scale={0.01} visible={false}>
             <sphereGeometry args={[1, 14, 14]} />
             <meshBasicMaterial 
+                ref={materialRef}
                 color="#ffd700" 
                 wireframe={true} 
                 transparent={true} 
-                opacity={0.85 * (1.0 - scale / 18)} 
+                opacity={0.85} 
             />
         </mesh>
     );
 }
+
 
 function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate, activeBiome, selectedNode, hoveredNode }) {
     const { camera, controls } = useThree();
@@ -197,6 +204,17 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     }, []);
 
     useEffect(() => {
+        if (!controls) return;
+        const handleStart = () => {
+            isLockedToUnit.current = false;
+        };
+        controls.addEventListener('start', handleStart);
+        return () => {
+            controls.removeEventListener('start', handleStart);
+        };
+    }, [controls]);
+
+    useEffect(() => {
         if (!isLockedToUnit.current) return;
 
         if (gameMode === 'SANDBOX') {
@@ -251,12 +269,20 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
 
         // 1. Plynulý LERP stredu záujmu a rotačných obmedzení MapControls
         if (controls) {
-            // Apply dynamic tile-specific camera slant limits in-place (Rule 5 safety)
-            controls.minPolarAngle = THREE.MathUtils.lerp(controls.minPolarAngle, cameraProfile.pitch, delta * 3.0);
-            controls.maxPolarAngle = controls.minPolarAngle;
+            if (isLockedToUnit.current) {
+                // Apply dynamic tile-specific camera slant limits in-place (Rule 5 safety)
+                controls.minPolarAngle = THREE.MathUtils.lerp(controls.minPolarAngle, cameraProfile.pitch, delta * 3.0);
+                controls.maxPolarAngle = controls.minPolarAngle;
 
-            controls.minAzimuthAngle = THREE.MathUtils.lerp(controls.minAzimuthAngle, cameraProfile.yaw, delta * 3.0);
-            controls.maxAzimuthAngle = controls.minAzimuthAngle;
+                controls.minAzimuthAngle = THREE.MathUtils.lerp(controls.minAzimuthAngle, cameraProfile.yaw, delta * 3.0);
+                controls.maxAzimuthAngle = controls.minAzimuthAngle;
+            } else {
+                // Free 3D perspective rotation limits when unlocked
+                controls.minPolarAngle = 0.1;
+                controls.maxPolarAngle = Math.PI / 2 - 0.05;
+                controls.minAzimuthAngle = -Infinity;
+                controls.maxAzimuthAngle = Infinity;
+            }
 
             // If dragging the map, copy controls target to desiredTarget to avoid fighting
             if (!isLockedToUnit.current && state.pointer.down) {
@@ -289,6 +315,220 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     });
 
     return null;
+}
+
+function HardwareGovernorController({ onLimitsChange, globalEntropyStress, isLowPowerGPU }) {
+    const { scene } = useThree();
+    const lastUniformUpdateRef = useRef(0);
+    const prevTier = useRef(HardwareGovernor.currentTier);
+
+    useFrame((state, delta) => {
+        const deltaMs = delta * 1000;
+        
+        // 1. Update profile based on real frame time and GPU profile
+        const newLimits = HardwareGovernor.updateProfile(deltaMs, isLowPowerGPU);
+
+        // Notify parent of limits change if Tier changes
+        if (HardwareGovernor.currentTier !== prevTier.current) {
+            prevTier.current = HardwareGovernor.currentTier;
+            onLimitsChange(newLimits);
+            console.log(`[GOVERNOR] Performance Tier changed to: ${HardwareGovernor.currentTier}`);
+        }
+
+        // 2. Uniform throttling (TDP safety)
+        const interval = 1000 / newLimits.uniformThrottleHz;
+        const now = state.clock.getElapsedTime() * 1000;
+        if (now - lastUniformUpdateRef.current > interval) {
+            scene.traverse((object) => {
+                if (object instanceof THREE.Mesh && object.material) {
+                    // Check standard three material uniforms as fallback, or userData shader
+                    const uniforms = object.material.uniforms || object.material.userData?.shader?.uniforms;
+                    if (uniforms) {
+                        if (uniforms.uGravityPulse) {
+                            uniforms.uGravityPulse.value = newLimits.enableVolumetricFog ? state.clock.getElapsedTime() : 0;
+                        }
+                        if (uniforms.uEntropyStress) {
+                            uniforms.uEntropyStress.value = globalEntropyStress || 0;
+                        }
+                    }
+                }
+            });
+            lastUniformUpdateRef.current = now;
+        }
+    });
+
+    return null;
+}
+
+const VolumetricRayShader = {
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        uniform float uTime;
+        uniform float uOffset;
+        varying vec2 vUv;
+        void main() {
+            // Smooth vertical fade to eliminate sharp top/bottom cylinder vertices
+            float verticalFade = sin(vUv.y * 3.14159265);
+            // Non-linear glow boost
+            verticalFade = pow(verticalFade, 1.6);
+            
+            // Dynamic multi-frequency shimmer for volumetric turbulence (inspired by Bioshock)
+            float shimmer = 0.75 + 0.25 * sin(uTime * 1.8 + vUv.y * 6.0 + uOffset) 
+                                 + 0.1 * cos(uTime * 3.2 - vUv.x * 4.0);
+            
+            gl_FragColor = vec4(uColor, uOpacity * verticalFade * shimmer);
+        }
+    `
+};
+
+function GodRays3D({ activeProfile }) {
+    const groupRef = useRef();
+    const pointsRef = useRef();
+    
+    // Generate dust particles inside the light shafts area
+    const moteCount = 120;
+    const [positions, velocities, sizes] = useMemo(() => {
+        const pos = new Float32Array(moteCount * 3);
+        const vel = new Float32Array(moteCount * 3);
+        const sz = new Float32Array(moteCount);
+        for (let i = 0; i < moteCount; i++) {
+            // Cylindrical coordinates around center
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * 8.5;
+            pos[i * 3] = radius * Math.cos(angle);
+            pos[i * 3 + 1] = (Math.random() - 0.5) * 45; // Spanning height from bottom to top
+            pos[i * 3 + 2] = radius * Math.sin(angle);
+            
+            // Tiny drift speeds
+            vel[i * 3] = (Math.random() - 0.5) * 0.05;
+            vel[i * 3 + 1] = Math.random() * 0.08 + 0.03; // Slowly floating upwards
+            vel[i * 3 + 2] = (Math.random() - 0.5) * 0.05;
+            
+            sz[i] = Math.random() * 0.15 + 0.05;
+        }
+        return [pos, vel, sz];
+    }, []);
+
+    useFrame((state) => {
+        const time = state.clock.elapsedTime;
+        if (groupRef.current) {
+            // Gently sway the whole light shafts group
+            groupRef.current.rotation.y = time * 0.02;
+            groupRef.current.rotation.z = Math.sin(time * 0.15) * 0.02;
+
+            // Pulse the opacity of individual rays to look like shifting atmospheric dust
+            groupRef.current.children.forEach((child, idx) => {
+                if (child.material && child.material.uniforms) {
+                    const offset = idx * 1.5;
+                    child.material.uniforms.uTime.value = time;
+                    child.material.uniforms.uOpacity.value = (0.22 + Math.sin(time * 0.6 + offset) * 0.08) * (activeProfile.key.intensity / 1.3);
+                    child.material.uniforms.uColor.value.set(activeProfile.key.color);
+                }
+            });
+        }
+
+        if (pointsRef.current) {
+            const geo = pointsRef.current.geometry;
+            const posArr = geo.attributes.position.array;
+            for (let i = 0; i < moteCount; i++) {
+                // Drift motes upwards
+                posArr[i * 3 + 1] += velocities[i * 3 + 1] * 0.15;
+                posArr[i * 3] += Math.sin(time * 0.3 + i) * 0.008;
+                posArr[i * 3 + 2] += Math.cos(time * 0.3 + i) * 0.008;
+
+                // Reset if they float too high
+                if (posArr[i * 3 + 1] > 25) {
+                    posArr[i * 3 + 1] = -25;
+                }
+            }
+            geo.attributes.position.needsUpdate = true;
+        }
+    });
+
+    const rayColor = activeProfile.key.color;
+
+    // Bioshock-inspired warm bokeh light texture with blurred outer halo
+    const bokehTexture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        // Create radial gradient for a soft, out-of-focus circular orb
+        const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+        grad.addColorStop(0.15, 'rgba(254, 240, 138, 0.85)'); // Warm glow center
+        grad.addColorStop(0.45, 'rgba(251, 191, 36, 0.35)');  // Soft amber transition
+        grad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');      // Smooth fade-out edge
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 64);
+        return new THREE.CanvasTexture(canvas);
+    }, []);
+
+    const rayUniforms = useMemo(() => {
+        return [
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 0 } },
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 1.5 } },
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 3.0 } },
+            { uColor: { value: new THREE.Color(rayColor) }, uOpacity: { value: 0.22 }, uTime: { value: 0 }, uOffset: { value: 4.5 } }
+        ];
+    }, [rayColor]);
+
+    return (
+        <group ref={groupRef} position={[0, 15, 0]}>
+            {/* Volumetric light ray shafts casting through open space of the arena from top to bottom */}
+            {[
+                { pos: [-4, 0, -3], rot: [0.35, 0, 0.45], scale: [1, 50, 1], radius: 1.5 },
+                { pos: [6, 0, 4], rot: [-0.25, 0, -0.35], scale: [1.25, 55, 1.25], radius: 2.0 },
+                { pos: [-2, 0, 6], rot: [0.15, 0, -0.45], scale: [0.85, 48, 0.85], radius: 1.2 },
+                { pos: [2, 0, -5], rot: [-0.1, 0, 0.25], scale: [1.1, 52, 1.1], radius: 1.7 }
+            ].map((ray, idx) => (
+                <mesh 
+                    key={idx} 
+                    position={ray.pos} 
+                    rotation={ray.rot} 
+                    scale={ray.scale}
+                >
+                    <cylinderGeometry args={[ray.radius * 0.15, ray.radius, 1.0, 16, 1, true]} />
+                    <shaderMaterial
+                        vertexShader={VolumetricRayShader.vertexShader}
+                        fragmentShader={VolumetricRayShader.fragmentShader}
+                        uniforms={rayUniforms[idx]}
+                        transparent={true}
+                        depthWrite={false}
+                        blending={THREE.AdditiveBlending}
+                        side={THREE.DoubleSide}
+                    />
+                </mesh>
+            ))}
+
+            {/* Shimmering dust motes floating inside the shafts */}
+            <points ref={pointsRef}>
+                <bufferGeometry>
+                    <bufferAttribute
+                        attach="attributes-position"
+                        args={[positions, 3]}
+                    />
+                </bufferGeometry>
+                <pointsMaterial
+                    size={1.5}
+                    map={bokehTexture}
+                    transparent={true}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                    color={rayColor}
+                    opacity={0.7}
+                />
+            </points>
+        </group>
+    );
 }
 
 function EnvironmentController({ activeBiome, entropy, weatherOverride }) {
@@ -347,6 +587,7 @@ function EnvironmentController({ activeBiome, entropy, weatherOverride }) {
                 intensity={activeProfile.fill.intensity}
                 color={activeProfile.fill.color}
             />
+            <GodRays3D activeProfile={activeProfile} />
         </>
     );
 }
@@ -360,11 +601,28 @@ function isWebGLAvailable() {
     }
 }
 
-export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode, realityPhase = 'STANDARD', onCollectFlag = () => {} }) {
+export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, selectedCard = null, onExecuteAction = () => {}, onMoveHero = () => {}, threads = [], myThreadId = null, shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX', weatherOverride = null, activeTransitions = [], onTransitionComplete, surgeTile = null, scorchedTiles = [], hoveredNode: externalHoveredNode, setHoveredNode: externalSetHoveredNode, realityPhase = 'STANDARD', onCollectFlag = () => {}, isOverlayActive = false }) {
     const hasWebGL = useMemo(() => isWebGLAvailable(), []);
     const [isLowPower, setIsLowPower] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
     const gridData = useMemo(() => generate3DGrid(), []);
+
+    const visibleChunksCount = useMemo(() => {
+        const myThread = threads.find(t => t.id === myThreadId);
+        if (!myThread || !myThread.quests) return 4;
+        const completedCount = myThread.quests.filter(q => q.completed).length;
+        return Math.min(9, 4 + completedCount);
+    }, [threads, myThreadId]);
+
+    const visibleGridData = useMemo(() => {
+        return gridData.filter(node => node.macroIndex < visibleChunksCount);
+    }, [gridData, visibleChunksCount]);
+    const [limits, setLimits] = useState({
+        kclIterations: 24,
+        uniformThrottleHz: 10,
+        maxInstancedProps: 50,
+        enableVolumetricFog: true
+    });
     
     // Calculate which node IDs are collapsing this turn (including locked/collapsed campaign islands)
     const collapsingNodeIds = useMemo(() => {
@@ -388,6 +646,21 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const setHoveredNode = externalSetHoveredNode !== undefined ? externalSetHoveredNode : localSetHoveredNode;
 
     const [hudConfig, setHudConfig] = useState(null);
+    const [backofficeRegs, setBackofficeRegs] = useState(null);
+
+    useEffect(() => {
+        const fetchRegs = () => {
+            fetch('/api/backoffice/regulators')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) setBackofficeRegs(data);
+                })
+                .catch(() => {});
+        };
+        fetchRegs();
+        const interval = setInterval(fetchRegs, 3000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         const handleUpdate = (e) => {
@@ -427,9 +700,9 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     // Zoskupenie uzlov podľa metapozícií kvôli efektívnemu vykresleniu hraníc
     const metapositions = useMemo(() => {
         const groups = Array.from({ length: 9 }, () => []);
-        gridData.forEach(node => groups[node.macroIndex].push(node));
-        return groups;
-    }, [gridData]);
+        visibleGridData.forEach(node => groups[node.macroIndex].push(node));
+        return groups.filter(g => g.length > 0);
+    }, [visibleGridData]);
 
     const matrixSource = useMemo(() => {
         if (hudConfig) {
@@ -514,7 +787,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
     return (
         <div className="w-full h-full relative bg-[color:var(--space-bg)]">
-            <Canvas shadows>
+            <Canvas shadows={{ type: THREE.PCFShadowMap }}>
                 <color attach="background" args={[PALETTE.space.background]} />
                 <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
                 <StarfieldBackground />
@@ -525,12 +798,17 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     scorchedTilesCount={scorchedTiles?.length || 0}
                 />
                 <FloatingShards3D />
+                <HardwareGovernorController 
+                    onLimitsChange={setLimits} 
+                    globalEntropyStress={entropy} 
+                    isLowPowerGPU={isLowPower}
+                />
 
                 {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
                 <PerspectiveCamera makeDefault position={cameraPosition} fov={cameraFov} near={0.1} far={1000} />
                 <MapControls 
                     enableDamping 
-                    enableRotate={false} // Zamedzí otáčaniu pre čistú taktickú izometriu
+                    enableRotate={true} // Povolí otáčanie pre plný 3D zážitok z bojišťa
                     minDistance={10} 
                     maxDistance={120} 
                 />
@@ -553,8 +831,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                 {/* 3D Scéna - Vykreslenie 63 Hexov */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>
-                    {gridData.map((node) => {
-                        const isCollapsing = collapsingNodeIds.includes(node.id);
+                    {visibleGridData.map((node) => {
+                        const isCollapsing = collapsingNodeIds.includes(node.id) || !!serverBlock?.isSunk;
                         const serverChunk = map?.find(c => c.id === node.macroIndex);
                         const serverBlock = serverChunk?.blocks?.find(b => b.id === node.subIndex);
                         const hasChest = !!serverBlock?.hasOpportunity || !!serverBlock?.hasChest;
@@ -567,6 +845,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                             if (!selectedCard) {
                                 if (activeHero.freeMovementUsed) return null;
+                                if (serverBlock && serverBlock.walkable === false) return null;
                                 return dist <= (activeHero.movementBase || 1) ? 'move' : null;
                             }
 
@@ -616,6 +895,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             <HexagonNode3D
                                 key={node.id}
                                 node={node}
+                                turnsElapsed={turnsElapsed}
                                 isHovered={hoveredNode?.id === node.id || hoveredNode?.macroIndex === node.macroIndex}
                                 isSelected={selectedNode?.id === node.id}
                                 isTargetable={isTargetable}
@@ -640,6 +920,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 matrixSource={matrixSource}
                                 threads={threads}
                                 onCollectFlag={onCollectFlag}
+                                backofficeRegs={backofficeRegs}
+                                isOverlayActive={isOverlayActive}
                             />
                         );
                     })}
@@ -690,6 +972,13 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             if (base) {
                                 voltageVal = selectedCard.voltage || 2;
                             }
+                        } else if (!selectedCard && hoveredNode) {
+                            const activeHero = threads.find(t => t.id === (threads[0]?.id || 'thread_king_ai'));
+                            if (!activeHero || activeHero.position?.meta === undefined) return null;
+                            sourceMeta = activeHero.position.meta;
+                            sourceHex = activeHero.position.hex;
+                            targetMeta = hoveredNode.macroIndex;
+                            targetHex = hoveredNode.subIndex;
                         } else if (hudConfig) {
                             const srcThread = threads.find(t => t.id === hudConfig.sourceId) || threads[0];
                             if (!srcThread || srcThread.position?.meta === undefined) return null;
@@ -733,6 +1022,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                         // Calculate actual path points using Pathfinder
                         let pathSteps = [];
+                        let isHealedPath = false;
                         try {
                             const blocks = map && map.length > 0 ? map.flatMap(c => 
                                 (c.blocks || []).map(b => ({
@@ -750,6 +1040,24 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                                 targetHex,
                                 blocks
                             ) || [];
+
+                            if (pathSteps.length === 0) {
+                                pathSteps = Pathfinder.findHealedPath(
+                                    sourceMeta,
+                                    sourceHex,
+                                    targetMeta,
+                                    targetHex,
+                                    blocks
+                                ) || [];
+                                if (pathSteps.length > 0) {
+                                    isHealedPath = true;
+                                    const blockedCount = pathSteps.filter(s => {
+                                        const b = blocks.find(x => x.chunkId === s.chunkId && x.blockId === s.blockId);
+                                        return b && !b.walkable;
+                                    }).length;
+                                    console.log(`[CLIENT_R3F -> SERVER] [PHYSICS] Healing impassable path glitch | start=M${sourceMeta}_S${sourceHex} | end=M${targetMeta}_S${targetHex} | healedTilesCount=${blockedCount}`);
+                                }
+                            }
                         } catch (e) {
                             pathSteps = [
                                 { chunkId: sourceMeta, blockId: sourceHex },
@@ -778,51 +1086,91 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                         const startVec = points[0];
                         const endVec = points[points.length - 1];
-                        const dirVec = new THREE.Vector3().subVectors(endVec, startVec);
-                        const distanceLen = dirVec.length();
-                        const directionNorm = dirVec.clone().normalize();
-                        const up = new THREE.Vector3(0, 1, 0);
-                        const quaternion = new THREE.Quaternion().setFromUnitVectors(up, directionNorm);
-                        const midPoint = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
+
+                        // Build individual segment meshes to follow the curved path
+                        const segments = [];
+                        for (let i = 0; i < points.length - 1; i++) {
+                            const p1 = points[i];
+                            const p2 = points[i + 1];
+                            const segmentDir = new THREE.Vector3().subVectors(p2, p1);
+                            const segmentLen = segmentDir.length();
+                            if (segmentLen > 0.05) {
+                                const segmentNorm = segmentDir.clone().normalize();
+                                const upVec = new THREE.Vector3(0, 1, 0);
+                                const segmentQuat = new THREE.Quaternion().setFromUnitVectors(upVec, segmentNorm);
+                                const segmentMid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+
+                                // Select color based on action context (Rule 12 RAG & Modern UX design patterns)
+                                let segmentColor = "#ef4444";
+                                if (selectedCard) {
+                                    const base = allBases.find(b => b.id === selectedCard.id);
+                                    const isAttackNode = base ? (base.cardCategorization === 'attack' || base.damage > 0) : false;
+                                    const isMoveNode = selectedCard.id.includes('teleport') || selectedCard.id.includes('gate');
+                                    if (isMoveNode) segmentColor = "#00ffff"; // Cyan for move cards
+                                    else if (isAttackNode) segmentColor = "#ef4444"; // Red for attack cards
+                                    else segmentColor = "#a855f7"; // Purple for spell cards
+                                } else {
+                                    segmentColor = isHealedPath ? "#00ffcc" : "#3b82f6"; // Emerald green for healed, blue for regular movement
+                                }
+
+                                segments.push(
+                                    <group key={`segment_${i}`}>
+                                        <mesh position={[segmentMid.x, segmentMid.y + 0.15, segmentMid.z]} quaternion={segmentQuat}>
+                                            <cylinderGeometry args={[0.02, 0.02, segmentLen, 8]} />
+                                            <meshBasicMaterial color={segmentColor} transparent opacity={0.7} />
+                                        </mesh>
+                                        <mesh position={[p2.x, p2.y + 0.15, p2.z]} quaternion={segmentQuat}>
+                                            <coneGeometry args={[0.1, 0.28, 8]} />
+                                            <meshBasicMaterial color={segmentColor} />
+                                        </mesh>
+                                    </group>
+                                );
+                            }
+                        }
+
+                        // Determine overall path color for spheres
+                        let pathSphereColor = "#ef4444";
+                        if (selectedCard) {
+                            const base = allBases.find(b => b.id === selectedCard.id);
+                            const isAttackNode = base ? (base.cardCategorization === 'attack' || base.damage > 0) : false;
+                            const isMoveNode = selectedCard.id.includes('teleport') || selectedCard.id.includes('gate');
+                            if (isMoveNode) pathSphereColor = "#00ffff";
+                            else if (isAttackNode) pathSphereColor = "#ef4444";
+                            else pathSphereColor = "#a855f7";
+                        } else {
+                            pathSphereColor = isHealedPath ? "#00ffcc" : "#3b82f6";
+                        }
 
                         return (
                             <group>
                                 {points.map((p, idx) => (
                                     <mesh key={idx} position={[p.x, p.y + 0.1, p.z]}>
                                         <sphereGeometry args={[0.08, 16, 16]} />
-                                        <meshBasicMaterial color="#ef4444" />
+                                        <meshBasicMaterial color={pathSphereColor} />
                                     </mesh>
                                 ))}
-                                {distanceLen > 0.2 && (
-                                    <group>
-                                        <mesh position={[midPoint.x, midPoint.y + 0.15, midPoint.z]} quaternion={quaternion}>
-                                            <cylinderGeometry args={[0.02, 0.02, distanceLen, 8]} />
-                                            <meshBasicMaterial color="#ef4444" transparent opacity={0.7} />
-                                        </mesh>
-                                        <mesh position={[endVec.x, endVec.y + 0.15, endVec.z]} quaternion={quaternion}>
-                                            <coneGeometry args={[0.12, 0.35, 8]} />
-                                            <meshBasicMaterial color="#ef4444" />
-                                        </mesh>
-                                    </group>
+                                {segments}
+                                {!isOverlayActive && (
+                                    <Html distanceFactor={14} position={[points[points.length - 1].x, points[points.length - 1].y + 1.2, points[points.length - 1].z]} center>
+                                        <div className="glass-panel-heavy p-2 text-[8px] text-white border border-red-500 rounded bg-slate-950/90 w-44 backdrop-blur font-mono">
+                                            <div className="font-bold text-red-400 uppercase tracking-wider mb-1 text-[9px]">EXPERIMENTAL_V2 GUIDANCE</div>
+                                            <div>Src Cartesian: [{startPos.x.toFixed(1)}, {startPos.y.toFixed(1)}, {startPos.z.toFixed(1)}]</div>
+                                            <div>Tgt Cartesian: [{endPos.x.toFixed(1)}, {endPos.y.toFixed(1)}, {endPos.z.toFixed(1)}]</div>
+                                            <div className="text-yellow-400">Euclidean Dist: {eucDistance.toFixed(2)}m</div>
+                                            <div className="text-cyan-400 font-bold border-t border-slate-800 mt-1 pt-1">Est. Trajectory Cost: {trajectoryCost.toFixed(1)}W</div>
+                                            <div className="text-[7px] text-slate-500 italic mt-0.5">Calculated by SpatialGuidanceSystem</div>
+                                        </div>
+                                    </Html>
                                 )}
-                                <Html distanceFactor={14} position={[points[points.length - 1].x, points[points.length - 1].y + 1.2, points[points.length - 1].z]} center>
-                                    <div className="glass-panel-heavy p-2 text-[8px] text-white border border-red-500 rounded bg-slate-950/90 w-44 backdrop-blur font-mono">
-                                        <div className="font-bold text-red-400 uppercase tracking-wider mb-1 text-[9px]">EXPERIMENTAL_V2 GUIDANCE</div>
-                                        <div>Src Cartesian: [{startPos.x.toFixed(1)}, {startPos.y.toFixed(1)}, {startPos.z.toFixed(1)}]</div>
-                                        <div>Tgt Cartesian: [{endPos.x.toFixed(1)}, {endPos.y.toFixed(1)}, {endPos.z.toFixed(1)}]</div>
-                                        <div className="text-yellow-400">Euclidean Dist: {eucDistance.toFixed(2)}m</div>
-                                        <div className="text-cyan-400 font-bold border-t border-slate-800 mt-1 pt-1">Est. Trajectory Cost: {trajectoryCost.toFixed(1)}W</div>
-                                        <div className="text-[7px] text-slate-500 italic mt-0.5">Calculated by SpatialGuidanceSystem</div>
-                                    </div>
-                                </Html>
                             </group>
                         );
                     })()}
 
                     {/* Rekvizity biómov — Optimalizované vykresľovanie cez Instanced Rendering a zdieľané materiály */}
                     <InstancedWorldProps 
-                        gridData={gridData} 
+                        gridData={visibleGridData} 
                         collapsingNodeIds={collapsingNodeIds} 
+                        maxInstancedProps={limits.maxInstancedProps}
                     />
 
                     {/* Floating mana particles across the whole arena */}
@@ -831,26 +1179,34 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         hazardIndex={currentHazardIndex}
                     />
 
+                    {/* Chunk-level optimized biome particles */}
+                    <DesertHeatParticles gridData={visibleGridData} map={map} />
+                    <BarrensDustDevil gridData={visibleGridData} map={map} />
+                    <ForestFireflies gridData={visibleGridData} map={map} entropy={entropy} />
+
                     {/* Centrálny magický vír — srdce ostrova */}
-                    {portalNode && (
+                    {portalNode && portalNode.macroIndex < visibleChunksCount && (
                         <PortalVortex3D position={[portalNode.position[0], 0.55, portalNode.position[2]]} />
                     )}
 
-                    {/* Volumetric Fog Layer disabled for sharp visual focus */}
+                    {/* Volumetric Fog Layer controlled by HardwareGovernor */}
+                    {limits.enableVolumetricFog && (
+                        <VolumetricFog3D entropy={entropy} />
+                    )}
 
                     {/* Hero Aura rings + ground glow — mounted per thread, LERP-tracked */}
                     {threads.map((thread) => (
                         <HeroAura
                             key={`aura_${thread.id}`}
                             thread={thread}
-                            gridData={gridData}
+                            gridData={visibleGridData}
                         />
                     ))}
 
                     {/* Vykreslenie plynule Lerp-ovaných figúrok postáv */}
                     {threads.map((thread) => {
                         const associatedNode = thread.position && thread.position.meta !== null && thread.position.hex !== null
-                            ? gridData.find(n => n.macroIndex === thread.position.meta && n.subIndex === thread.position.hex)
+                            ? visibleGridData.find(n => n.macroIndex === thread.position.meta && n.subIndex === thread.position.hex)
                             : null;
 
                         const handleMiniatureClick = () => {
@@ -884,7 +1240,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                             <ThreadMiniature 
                                 key={thread.id}
                                 thread={thread}
-                                gridData={gridData}
+                                gridData={visibleGridData}
                                 onClick={handleMiniatureClick}
                                 onDoubleClick={handleMiniatureDoubleClick}
                                 isLocalPlayer={thread.id === myThreadId}
@@ -897,12 +1253,12 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         <HeroImpactVFX
                             key={`vfx_${thread.id}`}
                             thread={thread}
-                            gridData={gridData}
+                            gridData={visibleGridData}
                         />
                     ))}
 
                     {/* Vykreslenie projektilov kúziel */}
-                    <SpellProjectile3D threads={threads} gridData={gridData} />
+                    <SpellProjectile3D threads={threads} gridData={visibleGridData} />
 
                     {/* expanding 3D golden sphere mesh for Ultimate actions */}
                     <UltimateOrbVFX active={ultimateFlash} />
@@ -928,7 +1284,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 </ArenaGroup>
 
                 {/* Kognitívna Termodynamika - Dynamický Post-processing podľa Entropy */}
-                <EffectComposer disableNormalPass>
+                <EffectComposer>
                     <AestheticCompositor entropy={entropy} isLowPower={isLowPower} realityPhase={realityPhase} />
                 </EffectComposer>
             </Canvas>

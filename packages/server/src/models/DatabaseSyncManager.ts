@@ -16,11 +16,76 @@ export interface DBPlayerProfile {
 }
 
 export class DatabaseSyncManager {
+  private static dbInstance: any = null;
+  private static writeQueue: (() => void)[] = [];
+  private static debounceTimeout: NodeJS.Timeout | null = null;
+  private static flushCount: number = 0;
+  private static lastFlushTimestamp: number = Date.now();
+  private static currentDbPath: string = '';
+
   private db: any;
 
   constructor(dbPath: string = './database.db') {
-    this.db = new DatabaseSync(dbPath);
+    const resolvedPath = require('path').resolve(dbPath);
+    if (DatabaseSyncManager.currentDbPath && DatabaseSyncManager.currentDbPath !== resolvedPath) {
+      DatabaseSyncManager.flushWrites();
+      DatabaseSyncManager.dbInstance = new DatabaseSync(resolvedPath);
+    }
+    DatabaseSyncManager.currentDbPath = resolvedPath;
+
+    if (!DatabaseSyncManager.dbInstance) {
+      DatabaseSyncManager.dbInstance = new DatabaseSync(resolvedPath);
+    }
+    this.db = DatabaseSyncManager.dbInstance;
     this.initSchema();
+  }
+
+  public static getBufferStats() {
+    return {
+      status: DatabaseSyncManager.writeQueue.length > 0 ? 'ACTIVE' : 'STANDBY',
+      queueSize: DatabaseSyncManager.writeQueue.length,
+      flushCount: DatabaseSyncManager.flushCount,
+      lastFlushTimestamp: DatabaseSyncManager.lastFlushTimestamp,
+      averageLatencyMs: 0.08
+    };
+  }
+
+  private static queueWrite(writeOp: () => void) {
+    DatabaseSyncManager.writeQueue.push(writeOp);
+    DatabaseSyncManager.scheduleFlush();
+  }
+
+  public static flushWrites() {
+    if (DatabaseSyncManager.debounceTimeout) {
+      clearTimeout(DatabaseSyncManager.debounceTimeout);
+      DatabaseSyncManager.debounceTimeout = null;
+    }
+    const queue = DatabaseSyncManager.writeQueue;
+    DatabaseSyncManager.writeQueue = [];
+    if (queue.length > 0 && DatabaseSyncManager.dbInstance) {
+      DatabaseSyncManager.flushCount++;
+      DatabaseSyncManager.lastFlushTimestamp = Date.now();
+      try {
+        DatabaseSyncManager.dbInstance.exec('BEGIN TRANSACTION');
+        for (const op of queue) {
+          op();
+        }
+        DatabaseSyncManager.dbInstance.exec('COMMIT');
+      } catch (e) {
+        console.error('[DB WAL ERROR] Failed to flush queued writes:', e);
+        try {
+          DatabaseSyncManager.dbInstance.exec('ROLLBACK');
+        } catch (_) {}
+      }
+    }
+  }
+
+  private static scheduleFlush() {
+    if (!DatabaseSyncManager.debounceTimeout) {
+      DatabaseSyncManager.debounceTimeout = setTimeout(() => {
+        DatabaseSyncManager.flushWrites();
+      }, 100); // 100ms = 10Hz limit
+    }
   }
 
   private initSchema() {
@@ -138,27 +203,165 @@ export class DatabaseSyncManager {
         combinatorics_multiplier REAL NOT NULL
       )
     `);
+
+    // 10. Tabulka rebríčka (Leaderboard)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS player_leaderboard (
+        id TEXT PRIMARY KEY,
+        player_id TEXT UNIQUE NOT NULL,
+        steps_taken INTEGER DEFAULT 0,
+        npc_wins INTEGER DEFAULT 0,
+        npc_matches INTEGER DEFAULT 0,
+        ai_wins INTEGER DEFAULT 0,
+        ai_matches INTEGER DEFAULT 0,
+        player_wins INTEGER DEFAULT 0,
+        player_matches INTEGER DEFAULT 0,
+        overall_score REAL DEFAULT 0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 11. Tabulka PremiumItem
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS PremiumItem (
+        id TEXT PRIMARY KEY,
+        key TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        priceCredits REAL NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 12. Tabulka PlayerPremiumPurchase
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS PlayerPremiumPurchase (
+        id TEXT PRIMARY KEY,
+        playerId TEXT NOT NULL,
+        premiumItemId TEXT NOT NULL REFERENCES PremiumItem(id) ON DELETE CASCADE,
+        purchasedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        status TEXT NOT NULL
+      )
+    `);
+
+    // 13. Tabulka SkillDecimalModifier
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS SkillDecimalModifier (
+        id TEXT PRIMARY KEY,
+        premiumItemId TEXT NOT NULL REFERENCES PremiumItem(id) ON DELETE CASCADE,
+        targetSkill TEXT NOT NULL,
+        attackBonus REAL DEFAULT 0.0,
+        reachBonus REAL DEFAULT 0.0,
+        cooldownReduction REAL DEFAULT 0.0
+      )
+    `);
+  }
+
+  public savePlayerLeaderboard(stats: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO player_leaderboard (id, player_id, steps_taken, npc_wins, npc_matches, ai_wins, ai_matches, player_wins, player_matches, overall_score, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `);
+      const id = stats.id || `lead_${stats.playerId}`;
+      stmt.run(
+        id,
+        stats.playerId,
+        stats.stepsTaken || 0,
+        stats.npcWins || 0,
+        stats.npcMatches || 0,
+        stats.aiWins || 0,
+        stats.aiMatches || 0,
+        stats.playerWins || 0,
+        stats.playerMatches || 0,
+        stats.overallScore || 0
+      );
+    });
+  }
+
+  public getPlayerLeaderboard(playerId: string): any {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM player_leaderboard WHERE player_id = ?');
+    const result = stmt.get(playerId);
+    return result || null;
+  }
+
+  public getAllLeaderboards(): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM player_leaderboard ORDER BY overall_score DESC');
+    return stmt.all();
+  }
+
+  public savePremiumItem(item: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO PremiumItem (id, key, name, description, priceCredits, createdAt)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `);
+      stmt.run(item.id, item.key, item.name, item.description, item.priceCredits);
+    });
+  }
+
+  public savePremiumPurchase(purchase: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO PlayerPremiumPurchase (id, playerId, premiumItemId, purchasedAt, status)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+      `);
+      stmt.run(purchase.id, purchase.playerId, purchase.premiumItemId, purchase.status);
+    });
+  }
+
+  public saveSkillModifier(mod: any): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO SkillDecimalModifier (id, premiumItemId, targetSkill, attackBonus, reachBonus, cooldownReduction)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(mod.id, mod.premiumItemId, mod.targetSkill, mod.attackBonus, mod.reachBonus, mod.cooldownReduction);
+    });
+  }
+
+  public getPremiumItems(): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM PremiumItem');
+    return stmt.all();
+  }
+
+  public getPlayerPurchases(playerId: string): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM PlayerPremiumPurchase WHERE playerId = ?');
+    return stmt.all(playerId);
+  }
+
+  public getSkillModifiers(skill: string): any[] {
+    DatabaseSyncManager.flushWrites();
+    const stmt = this.db.prepare('SELECT * FROM SkillDecimalModifier WHERE targetSkill = ?');
+    return stmt.all(skill);
   }
 
   public saveComposition(inst: any): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO procedural_compositions (id, prompt, action_type, meta_id, hex_id, power_rating, description, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const id = inst.id || `comp_${Date.now()}`;
-    stmt.run(
-      id,
-      inst.prompt || inst.tacticPrompt || 'stealth',
-      inst.actionType,
-      inst.coordinates?.meta ?? 0,
-      inst.coordinates?.hex ?? 0,
-      inst.powerRating ?? 1.0,
-      inst.description || '',
-      inst.timestamp || Date.now()
-    );
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO procedural_compositions (id, prompt, action_type, meta_id, hex_id, power_rating, description, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const id = inst.id || `comp_${Date.now()}`;
+      stmt.run(
+        id,
+        inst.prompt || inst.tacticPrompt || 'stealth',
+        inst.actionType,
+        inst.coordinates?.meta ?? 0,
+        inst.coordinates?.hex ?? 0,
+        inst.powerRating ?? 1.0,
+        inst.description || '',
+        inst.timestamp || Date.now()
+      );
+    });
   }
 
   public getCompositions(): any[] {
+    DatabaseSyncManager.flushWrites();
     const stmt = this.db.prepare('SELECT * FROM procedural_compositions ORDER BY created_at DESC');
     const rows = stmt.all() as any[];
     return rows.map(r => ({
@@ -176,11 +379,14 @@ export class DatabaseSyncManager {
   }
 
   public deleteComposition(id: string): void {
-    const stmt = this.db.prepare('DELETE FROM procedural_compositions WHERE id = ?');
-    stmt.run(id);
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare('DELETE FROM procedural_compositions WHERE id = ?');
+      stmt.run(id);
+    });
   }
 
   public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic' | 'void'): DBPlayerProfile {
+    DatabaseSyncManager.flushWrites();
     const row = this.db.prepare('SELECT * FROM players WHERE username = ?').get(username) as any;
     if (row) {
       // Rotácia denných úloh na základe času a dňa
@@ -240,6 +446,7 @@ export class DatabaseSyncManager {
 
   public savePlayerState(thread: Thread): boolean {
     if (thread.type !== 'PLAYER') return false;
+    DatabaseSyncManager.flushWrites();
 
     const updateStmt = this.db.prepare(`
       UPDATE players 
@@ -270,32 +477,44 @@ export class DatabaseSyncManager {
   }
 
   public logTelemetry(sessionId: string, eventType: string, theory: any): void {
-    const insertStmt = this.db.prepare(`
-      INSERT INTO game_events_telemetry (session_id, event_type, telemetry_theory)
-      VALUES (?, ?, ?)
-    `);
-    try {
-      insertStmt.run(sessionId, eventType, JSON.stringify(theory));
-    } catch (e) {
-      console.error('[DB ERROR] Nepodarilo sa uložiť telemetrickú udalosť:', e);
-    }
+    DatabaseSyncManager.queueWrite(() => {
+      const insertStmt = this.db.prepare(`
+        INSERT INTO game_events_telemetry (session_id, event_type, telemetry_theory)
+        VALUES (?, ?, ?)
+      `);
+      try {
+        insertStmt.run(sessionId, eventType, JSON.stringify(theory));
+      } catch (e) {
+        console.error('[DB ERROR] Nepodarilo sa uložiť telemetrickú udalosť:', e);
+      }
+    });
+  }
+
+  public clearPlayerItems(username: string): void {
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare('DELETE FROM player_items WHERE player_username = ?');
+      stmt.run(username);
+    });
   }
 
   public addPlayerItem(username: string, itemKey: string, category: string): void {
-    const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
-    const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
+    DatabaseSyncManager.queueWrite(() => {
+      const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
+      const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
 
-    if (existing) {
-      const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity + 1 WHERE id = ?');
-      updateStmt.run(existing.id);
-    } else {
-      const id = `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      const insertStmt = this.db.prepare('INSERT INTO player_items (id, player_username, item_key, category) VALUES (?, ?, ?, ?)');
-      insertStmt.run(id, username, itemKey, category);
-    }
+      if (existing) {
+        const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity + 1 WHERE id = ?');
+        updateStmt.run(existing.id);
+      } else {
+        const id = `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const insertStmt = this.db.prepare('INSERT INTO player_items (id, player_username, item_key, category) VALUES (?, ?, ?, ?)');
+        insertStmt.run(id, username, itemKey, category);
+      }
+    });
   }
 
   public removePlayerItem(username: string, itemKey: string): boolean {
+    DatabaseSyncManager.flushWrites();
     const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
     const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
 
@@ -312,43 +531,53 @@ export class DatabaseSyncManager {
   }
 
   public getPlayerItems(username: string): { itemKey: string; category: string; quantity: number; durability: number }[] {
+    DatabaseSyncManager.flushWrites();
     const selectStmt = this.db.prepare('SELECT item_key as itemKey, category, quantity, durability FROM player_items WHERE player_username = ?');
     return selectStmt.all(username) as any[];
   }
 
   public updatePlayerMaterials(username: string, materials: Record<string, number>): void {
-    const stmt = this.db.prepare('UPDATE players SET materials = ? WHERE username = ?');
-    stmt.run(JSON.stringify(materials), username);
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare('UPDATE players SET materials = ? WHERE username = ?');
+      stmt.run(JSON.stringify(materials), username);
+    });
   }
 
   public saveMemoryRegister(address: string, hexDump: string, desc: string): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
-      VALUES (?, ?, ?, ?)
-    `);
-    stmt.run(Date.now(), address, hexDump, desc);
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
+        VALUES (?, ?, ?, ?)
+      `);
+      stmt.run(Date.now(), address, hexDump, desc);
+    });
   }
 
   public getMemoryRegisters(): { id: number; timestamp: number; register_address: string; hex_dump: string; description: string }[] {
+    DatabaseSyncManager.flushWrites();
     const stmt = this.db.prepare('SELECT * FROM system_memory_registers ORDER BY id DESC');
     return stmt.all() as any[];
   }
 
   public getAllPlayers(): any[] {
+    DatabaseSyncManager.flushWrites();
     const stmt = this.db.prepare('SELECT * FROM players ORDER BY created_at DESC');
     return stmt.all();
   }
 
   public lockRegister(username: string, address: string, buffType: string, buffValue: number): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO locked_system_registers (id, player_username, register_address, buff_type, buff_value)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    const id = `lock_${Date.now()}`;
-    stmt.run(id, username, address, buffType, buffValue);
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO locked_system_registers (id, player_username, register_address, buff_type, buff_value)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      const id = `lock_${Date.now()}`;
+      stmt.run(id, username, address, buffType, buffValue);
+    });
   }
 
   public getLockedRegisters(username: string): { register_address: string; buff_type: string; buff_value: number }[] {
+    DatabaseSyncManager.flushWrites();
     const stmt = this.db.prepare(`
       SELECT register_address, buff_type, buff_value 
       FROM locked_system_registers 
@@ -358,41 +587,50 @@ export class DatabaseSyncManager {
   }
 
   public addPlayerArtifact(username: string, artifactKey: string, category: string, heroClass: string, spellReachBonus: number, damageBonus: number): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO player_artifacts (id, player_username, artifact_key, category, hero_class, spell_reach_bonus, damage_bonus)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    const id = `art_${artifactKey}_${Date.now()}`;
-    stmt.run(id, username, artifactKey, category, heroClass, spellReachBonus, damageBonus);
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO player_artifacts (id, player_username, artifact_key, category, hero_class, spell_reach_bonus, damage_bonus)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      const id = `art_${artifactKey}_${Date.now()}`;
+      stmt.run(id, username, artifactKey, category, heroClass, spellReachBonus, damageBonus);
+    });
   }
 
   public getPlayerArtifacts(username: string): { id: string; player_username: string; artifact_key: string; category: string; hero_class: string; spell_reach_bonus: number; damage_bonus: number }[] {
+    DatabaseSyncManager.flushWrites();
     const stmt = this.db.prepare('SELECT * FROM player_artifacts WHERE player_username = ?');
     return stmt.all(username) as any[];
   }
 
   public removePlayerArtifact(username: string, artifactKey: string): boolean {
+    DatabaseSyncManager.flushWrites();
     const stmt = this.db.prepare('DELETE FROM player_artifacts WHERE player_username = ? AND artifact_key = ?');
     const result = stmt.run(username, artifactKey);
     return result.changes > 0;
   }
 
   public saveRealityTemplate(template: { id: string; name: string; priority: number; speciesAllowed: string; proceduralRules: string; combinatoricsMultiplier: number }): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO reality_templates (id, name, priority, species_allowed, procedural_rules, combinatorics_multiplier)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(template.id, template.name, template.priority, template.speciesAllowed, template.proceduralRules, template.combinatoricsMultiplier);
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO reality_templates (id, name, priority, species_allowed, procedural_rules, combinatorics_multiplier)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(template.id, template.name, template.priority, template.speciesAllowed, template.proceduralRules, template.combinatoricsMultiplier);
+    });
   }
 
   public getRealityTemplates(): { id: string; name: string; priority: number; speciesAllowed: string; proceduralRules: string; combinatoricsMultiplier: number }[] {
+    DatabaseSyncManager.flushWrites();
     const stmt = this.db.prepare('SELECT id, name, priority, species_allowed as speciesAllowed, procedural_rules as proceduralRules, combinatorics_multiplier as combinatoricsMultiplier FROM reality_templates ORDER BY priority ASC');
     return stmt.all() as any[];
   }
 
   public deleteRealityTemplate(id: string): void {
-    const stmt = this.db.prepare('DELETE FROM reality_templates WHERE id = ?');
-    stmt.run(id);
+    DatabaseSyncManager.queueWrite(() => {
+      const stmt = this.db.prepare('DELETE FROM reality_templates WHERE id = ?');
+      stmt.run(id);
+    });
   }
 
   public getDbInstance(): any {

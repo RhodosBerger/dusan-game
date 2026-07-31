@@ -12,15 +12,11 @@ echo -e "${CYAN}================================================================
 echo -e "${CYAN}      SOVEREIGN ENGINE - FULL ENVIRONMENT ORCHESTRATOR           ${NC}"
 echo -e "${CYAN}==================================================================${NC}"
 
-# Ensure Python Virtual Environment exists for ML spawner
-if [ ! -d "packages/server/.venv" ]; then
-    echo -e "${YELLOW}[ML SETUP] Creating Python Virtual Environment at packages/server/.venv...${NC}"
-    python3 -m venv packages/server/.venv
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}[ML SETUP ERROR] Failed to create virtual environment. Ensure python3-venv is installed.${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}[ML SETUP] Virtual environment created successfully.${NC}"
+# Ensure Python Virtual Environment exists and is fully synchronized
+./packages/server/scripts/bootstrap-python.sh
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[ML SETUP ERROR] Python virtual environment bootstrap failed.${NC}"
+    exit 1
 fi
 
 # Build all typescript workspaces first

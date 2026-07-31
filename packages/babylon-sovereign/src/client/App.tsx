@@ -13,11 +13,29 @@ import RPGClassBoard from './components/RPGClassBoard';
 import MetacognitiveArchitectureHub from './components/MetacognitiveArchitectureHub';
 import AdrenalineVignette from './components/AdrenalineVignette';
 import CorporateSimulationPanel from './components/CorporateSimulationPanel';
+import RealityCompositorPanel from './components/RealityCompositorPanel';
 
 export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<any>(null);
-  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [selectedCards, setSelectedCards] = useState<any[]>([]);
+  const selectedCard = selectedCards[0] || null;
+  const setSelectedCard = (card: any) => {
+    if (!card) {
+      setSelectedCards([]);
+      return;
+    }
+    setSelectedCards(prev => {
+      const exists = prev.find(c => c.id === card.id);
+      if (exists) {
+        return prev.filter(c => c.id !== card.id);
+      }
+      if (prev.length < 2) {
+        return [...prev, card];
+      }
+      return [prev[1], card];
+    });
+  };
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [hoveredNode, setHoveredNode] = useState<any>(null);
   const [myThreadId] = useState<string>('thread_king_ai');
@@ -36,11 +54,13 @@ export default function App() {
   const [isAdminDiagnosticsOpen, setIsAdminDiagnosticsOpen] = useState<boolean>(false);
   const [isMetaHubOpen, setIsMetaHubOpen] = useState<boolean>(false);
   const [isCorpSimOpen, setIsCorpSimOpen] = useState<boolean>(false);
+  const [isRealityCompositorOpen, setIsRealityCompositorOpen] = useState<boolean>(false);
 
   // Combat VFX & Telemetry States
   const [entropy, setEntropy] = useState<number>(0.2);
   const [semanticSector, setSemanticSector] = useState<any>(null);
   const [terrainTelemetry, setTerrainTelemetry] = useState<any>(null);
+  const [devopsTelemetry, setDevopsTelemetry] = useState<any>(null);
   const [weatherOverride, setWeatherOverride] = useState<string>('CLEAR');
   const [isManualWeather, setIsManualWeather] = useState<boolean>(false);
   const [actionLogs, setActionLogs] = useState<string[]>([]);
@@ -138,14 +158,48 @@ export default function App() {
 
   const handleExecuteAction = () => {
     if (socket && selectedCard && selectedNode) {
-      socket.emit('execute_action', {
-        playerId: myThreadId,
-        cardId: selectedCard.id,
-        targetMeta: selectedNode.macroIndex,
-        targetHex: selectedNode.subIndex
-      });
-      setSelectedCard(null);
+      if (selectedCard.type === 'TRAP') {
+        socket.emit('place_trap', {
+          playerId: myThreadId,
+          trapType: 'ROOT_TRAP',
+          targetMeta: selectedNode.macroIndex,
+          targetHex: selectedNode.subIndex
+        });
+      } else {
+        socket.emit('execute_action', {
+          playerId: myThreadId,
+          cardId: selectedCard.id,
+          targetMeta: selectedNode.macroIndex,
+          targetHex: selectedNode.subIndex
+        });
+      }
+      setSelectedCards([]);
       setSelectedNode(null);
+    }
+  };
+
+  const handleFuseCards = () => {
+    if (selectedCards.length === 2) {
+      fetch('/api/cards/fuse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardId1: selectedCards[0].id,
+          cardId2: selectedCards[1].id,
+          playerId: myThreadId,
+          matchId
+        })
+      })
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (data && data.success) {
+            setGameState(data.gameState);
+            setSelectedCards([]);
+            setSelectedNode(null);
+            console.log('[FUSION] Cards fused successfully!');
+          }
+        })
+        .catch(err => console.error('[FUSION] Failed to fuse cards:', err));
     }
   };
 
@@ -251,6 +305,11 @@ export default function App() {
         .then(res => (res.ok ? res.json() : null))
         .then(data => { if (data && data.difficulty) setTerrainTelemetry(data); })
         .catch(() => console.warn('[TELEMETRY] Terrain Telemetry offline'));
+
+      fetch(`/api/devops/telemetry`)
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => { if (data) setDevopsTelemetry(data); })
+        .catch(() => console.warn('[TELEMETRY] DevOps Telemetry offline'));
     };
 
     fetchTelemetry();
@@ -359,6 +418,13 @@ export default function App() {
           hoveredNode={hoveredNode}
           setHoveredNode={setHoveredNode}
           socket={socket}
+          weatherOverride={weatherOverride}
+          ultimateFlash={ultimateFlash}
+          scorchedTiles={scorchedTiles}
+          surgeTile={surgeTile}
+          entropy={entropy}
+          lastComboEvent={gameState?.lastComboEvent}
+          devopsTelemetry={devopsTelemetry}
         />
       </div>
 
@@ -374,12 +440,14 @@ export default function App() {
         setEntropy={setEntropy}
         cards={cards}
         selectedCard={selectedCard}
+        selectedCards={selectedCards}
         setSelectedCard={setSelectedCard}
         selectedNode={selectedNode}
         setSelectedNode={setSelectedNode}
         hoveredNode={hoveredNode}
         onMoveHero={handleMoveHero}
         onExecuteAction={handleExecuteAction}
+        onFuseCards={handleFuseCards}
         onEndTurn={handleEndTurn}
         onResetSimulation={handleResetSimulation}
         onEvolveScene={handleEvolveScene}
@@ -471,6 +539,12 @@ export default function App() {
         >
           🏢 Corp Simulation
         </button>
+        <button 
+          onClick={() => setIsRealityCompositorOpen(true)}
+          className="bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all tracking-wider"
+        >
+          💠 Reality Compositor
+        </button>
       </div>
 
       {/* Float Panels Modals */}
@@ -496,6 +570,9 @@ export default function App() {
       )}
       {isCorpSimOpen && (
         <CorporateSimulationPanel onClose={() => setIsCorpSimOpen(false)} />
+      )}
+      {isRealityCompositorOpen && (
+        <RealityCompositorPanel isOpen={isRealityCompositorOpen} onClose={() => setIsRealityCompositorOpen(false)} />
       )}
     </div>
   );

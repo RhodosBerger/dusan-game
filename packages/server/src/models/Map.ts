@@ -45,9 +45,11 @@ export interface Block {
   lootProbability: number;
   hasChest?: boolean;
   isTown?: boolean;
-  hasTrap?: 'ROOT_TRAP' | 'EMP_MINE' | null;
+  hasTrap?: 'ROOT_TRAP' | 'EMP_MINE' | 'STATIC_CHARGE_TRAP' | null;
   trapOwnerId?: string | null;
   hasOpportunity?: 'SURGE_NODE' | 'VOID_RIFT' | 'REPAIR_KIT' | null;
+  collapseInTurns?: number;
+  isSunk?: boolean;
 }
 
 export interface Chunk {

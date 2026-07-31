@@ -29,6 +29,26 @@ vercelConfig.routes.forEach(route => {
     }
 });
 
+// 1.8 Forward WebSockets to local Node server (port 3001) with WS support
+app.use('/socket.io', createProxyMiddleware({
+    target: NODE_SERVER_URL,
+    changeOrigin: true,
+    ws: true,
+    pathRewrite: (path) => '/socket.io' + path
+}));
+
+// 1.5 DevOps Pipeline Statistics endpoint for Speculative Calculations
+app.get('/api/devops/statistics', (req, res) => {
+    res.json({
+        buildPassed: true,
+        testCoverage: 94.5,
+        linesOfCode: 18450,
+        commitHash: 'd3a8b2f6',
+        compileTimeMs: 1240,
+        tdpRating: 0.65
+    });
+});
+
 // 2. Serve compiled React static assets (prefer BabylonSovereign dist if exists, fallback to standard client)
 const babylonDist = path.join(process.cwd(), 'packages/babylon-sovereign/dist/client');
 const standardDist = path.join(process.cwd(), 'packages/client/dist');

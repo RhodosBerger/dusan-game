@@ -1,10 +1,10 @@
 // packages/server/src/models/GameplayCompositorManager.ts
 import { SovereignEngine } from './SovereignEngine';
-import { RenderPriorityBalancer } from './RenderPriorityBalancer';
+import { RenderPriorityBalancer } from '@dusan-game/shared';
 
 export interface CompositorTriggerResult {
   status: 'SUCCESS' | 'NO_OP';
-  spawnedEntityType?: 'ROOT_TRAP' | 'EMP_MINE' | 'SURGE_NODE' | 'VOID_RIFT' | 'CHEST';
+  spawnedEntityType?: 'ROOT_TRAP' | 'EMP_MINE' | 'STATIC_CHARGE_TRAP' | 'SURGE_NODE' | 'VOID_RIFT' | 'CHEST';
   meta?: number;
   hex?: number;
   message: string;
@@ -49,14 +49,15 @@ export class GameplayCompositorManager {
     // 2. Select a target node based on the telemetry (Dopamine Balancer)
     // If player health is low, we spawn a beneficial chest/opportunity; if high, we spawn a trap to increase challenge
     const hpRatio = thread.health / thread.maxHealth;
-    let spawnType: 'ROOT_TRAP' | 'EMP_MINE' | 'SURGE_NODE' | 'VOID_RIFT' | 'CHEST' = 'CHEST';
+    let spawnType: 'ROOT_TRAP' | 'EMP_MINE' | 'STATIC_CHARGE_TRAP' | 'SURGE_NODE' | 'VOID_RIFT' | 'CHEST' = 'CHEST';
 
     if (hpRatio < 0.4) {
       // Spawn beneficial chest
       spawnType = 'CHEST';
     } else if (hpRatio > 0.8) {
       // Spawn high challenge trap
-      spawnType = Math.random() > 0.5 ? 'ROOT_TRAP' : 'VOID_RIFT';
+      const rand = Math.random();
+      spawnType = rand < 0.33 ? 'ROOT_TRAP' : (rand < 0.66 ? 'STATIC_CHARGE_TRAP' : 'VOID_RIFT');
     } else {
       // Spawn opportunity or mine
       spawnType = Math.random() > 0.5 ? 'SURGE_NODE' : 'EMP_MINE';
@@ -72,7 +73,7 @@ export class GameplayCompositorManager {
     // Apply the spawn
     if (spawnType === 'CHEST') {
       block.hasChest = true;
-    } else if (spawnType === 'ROOT_TRAP' || spawnType === 'EMP_MINE') {
+    } else if (spawnType === 'ROOT_TRAP' || spawnType === 'EMP_MINE' || spawnType === 'STATIC_CHARGE_TRAP') {
       block.hasTrap = spawnType;
       block.trapOwnerId = 'SYSTEM';
     } else {

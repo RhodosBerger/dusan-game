@@ -4,5 +4,11 @@
   "private": true,
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "start": "./start-dev.sh",
+    "start:all": "./start-all.sh",
+    "start:babylon": "./start-babylon-dev.sh",
+    "test": "yarn workspace @dusan-game/server test"
+  }
 }

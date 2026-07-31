@@ -1,0 +1,7 @@
+{
+  "voidErosion": {
+    "cost": 4,
+    "voltage": 5.0,
+    "resistance": 1.5
+  }
+}

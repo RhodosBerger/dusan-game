@@ -8,7 +8,7 @@ COPY packages/go-core/go.mod ./
 COPY packages/go-core/ ./
 
 # Compile Go Core binary
-RUN go build -o go-core main.go
+RUN go build -o go-core .
 
 # Production Stage
 FROM alpine:latest

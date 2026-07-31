@@ -1,6 +1,6 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, Suspense, useEffect, Component } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { BiomeEngine, MLTerrainSynthesizer, AlgebraicActionTensor, SpatialGuidanceSystem } from '../../../shared/src/index';
 import { PALETTE, BIOME_SPECS, WORLD } from '../design/worldDesign';
@@ -17,7 +17,7 @@ const textures = {
     TOXIC_SWAMP: textureLoader.load('/textures/toxic_swamp_tile.png'),
     GLACIER: textureLoader.load('/textures/glacier_tile.png'),
     DESERT: textureLoader.load('/textures/desert_tile.png'),
-    BARRENS: textureLoader.load('/textures/barrens_tile.png'),
+    BARRENS: textureLoader.load('/textures/medieval_wood.png'), // Wood texture for wooden tile base
     SCORCHED: textureLoader.load('/textures/scorched_tile.png')
 };
 
@@ -27,6 +27,12 @@ Object.values(textures).forEach(tex => {
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(0.3, 0.3);
 });
+
+// Wood texture loader specifically formatted for borders
+const borderWoodTexture = textureLoader.load('/textures/medieval_wood.png');
+borderWoodTexture.wrapS = THREE.RepeatWrapping;
+borderWoodTexture.wrapT = THREE.RepeatWrapping;
+borderWoodTexture.repeat.set(1.5, 1.5);
 
 const radius = 2.0;
 
@@ -62,6 +68,40 @@ const innerHexShape = (() => {
 })();
 const sharedInnerHexGeometry = new THREE.ExtrudeGeometry(innerHexShape, { depth: 0.05, bevelEnabled: false });
 
+// 3D Extruded Border Frame Shape (Outer hex minus Inner hex as hole)
+const borderShape = (() => {
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + (Math.PI / 6);
+        const x = 2.02 * Math.cos(angle);
+        const z = 2.02 * Math.sin(angle);
+        if (i === 0) shape.moveTo(x, z);
+        else shape.lineTo(x, z);
+    }
+    shape.closePath();
+
+    const holePath = new THREE.Path();
+    for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + (Math.PI / 6);
+        const x = 1.78 * Math.cos(angle);
+        const z = 1.78 * Math.sin(angle);
+        if (i === 0) holePath.moveTo(x, z);
+        else holePath.lineTo(x, z);
+    }
+    holePath.closePath();
+    shape.holes.push(holePath);
+    return shape;
+})();
+
+const sharedBorderGeometry = new THREE.ExtrudeGeometry(borderShape, {
+    depth: 0.08,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: 0.015,
+    bevelThickness: 0.015
+});
+
 const sharedStalactiteGeometry = new THREE.CylinderGeometry(radius * 0.92, 0.18, 1.0, 6, 1, false, Math.PI / 6);
 const sharedConeEdgeGeometry = new THREE.ConeGeometry(radius, 0, 6);
 
@@ -70,14 +110,115 @@ const heroTextures = {
     thread_hacker_root: textureLoader.load('/heroes/toxic_hero.png')
 };
 
-function LootChest3D() {
+class SafeSuspense extends Component {
+    state = { hasError: false };
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+    componentDidCatch(err) {
+        console.warn("[ITEM_MODEL_3D] Failed to load GLB model, falling back to procedural:", err.message);
+    }
+    componentDidUpdate(prevProps) {
+        if (prevProps.children.props.type !== this.props.children.props.type) {
+            this.setState({ hasError: false });
+        }
+    }
+    render() {
+        if (this.state.hasError) {
+            return this.props.fallback;
+        }
+        return (
+            <Suspense fallback={this.props.fallback}>
+                {this.props.children}
+            </Suspense>
+        );
+    }
+}
+
+function ItemGLTF({ type, turnsElapsed }) {
+    let itemKey = 'chest';
+    if (type === 'ROOT_TRAP' || type === 'STATIC_CHARGE_TRAP' || type === 'trap') {
+        itemKey = 'trap';
+    } else if (type === 'repair_kit' || type === 'REPAIR_KIT') {
+        itemKey = 'repair_kit';
+    } else if (type === 'surge_node' || type === 'SURGE_NODE') {
+        itemKey = 'surge_node';
+    } else if (type === 'void_rift' || type === 'VOID_RIFT') {
+        itemKey = 'void_rift';
+    } else if (type === 'chest' || type === 'loot_chest') {
+        itemKey = 'chest';
+    }
+
+    const url = `/models/items/${itemKey}/model.glb`;
+    const { scene } = useGLTF(url);
+    const cloned = useMemo(() => scene.clone(true), [scene]);
     const meshRef = useRef();
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
 
     useFrame((state) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
+        if (meshRef.current) {
+            meshRef.current.scale.setScalar(0.45 + animProgress.current * 0.15);
+            meshRef.current.rotation.y = state.clock.elapsedTime * 0.6;
+        }
+    });
+
+    useEffect(() => {
+        cloned.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    }, [cloned]);
+
+    return (
+        <group ref={meshRef} position={[0, 0, 0.45]}>
+            <primitive object={cloned} />
+        </group>
+    );
+}
+
+function LootChest3D({ turnsElapsed = 1 }) {
+    return (
+        <SafeSuspense fallback={<ProceduralLootChest3D turnsElapsed={turnsElapsed} />}>
+            <ItemGLTF type="chest" turnsElapsed={turnsElapsed} />
+        </SafeSuspense>
+    );
+}
+
+function ProceduralLootChest3D({ turnsElapsed = 1 }) {
+    const meshRef = useRef();
+    const lidRef = useRef();
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
+
+    useFrame((state) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
         if (!meshRef.current) return;
         const time = state.clock.elapsedTime;
         meshRef.current.rotation.z = time * 0.5;
         meshRef.current.position.z = 0.55 + Math.sin(time * 2.2) * 0.08;
+        
+        // Dynamically scale on turn transition
+        meshRef.current.scale.setScalar(1.0 + animProgress.current * 0.2);
+
+        if (lidRef.current) {
+            // Separation of elements: lid opens and lifts up slightly
+            lidRef.current.position.z = 0.14 + animProgress.current * 0.15;
+            lidRef.current.rotation.x = animProgress.current * -0.45;
+        }
     });
 
     return (
@@ -88,7 +229,7 @@ function LootChest3D() {
                 <meshStandardMaterial color="#1a1a24" metalness={0.8} roughness={0.3} />
             </mesh>
             {/* Chest Lid (Neon Golden frame) */}
-            <mesh position={[0, 0, 0.14]} castShadow>
+            <mesh ref={lidRef} position={[0, 0, 0.14]} castShadow>
                 <boxGeometry args={[0.47, 0.37, 0.1]} />
                 <meshStandardMaterial color="#d4af37" emissive="#d4af37" emissiveIntensity={0.2} metalness={0.9} roughness={0.2} />
             </mesh>
@@ -102,17 +243,43 @@ function LootChest3D() {
     );
 }
 
-function Trap3D({ type }) {
+function Trap3D({ type, turnsElapsed = 1 }) {
+    return (
+        <SafeSuspense fallback={<ProceduralTrap3D type={type} turnsElapsed={turnsElapsed} />}>
+            <ItemGLTF type="trap" turnsElapsed={turnsElapsed} />
+        </SafeSuspense>
+    );
+}
+
+function ProceduralTrap3D({ type, turnsElapsed = 1 }) {
     const meshRef = useRef();
+    const jawRef = useRef();
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
 
     useFrame((state) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
         if (!meshRef.current) return;
         const time = state.clock.elapsedTime;
         meshRef.current.rotation.y = Math.sin(time * 1.5) * 0.4;
         meshRef.current.position.z = 0.6 + Math.sin(time * 3.5) * 0.1;
+
+        // Turn dynamics
+        meshRef.current.scale.setScalar(1.0 + animProgress.current * 0.22);
+        
+        if (jawRef.current) {
+            // Separation of elements: jaw drops down
+            jawRef.current.position.y = -0.1 - animProgress.current * 0.08;
+            jawRef.current.rotation.x = animProgress.current * 0.35;
+        }
     });
 
-    const color = type === 'ROOT_TRAP' ? '#fb923c' : '#ef4444'; // Orange for root trap, Red for EMP mine
+    const color = type === 'ROOT_TRAP' ? '#fb923c' : (type === 'STATIC_CHARGE_TRAP' ? '#06b6d4' : '#ef4444');
 
     return (
         <group ref={meshRef} position={[0, 0, 0.46]}>
@@ -122,7 +289,7 @@ function Trap3D({ type }) {
                 <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.5} roughness={0.2} metalness={0.8} />
             </mesh>
             {/* Skull Jaw */}
-            <mesh position={[0, -0.1, -0.02]} castShadow>
+            <mesh ref={jawRef} position={[0, -0.1, -0.02]} castShadow>
                 <boxGeometry args={[0.12, 0.1, 0.15]} />
                 <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.5} roughness={0.2} metalness={0.8} />
             </mesh>
@@ -141,13 +308,30 @@ function Trap3D({ type }) {
     );
 }
 
-function TownBuilding3D() {
+function TownBuilding3D({ turnsElapsed = 1 }) {
     const meshRef = useRef();
+    const roofRef = useRef();
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
 
     useFrame((state) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
         if (!meshRef.current) return;
         const time = state.clock.elapsedTime;
         meshRef.current.rotation.z = time * 0.15;
+        
+        // Dynamically scale on turns
+        meshRef.current.scale.setScalar(1.0 + animProgress.current * 0.12);
+        
+        if (roofRef.current) {
+            // Separation of elements: roof lifts up
+            roofRef.current.position.z = 0.95 + animProgress.current * 0.25;
+        }
     });
 
     return (
@@ -158,7 +342,7 @@ function TownBuilding3D() {
                 <meshStandardMaterial color="#3a3d52" metalness={0.9} roughness={0.3} />
             </mesh>
             {/* Tower roof */}
-            <mesh position={[0, 0, 0.95]} castShadow>
+            <mesh ref={roofRef} position={[0, 0, 0.95]} castShadow>
                 <coneGeometry args={[0.35, 0.4, 6]} />
                 <meshStandardMaterial color={PALETTE.accent.magic} emissive="#004444" roughness={0.2} />
             </mesh>
@@ -185,14 +369,42 @@ function TownBuilding3D() {
     );
 }
 
-function RepairKit3D() {
-    const meshRef = useRef();
+function RepairKit3D({ turnsElapsed = 1 }) {
+    return (
+        <SafeSuspense fallback={<ProceduralRepairKit3D turnsElapsed={turnsElapsed} />}>
+            <ItemGLTF type="repair_kit" turnsElapsed={turnsElapsed} />
+        </SafeSuspense>
+    );
+}
 
-    useFrame((state) => {
+function ProceduralRepairKit3D({ turnsElapsed = 1 }) {
+    const meshRef = useRef();
+    const cap1Ref = useRef();
+    const cap2Ref = useRef();
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
+
+    useFrame((state, delta) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
         if (!meshRef.current) return;
         const time = state.clock.elapsedTime;
-        meshRef.current.rotation.y = time * 1.5;
+        meshRef.current.rotation.y = time * 1.5 + animProgress.current * 3.0;
         meshRef.current.position.z = 0.6 + Math.sin(time * 3.0) * 0.08;
+        
+        meshRef.current.scale.setScalar(1.0 + animProgress.current * 0.22);
+        
+        // Separation of elements: caps slide outward
+        if (cap1Ref.current) {
+            cap1Ref.current.position.y = -0.2 - animProgress.current * 0.15;
+        }
+        if (cap2Ref.current) {
+            cap2Ref.current.position.y = 0.2 + animProgress.current * 0.15;
+        }
     });
 
     return (
@@ -210,31 +422,53 @@ function RepairKit3D() {
                 </mesh>
             ))}
             {/* Caps */}
-            {[-0.2, 0.2].map((zVal, idx) => (
-                <mesh key={idx} position={[0, zVal, 0]}>
-                    <cylinderGeometry args={[0.12, 0.12, 0.02, 6]} />
-                    <meshStandardMaterial color="#34d399" metalness={0.8} />
-                </mesh>
-            ))}
+            <mesh ref={cap1Ref} position={[0, -0.2, 0]}>
+                <cylinderGeometry args={[0.12, 0.12, 0.02, 6]} />
+                <meshStandardMaterial color="#34d399" metalness={0.8} />
+            </mesh>
+            <mesh ref={cap2Ref} position={[0, 0.2, 0]}>
+                <cylinderGeometry args={[0.12, 0.12, 0.02, 6]} />
+                <meshStandardMaterial color="#34d399" metalness={0.8} />
+            </mesh>
             <pointLight distance={1.5} intensity={1.0} color="#39ff14" />
         </group>
     );
 }
 
-function SurgeNode3D() {
+function SurgeNode3D({ turnsElapsed = 1 }) {
+    return (
+        <SafeSuspense fallback={<ProceduralSurgeNode3D turnsElapsed={turnsElapsed} />}>
+            <ItemGLTF type="surge_node" turnsElapsed={turnsElapsed} />
+        </SafeSuspense>
+    );
+}
+
+function ProceduralSurgeNode3D({ turnsElapsed = 1 }) {
     const coreRef = useRef();
     const ringRef = useRef();
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
 
     useFrame((state) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
         const time = state.clock.elapsedTime;
         if (coreRef.current) {
             coreRef.current.rotation.x = time * 2.0;
             coreRef.current.rotation.y = time * 1.5;
             coreRef.current.position.z = 0.6 + Math.sin(time * 4.0) * 0.06;
+            // Core swells on turns
+            coreRef.current.scale.setScalar(1.0 + animProgress.current * 0.35);
         }
         if (ringRef.current) {
             ringRef.current.rotation.z = -time * 3.0;
             ringRef.current.position.z = 0.6 + Math.sin(time * 4.0) * 0.06;
+            // Separation of elements: ring expands outwards
+            ringRef.current.scale.setScalar(1.0 + animProgress.current * 0.55);
         }
     });
 
@@ -255,14 +489,36 @@ function SurgeNode3D() {
     );
 }
 
-function VoidRift3D() {
+function VoidRift3D({ turnsElapsed = 1 }) {
+    return (
+        <SafeSuspense fallback={<ProceduralVoidRift3D turnsElapsed={turnsElapsed} />}>
+            <ItemGLTF type="void_rift" turnsElapsed={turnsElapsed} />
+        </SafeSuspense>
+    );
+}
+
+function ProceduralVoidRift3D({ turnsElapsed = 1 }) {
     const meshRef = useRef();
+    const ringRef = useRef();
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
 
     useFrame((state) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
         if (!meshRef.current) return;
         const time = state.clock.elapsedTime;
         meshRef.current.rotation.z = -time * 0.8;
-        meshRef.current.scale.setScalar(1.0 + Math.sin(time * 5.0) * 0.1);
+        meshRef.current.scale.setScalar((1.0 + Math.sin(time * 5.0) * 0.1) * (1.0 + animProgress.current * 0.4));
+        
+        if (ringRef.current) {
+            // Separation of elements: gravitational ring expands
+            ringRef.current.scale.setScalar(1.0 + animProgress.current * 0.5);
+        }
     });
 
     return (
@@ -273,7 +529,7 @@ function VoidRift3D() {
                 <meshStandardMaterial color="#1a0826" emissive="#a855f7" emissiveIntensity={2.5} roughness={0.1} />
             </mesh>
             {/* Gravitational ring */}
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
                 <torusGeometry args={[0.3, 0.02, 6, 24]} />
                 <meshBasicMaterial color="#c084fc" />
             </mesh>
@@ -282,7 +538,7 @@ function VoidRift3D() {
     );
 }
 
-function FactionFlag3D({ faction }) {
+function FactionFlag3D({ faction, turnsElapsed = 1 }) {
     const flagRef = useRef();
     const flagColor = useMemo(() => {
         if (faction === 'crystal') return '#00ffff';
@@ -291,10 +547,20 @@ function FactionFlag3D({ faction }) {
         return '#888888'; // Neutral
     }, [faction]);
 
+    const lastTurnRef = useRef(turnsElapsed);
+    const animProgress = useRef(0);
+
     useFrame((state) => {
+        if (turnsElapsed !== lastTurnRef.current) {
+            lastTurnRef.current = turnsElapsed;
+            animProgress.current = 1.0;
+        }
+        animProgress.current = THREE.MathUtils.lerp(animProgress.current, 0, 0.08);
+
         const time = state.clock.elapsedTime;
         if (flagRef.current) {
-            flagRef.current.rotation.y = Math.sin(time * 3.5) * 0.12;
+            // Separation of elements / flutter animation
+            flagRef.current.rotation.y = Math.sin(time * (3.5 + animProgress.current * 6.0)) * (0.12 + animProgress.current * 0.45);
         }
     });
 
@@ -334,6 +600,25 @@ function FactionFlag3D({ faction }) {
     );
 }
 
+function FlatBillboard({ label, color }) {
+    return (
+        <Html distanceFactor={12} position={[0, 0, 0.7]} center>
+            <div 
+                className="pointer-events-none select-none font-bold uppercase border rounded px-2 py-1 text-center shadow-lg text-[10px] backdrop-blur-md" 
+                style={{ 
+                    color: color, 
+                    borderColor: color, 
+                    backgroundColor: 'rgba(12, 15, 29, 0.95)',
+                    boxShadow: `0 0 10px ${color}55`,
+                    fontFamily: "'Oxanium', sans-serif"
+                }}
+            >
+                <div>[2D] {label}</div>
+            </div>
+        </Html>
+    );
+}
+
 function SpellFlashBeam3D({ weatherOverride }) {
     const meshRef = useRef();
 
@@ -368,15 +653,34 @@ function SpellFlashBeam3D({ weatherOverride }) {
     );
 }
 
-export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, threads = [], isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null, hasOpportunity = null, hasChestOnly = false }) {
+export default function HexagonNode3D({ node, isHovered, isSelected, isTargetable = false, targetableType = null, onHover, onClick, onDoubleClick = () => {}, occupyingThread, threads = [], isCollapsing = false, entropy = 0.4, hasChest = false, hasTrap = null, terrainTelemetry = null, weatherOverride = null, isSurgeActive = false, isScorched = false, distanceToPlayer = null, maxRange = null, selectedCard = null, realityPhase = 'STANDARD', matrixSource = null, hasOpportunity = null, hasChestOnly = false, turnsElapsed = 1, backofficeRegs = null, isOverlayActive = false }) {
     const tileRef = useRef();
     const materialRef = useRef();
     const innerMaterialRef = useRef();
-    const [waveTrigger, setWaveTrigger] = React.useState({ time: 0, originMeta: null, originHex: null });
+    const borderMaterialRef = useRef();
+    const amberLightRef = useRef(null);
+    const [waveTrigger, setWaveTrigger] = React.useState({ time: 0, originMeta: null, originHex: null, voltage: 0 });
 
     const activeOccupyingThread = useMemo(() => {
         return threads.find(t => t.position && t.position.meta === node.macroIndex && t.position.hex === node.subIndex);
     }, [threads, node.macroIndex, node.subIndex]);
+
+    const activePlayer = useMemo(() => {
+        return threads.find(t => t.id === 'thread_king_ai' || t.type === 'PLAYER') || null;
+    }, [threads]);
+
+    const playerStrength = useMemo(() => {
+        if (!activePlayer) return 1.0;
+        const maxHp = activePlayer.maxHealth || 15;
+        const currentHp = activePlayer.health ?? 15;
+        return Math.max(0.0, Math.min(1.0, currentHp / maxHp));
+    }, [activePlayer]);
+
+    const shouldUseBillboard = useMemo(() => {
+        const hazard = node.hazardIndex ?? 0;
+        const activeThreadsInChunk = threads.filter(t => t.position && t.position.meta === node.macroIndex && t.health > 0).length;
+        return hazard >= 0.9 || activeThreadsInChunk >= 6;
+    }, [node.hazardIndex, threads, node.macroIndex]);
 
     // Generovanie 3D tvaru hexagónu (ExtrudeGeometry pre 3D podstavec)
     const hexShape = useMemo(() => {
@@ -414,8 +718,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
     const handleBeforeCompile = React.useCallback((shader) => {
         shader.uniforms.uGravityPulse = { value: 0.0 };
+        shader.uniforms.uTime = { value: 0.0 };
+        shader.uniforms.uIsFluid = { value: 0.0 };
+        shader.uniforms.uPlayerStrength = { value: 1.0 };
         shader.vertexShader = `
             uniform float uGravityPulse;
+            uniform float uTime;
+            uniform float uIsFluid;
+            uniform float uPlayerStrength;
             ${shader.vertexShader}
         `.replace(
             '#include <begin_vertex>',
@@ -427,10 +737,83 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 float sinkFactor = 1.0 - smoothstep(0.0, 15.0, distToCenter);
                 transformed.z -= sinkFactor * 1.5 * uGravityPulse;
             }
+            if (uIsFluid > 0.5) {
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                float speed = 1.0 + uPlayerStrength * 1.5;
+                float height = 0.04 + uPlayerStrength * 0.06;
+                float wave = sin(worldPos.x * 1.5 + uTime * speed) * cos(worldPos.y * 1.5 + uTime * speed) * height;
+                transformed.z += wave;
+            }
             `
         );
         if (materialRef.current) {
             materialRef.current.userData.shader = shader;
+        }
+    }, []);
+
+    const handleInnerBeforeCompile = React.useCallback((shader) => {
+        shader.uniforms.uTime = { value: 0.0 };
+        shader.uniforms.uIsFluid = { value: 0.0 };
+        shader.uniforms.uPlayerStrength = { value: 1.0 };
+        
+        shader.vertexShader = `
+            uniform float uTime;
+            uniform float uIsFluid;
+            uniform float uPlayerStrength;
+            varying vec3 vLocalPos;
+            ${shader.vertexShader}
+        `.replace(
+            '#include <begin_vertex>',
+            `
+            #include <begin_vertex>
+            vLocalPos = position;
+            if (uIsFluid > 0.5) {
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                float speed = 1.0 + uPlayerStrength * 1.5;
+                float height = 0.04 + uPlayerStrength * 0.06;
+                float wave = sin(worldPos.x * 1.5 + uTime * speed) * cos(worldPos.y * 1.5 + uTime * speed) * height;
+                transformed.z += wave;
+            }
+            `
+        );
+        
+        shader.fragmentShader = `
+            uniform float uTime;
+            uniform float uIsFluid;
+            uniform float uPlayerStrength;
+            varying vec3 vLocalPos;
+            ${shader.fragmentShader}
+        `.replace(
+            '#include <emissivemap_fragment>',
+            `
+            #include <emissivemap_fragment>
+            if (uIsFluid > 0.5) {
+                float bokeh = 0.0;
+                
+                vec2 c1 = vec2(sin(uTime * 0.4) * 0.25, cos(uTime * 0.5) * 0.25);
+                float d1 = length(vLocalPos.xy - c1);
+                bokeh += smoothstep(0.15, 0.02, d1) * 0.6;
+                
+                vec2 c2 = vec2(cos(uTime * 0.6 + 1.5) * 0.35, sin(uTime * 0.3 - 0.5) * 0.35);
+                float d2 = length(vLocalPos.xy - c2);
+                bokeh += smoothstep(0.12, 0.01, d2) * 0.4;
+                
+                vec2 c3 = vec2(sin(uTime * 0.7 - 1.0) * 0.20, cos(uTime * 0.8 + 2.0) * 0.20);
+                float d3 = length(vLocalPos.xy - c3);
+                bokeh += smoothstep(0.18, 0.03, d3) * 0.3;
+                
+                vec3 fluidColor = vec3(0.05, 0.70, 0.90);
+                if (uPlayerStrength > 1.2) {
+                    fluidColor = mix(fluidColor, vec3(0.85, 0.05, 0.95), 0.35);
+                }
+                
+                totalEmissiveRadiance += fluidColor * bokeh * (1.2 + uPlayerStrength * 1.5);
+            }
+            `
+        );
+        
+        if (innerMaterialRef.current) {
+            innerMaterialRef.current.userData.shader = shader;
         }
     }, []);
 
@@ -557,13 +940,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
     React.useEffect(() => {
         const handleEffect = (e) => {
-            const { targetHex, sourceHex } = e.detail;
+            const { targetHex, sourceHex, voltage } = e.detail;
             const origin = sourceHex || targetHex;
             if (origin) {
                 setWaveTrigger({
                     time: Date.now(),
                     originMeta: origin.macroIndex !== undefined ? origin.macroIndex : origin.meta,
-                    originHex: origin.subIndex !== undefined ? origin.subIndex : origin.hex
+                    originHex: origin.subIndex !== undefined ? origin.subIndex : origin.hex,
+                    voltage: voltage !== undefined ? voltage : 0
                 });
             }
             if (targetHex && targetHex.meta === node.macroIndex && targetHex.hex === node.subIndex) {
@@ -594,16 +978,49 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
     useFrame((state, delta) => {
         if (materialRef.current && materialRef.current.userData && materialRef.current.userData.shader) {
             const phase = node.realityPhase || realityPhase || 'STANDARD';
-            materialRef.current.userData.shader.uniforms.uGravityPulse.value = phase === 'GRAVITY_WELL' ? 1.0 : 0.0;
+            const shader = materialRef.current.userData.shader;
+            shader.uniforms.uGravityPulse.value = phase === 'GRAVITY_WELL' ? 1.0 : 0.0;
+            
+            if (shader.uniforms.uTime) {
+                shader.uniforms.uTime.value = state.clock.getElapsedTime();
+            }
+            if (shader.uniforms.uIsFluid) {
+                const isFluidBiome = false;
+                const isFluidComposer = false;
+                shader.uniforms.uIsFluid.value = 0.0;
+            }
+            if (shader.uniforms.uPlayerStrength) {
+                shader.uniforms.uPlayerStrength.value = playerStrength;
+            }
+        }
+
+        if (innerMaterialRef.current && innerMaterialRef.current.userData && innerMaterialRef.current.userData.shader) {
+            const shader = innerMaterialRef.current.userData.shader;
+            if (shader.uniforms.uTime) {
+                shader.uniforms.uTime.value = state.clock.getElapsedTime();
+            }
+            if (shader.uniforms.uIsFluid) {
+                const isFluidBiome = false;
+                const isFluidComposer = false;
+                shader.uniforms.uIsFluid.value = 0.0;
+            }
+            if (shader.uniforms.uPlayerStrength) {
+                shader.uniforms.uPlayerStrength.value = playerStrength;
+            }
         }
 
         if (!tileRef.current) return;
         const time = state.clock.elapsedTime;
 
+        if (amberLightRef.current) {
+            amberLightRef.current.material.opacity = 0.3 + Math.sin(time * 15.0) * 0.15;
+            amberLightRef.current.rotation.y = time * 0.5;
+        }
+
         let targetLift = 0;
         const phase = node.realityPhase || realityPhase || 'STANDARD';
         if (isCollapsing) {
-            targetLift = 0;
+            targetLift = -5.0;
         } else if (isHovered || isSelected) {
             targetLift = 0.25;
         } else if (shufflePulse) {
@@ -633,9 +1050,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
         // Apply topological radial ripple wave from card play location
         let rippleHeight = 0;
+        let vibrationJitter = 0;
         if (waveTrigger.time > 0) {
             const elapsedSec = (Date.now() - waveTrigger.time) / 1000;
             try {
+                const targetAxial = SpatialGuidanceSystem.resolveAxial(waveTrigger.originMeta, waveTrigger.originHex);
+                const nodeAxial = SpatialGuidanceSystem.resolveAxial(node.macroIndex, node.subIndex);
+                const axialDist = (Math.abs(targetAxial.q - nodeAxial.q) + Math.abs(targetAxial.q + targetAxial.r - nodeAxial.q - nodeAxial.r) + Math.abs(targetAxial.r - nodeAxial.r)) / 2;
+
                 const startPos = SpatialGuidanceSystem.resolveCartesian(waveTrigger.originMeta, waveTrigger.originHex);
                 const nodePos = SpatialGuidanceSystem.resolveCartesian(node.macroIndex, node.subIndex);
                 const dist = SpatialGuidanceSystem.calculateDistance(startPos, nodePos);
@@ -645,9 +1067,14 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 if (relativeTime > 0 && relativeTime < 0.65) {
                     rippleHeight = Math.sin(relativeTime * Math.PI / 0.65) * 0.55;
                 }
+
+                // Dynamic Terrain Resonator: high-voltage vibration on adjacent tiles
+                if (waveTrigger.voltage * 15 > 75 && axialDist === 1 && elapsedSec > 0 && elapsedSec < 1.5) {
+                    vibrationJitter = Math.sin(time * 65.0) * 0.14 * (1.5 - elapsedSec);
+                }
             } catch (e) {}
         }
-        targetLift += rippleHeight;
+        targetLift += (rippleHeight + vibrationJitter);
 
         tileRef.current.position.z = THREE.MathUtils.lerp(tileRef.current.position.z, targetLift, 0.15);
 
@@ -678,32 +1105,99 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
 
         if (innerMaterialRef.current) {
             const phase = node.realityPhase || realityPhase || 'STANDARD';
-            let baseColor = "#0c0f1d";
+            let baseColor = materialProps.color.clone();
             let emissiveColor = "#000000";
             let emissiveInt = 0.0;
+            let targetOpacity = 0.82;
             
-            if (isSelected) {
-                baseColor = "#00ffff";
-                emissiveColor = "#00ffff";
-                emissiveInt = 1.8;
-            } else if (isHovered) {
-                baseColor = "#111827";
-                emissiveColor = "#22d3ee";
-                emissiveInt = 1.0;
-            } else if (shufflePulse) {
-                baseColor = "#1e1b4b";
-                emissiveColor = "#a855f7"; // Glowing purple during card shuffle/swap
-                emissiveInt = 1.4;
-            } else if (isSurgeActive || phase === 'SURGE') {
-                baseColor = "#064e3b";
-                emissiveColor = "#39ff14";
-                emissiveInt = 1.5;
+            const isFluid = false;
+            
+            if (isFluid) {
+                // High-specular mirror reflection for water surfaces so sun shines through beautifully!
+                innerMaterialRef.current.roughness = 0.04;
+                innerMaterialRef.current.metalness = 0.96;
+                targetOpacity = 0.65; // Polotransparencia!
+                
+                // Color tones reflect the active reality phase
+                if (phase === 'SURGE') {
+                    baseColor.set("#00ffcc");
+                    emissiveColor = "#00ffcc";
+                    emissiveInt = 1.4 * playerStrength;
+                } else if (phase === 'VOID') {
+                    baseColor.set("#1e0533");
+                    emissiveColor = "#9900ff";
+                    emissiveInt = 1.6 * playerStrength;
+                } else if (phase === 'GLITCH') {
+                    baseColor.set("#e11d48");
+                    emissiveColor = "#e11d48";
+                    emissiveInt = 1.8 * playerStrength;
+                } else {
+                    // Standard water/toxic swamp base color (darkened to highlight reflections and transparency)
+                    baseColor.set(biomeInfo.biome === 'TOXIC_SWAMP' ? "#061a0d" : "#081b2e");
+                    // Reflect player strength with a glowing tone (cyan for player)
+                    emissiveColor = activePlayer?.id === 'thread_king_ai' ? "#06b6d4" : "#d946ef";
+                    emissiveInt = 1.0 * playerStrength;
+                }
+            } else {
+                innerMaterialRef.current.roughness = 0.15;
+                innerMaterialRef.current.metalness = 0.85;
+                
+                if (isSelected) {
+                    baseColor.set("#00ffff");
+                    emissiveColor = "#00ffff";
+                    emissiveInt = 1.8;
+                    targetOpacity = 0.98;
+                } else if (isHovered) {
+                    baseColor.set("#ffffff").lerp(materialProps.color, 0.4);
+                    emissiveColor = "#22d3ee";
+                    emissiveInt = 1.2;
+                    targetOpacity = 0.95;
+                } else if (shufflePulse) {
+                    baseColor.set("#a855f7").lerp(materialProps.color, 0.3);
+                    emissiveColor = "#a855f7"; // Glowing purple during card shuffle/swap
+                    emissiveInt = 1.4;
+                    targetOpacity = 0.90;
+                } else if (isSurgeActive || phase === 'SURGE') {
+                    baseColor.set("#39ff14").lerp(materialProps.color, 0.3);
+                    emissiveColor = "#39ff14";
+                    emissiveInt = 1.5;
+                    targetOpacity = 0.92;
+                } else {
+                    baseColor.multiplyScalar(0.7); // Subtle metallic darkening to keep edge contrast
+                }
             }
             
-            innerMaterialRef.current.color.set(baseColor);
+            innerMaterialRef.current.color.copy(baseColor);
+            innerMaterialRef.current.map = materialProps.map;
+            
+            const forceOpaque = backofficeRegs && backofficeRegs.enabledTransparency === false;
+            innerMaterialRef.current.transparent = !forceOpaque;
+            
+            if (forceOpaque) {
+                innerMaterialRef.current.opacity = 1.0;
+            } else {
+                innerMaterialRef.current.opacity = THREE.MathUtils.lerp(innerMaterialRef.current.opacity || 0.82, targetOpacity, 0.15);
+            }
+            
             innerMaterialRef.current.emissive.set(emissiveColor);
             innerMaterialRef.current.emissiveIntensity = emissiveInt;
             innerMaterialRef.current.needsUpdate = true;
+        }
+
+        if (borderMaterialRef.current) {
+            if (isCollapsing) {
+                const pulse = (Math.sin(state.clock.elapsedTime * 8.0) + 1.0) / 2.0; // Fast pulsing red
+                borderMaterialRef.current.color.set('#ef4444');
+                borderMaterialRef.current.emissive.set('#ff0000');
+                borderMaterialRef.current.emissiveIntensity = 0.5 + pulse * 2.5;
+            } else {
+                borderMaterialRef.current.color.set(borderProps.color);
+                if (borderProps.emissive) {
+                    borderMaterialRef.current.emissive.copy(borderProps.emissive);
+                }
+                borderMaterialRef.current.emissiveIntensity = borderProps.emissiveIntensity;
+            }
+            borderMaterialRef.current.needsUpdate = true;
         }
     });
 
@@ -758,6 +1252,27 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             roughnessMultiplier = 0.7;
             metalnessOverride = 0.4;
             emissiveIntensity = 2.0; // amplify emissions
+        }
+
+        // Apply backofficeRegs Node Composer texture adjustments dynamically!
+        if (backofficeRegs) {
+            const biome = biomeInfo.biome;
+            const matchesMoss = biome === 'LUSH_FOREST' && backofficeRegs.selectedTexture === 'moss_base';
+            const matchesGlacier = biome === 'GLACIER' && backofficeRegs.selectedTexture === 'glacier_fracture';
+            const matchesToxic = biome === 'TOXIC_SWAMP' && backofficeRegs.selectedTexture === 'toxic_sludge';
+            const matchesDesert = biome === 'DESERT' && backofficeRegs.selectedTexture === 'sand_dunes';
+            const matchesBarrens = biome === 'BARRENS' && backofficeRegs.selectedTexture === 'slag_plates';
+
+            if (matchesMoss || matchesGlacier || matchesToxic || matchesDesert || matchesBarrens) {
+                // Boost color
+                if (backofficeRegs.textureBoost) {
+                    tintModifier.multiplyScalar(1.25);
+                }
+                // Specular glow
+                if (backofficeRegs.textureSpecular) {
+                    emissiveIntensity = 2.5;
+                }
+            }
         }
 
         const defaultProps = {
@@ -822,7 +1337,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         }
 
         return defaultProps;
-    }, [activeTelemetry, baseTint, emissiveColor, biomeInfo.biome, weatherOverride]);
+    }, [activeTelemetry, baseTint, emissiveColor, biomeInfo.biome, weatherOverride, backofficeRegs]);
 
     // Kamenná podsada: okrajové hexy visia hlbšie — dojem odlomeného ostrova.
     const undersideDepth = useMemo(() => {
@@ -830,6 +1345,83 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
         const jitter = ((node.macroIndex * 7 + node.subIndex) % 5) * 0.15;
         return 1.6 + dist * 2.2 + jitter;
     }, [node.position, node.macroIndex, node.subIndex]);
+
+    const borderProps = useMemo(() => {
+        const biome = biomeInfo.biome;
+
+        if (isCollapsing) {
+            return {
+                color: '#ef4444',
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: new THREE.Color('#ff0000'),
+                emissiveIntensity: 1.5,
+                transparent: true,
+                opacity: 0.8
+            };
+        }
+        
+        let emissiveInt = isSelected ? 2.0 : isHovered ? 1.4 : isTargetable ? 1.0 : 0.2;
+        let opacityVal = isSelected ? 1.0 : isHovered ? 0.95 : isTargetable ? 0.85 : 0.6;
+
+        if (biome === 'BARRENS') {
+            // Wooden hexagon -> Steel border
+            return {
+                color: isSelected ? '#a5f3fc' : isHovered ? '#ffffff' : '#e5e7eb',
+                metalness: 0.95,
+                roughness: 0.15,
+                emissive: new THREE.Color(isSelected ? '#22d3ee' : '#374151'),
+                emissiveIntensity: emissiveInt,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else if (biome === 'LUSH_FOREST') {
+            // Grass/Lush Forest -> Wooden border
+            return {
+                map: borderWoodTexture,
+                color: isSelected ? '#a5f3fc' : isHovered ? '#e2e8f0' : '#ffffff',
+                metalness: 0.1,
+                roughness: 0.85,
+                emissive: new THREE.Color(isSelected ? '#00ffff' : '#78350f'),
+                emissiveIntensity: emissiveInt,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else if (biome === 'TOXIC_SWAMP') {
+            // Toxic mud -> Glowing neon green border
+            return {
+                color: '#10b981',
+                emissive: new THREE.Color('#39ff14'),
+                emissiveIntensity: emissiveInt * 1.5,
+                roughness: 0.1,
+                metalness: 0.8,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else if (biome === 'GLACIER') {
+            // Glacier -> Icy frost blue border
+            return {
+                color: '#a5f3fc',
+                emissive: new THREE.Color('#06b6d4'),
+                emissiveIntensity: emissiveInt * 1.2,
+                roughness: 0.05,
+                metalness: 0.1,
+                transparent: true,
+                opacity: opacityVal
+            };
+        } else {
+            // Desert -> Golden/Bronze border
+            return {
+                color: isSelected ? '#ffffff' : '#d4af37',
+                emissive: new THREE.Color(isSelected ? '#00ffff' : '#b45309'),
+                emissiveIntensity: emissiveInt,
+                metalness: 0.9,
+                roughness: 0.2,
+                transparent: true,
+                opacity: opacityVal
+            };
+        }
+    }, [biomeInfo.biome, isSelected, isHovered, isTargetable, isCollapsing]);
 
     return (
         <group
@@ -851,16 +1443,18 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 <mesh geometry={sharedInnerHexGeometry} position={[0, 0, 0.402]} castShadow receiveShadow>
                     <meshStandardMaterial 
                         ref={innerMaterialRef}
+                        onBeforeCompile={handleInnerBeforeCompile}
                         color="#0c0f1d"
                         roughness={0.15}
                         metalness={0.85} 
+                        transparent
+                        opacity={0.82}
                     />
                 </mesh>
 
-                <lineSegments position={[0, 0, 0.403]}>
-                    <edgesGeometry args={[sharedInnerHexGeometry]} />
-                    <lineBasicMaterial color={edgeColor} transparent opacity={isSelected ? 1.0 : isHovered ? 0.9 : isTargetable ? 0.8 : 0.4} linewidth={2} />
-                </lineSegments>
+                <mesh geometry={sharedBorderGeometry} position={[0, 0, 0.403]} castShadow receiveShadow>
+                    <meshStandardMaterial ref={borderMaterialRef} {...borderProps} />
+                </mesh>
 
                 {/* Spell Casting VFX projected on the Hexagon */}
                 {flash && <SpellFlashBeam3D weatherOverride={weatherOverride} />}
@@ -882,13 +1476,27 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 </mesh>
 
                 {/* Relocated spawned objects to move together with tile height deformation */}
-                {hasChestOnly && !isCollapsing && <LootChest3D />}
-                {hasOpportunity === 'REPAIR_KIT' && !isCollapsing && <RepairKit3D />}
-                {hasOpportunity === 'SURGE_NODE' && !isCollapsing && <SurgeNode3D />}
-                {hasOpportunity === 'VOID_RIFT' && !isCollapsing && <VoidRift3D />}
-                
-                {node.isTown && !isCollapsing && <TownBuilding3D />}
-                {hasTrap && !isCollapsing && <Trap3D type={hasTrap} />}
+                {!isCollapsing && (
+                    (shouldUseBillboard && !isOverlayActive) ? (
+                        <>
+                            {hasChestOnly && <FlatBillboard label="Loot Chest" color="#d4af37" />}
+                            {hasOpportunity === 'REPAIR_KIT' && <FlatBillboard label="Repair Kit" color="#34d399" />}
+                            {hasOpportunity === 'SURGE_NODE' && <FlatBillboard label="Surge Node" color="#00e5ff" />}
+                            {hasOpportunity === 'VOID_RIFT' && <FlatBillboard label="Void Rift" color="#a855f7" />}
+                            {node.isTown && <FlatBillboard label="Town Outpost" color="#ffd700" />}
+                            {hasTrap && <FlatBillboard label={hasTrap === 'ROOT_TRAP' ? 'Root Trap' : hasTrap === 'STATIC_CHARGE_TRAP' ? 'Charge Trap' : 'EMP Mine'} color={hasTrap === 'ROOT_TRAP' ? '#fb923c' : hasTrap === 'STATIC_CHARGE_TRAP' ? '#06b6d4' : '#ef4444'} />}
+                        </>
+                    ) : (
+                        <>
+                            {hasChestOnly && <LootChest3D turnsElapsed={turnsElapsed} />}
+                            {hasOpportunity === 'REPAIR_KIT' && <RepairKit3D turnsElapsed={turnsElapsed} />}
+                            {hasOpportunity === 'SURGE_NODE' && <SurgeNode3D turnsElapsed={turnsElapsed} />}
+                            {hasOpportunity === 'VOID_RIFT' && <VoidRift3D turnsElapsed={turnsElapsed} />}
+                            {node.isTown && <TownBuilding3D turnsElapsed={turnsElapsed} />}
+                            {hasTrap && <Trap3D type={hasTrap} turnsElapsed={turnsElapsed} />}
+                        </>
+                    )
+                )}
 
                 {/* Helper sub-hexagon overlay representing the 3x3 sector sub-cell */}
                 {activeOccupyingThread?.type === 'HELPER' && !isCollapsing && (
@@ -903,20 +1511,38 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                     </mesh>
                 )}
 
+                {/* Volumetric amber light shafts emitting from cracks when tile is cracked (Dynamic Terrain Resonator) */}
+                {node.collapseInTurns !== undefined && node.collapseInTurns !== null && !isCollapsing && (
+                    <group position={[0, 0, 0.3]}>
+                        <mesh ref={amberLightRef} rotation={[Math.PI / 2, 0, 0]}>
+                            <cylinderGeometry args={[0.1, 0.6, 2.5, 12, 1, true]} />
+                            <meshBasicMaterial 
+                                color="#ffaa00" 
+                                transparent 
+                                opacity={0.3} 
+                                blending={THREE.AdditiveBlending}
+                                side={THREE.DoubleSide} 
+                                depthWrite={false}
+                            />
+                        </mesh>
+                        <pointLight color="#ffaa00" intensity={4.0} distance={6} decay={2} />
+                    </group>
+                )}
+
                 {/* Render Faction Base Flags at starting points */}
                 {!isCollapsing && node.macroIndex === 0 && node.subIndex === 0 && (
                     <group position={[-0.65, 0.45, 0.41]}>
-                        <FactionFlag3D faction="crystal" />
+                        <FactionFlag3D faction="crystal" turnsElapsed={turnsElapsed} />
                     </group>
                 )}
                 {!isCollapsing && node.macroIndex === 8 && node.subIndex === 6 && (
                     <group position={[-0.65, 0.45, 0.41]}>
-                        <FactionFlag3D faction="toxic" />
+                        <FactionFlag3D faction="toxic" turnsElapsed={turnsElapsed} />
                     </group>
                 )}
                 {!isCollapsing && node.macroIndex === 5 && node.subIndex === 3 && (
                     <group position={[-0.65, 0.45, 0.41]}>
-                        <FactionFlag3D faction="void" />
+                        <FactionFlag3D faction="void" turnsElapsed={turnsElapsed} />
                     </group>
                 )}
 
@@ -929,6 +1555,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                                 activeOccupyingThread?.id.includes('hacker') ? 'toxic' :
                                 activeOccupyingThread?.id.includes('void') ? 'void' : 'neutral'
                             } 
+                            turnsElapsed={turnsElapsed}
                         />
                     </group>
                 )}
@@ -937,9 +1564,6 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             {/* Časticové efekty biómov */}
             {biomeInfo.biome === 'GLACIER' && !isCollapsing && <SnowParticles />}
             {biomeInfo.biome === 'TOXIC_SWAMP' && !isCollapsing && <SwampVapors />}
-            {biomeInfo.biome === 'DESERT' && !isCollapsing && <DesertHeatParticles />}
-            {biomeInfo.biome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
-            {biomeInfo.biome === 'LUSH_FOREST' && !isCollapsing && entropy > 0.5 && <ForestFireflies />}
             {isCollapsing && <VoidCollapseParticles />}
 
             {/* ANCHOR: A_OVERHEAD - Statusový hologram visiaci nad vybraným políčkom */}
@@ -950,7 +1574,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 </mesh>
             )}
 
-            {isTargetable && isHovered && distanceToPlayer !== null && maxRange !== null && (
+            {!isOverlayActive && isTargetable && isHovered && distanceToPlayer !== null && maxRange !== null && (
                 <Html distanceFactor={12} position={[0, 0, 1.8]} center>
                     <div className="glass-panel-heavy p-2 text-xs text-[#e0e7ff] border border-[#00ffcc] rounded shadow-2xl pointer-events-none select-none backdrop-blur-md" style={{ minWidth: '170px', fontFamily: "'Rajdhani', sans-serif" }}>
                         <div className="font-bold text-[#00ffcc] uppercase tracking-wider mb-1 text-[11px]" style={{ fontFamily: "'Oxanium', sans-serif" }}>
@@ -992,7 +1616,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
                 </Html>
             )}
 
-            {matrixInfo && matrixInfo.distance > 0.1 && matrixInfo.distance < 18 && (
+            {!isOverlayActive && matrixInfo && matrixInfo.distance > 0.1 && matrixInfo.distance < 18 && (
                 <Html distanceFactor={14} position={[0, 0, 1.2]} center>
                     <div className="pointer-events-none select-none text-[7px] text-white bg-slate-950/90 px-1 py-0.5 rounded border border-cyan-500/30 font-mono flex flex-col items-center shadow-lg backdrop-blur-sm">
                         <span className="text-[6px] text-cyan-400 font-bold">ΔX:{matrixInfo.dx > 0 ? `+${matrixInfo.dx.toFixed(1)}` : matrixInfo.dx.toFixed(1)}</span>
@@ -1004,13 +1628,15 @@ export default function HexagonNode3D({ node, isHovered, isSelected, isTargetabl
             )}
 
             {/* Floating Hexadecimal Coordinate tag */}
-            <Html distanceFactor={16} position={[0, 0, 1.65]} center>
-                <div 
-                    className="pointer-events-none select-none text-[6px] text-[#00ffff] bg-slate-950/90 px-1.5 py-0.5 rounded border border-[#00ffff]/40 font-mono shadow-[0_0_8px_rgba(0,255,255,0.2)] tracking-wider"
-                >
-                    {`0x${node.macroIndex.toString(16).toUpperCase()}${node.subIndex.toString(16).toUpperCase()}`}
-                </div>
-            </Html>
+            {!isOverlayActive && (
+                <Html distanceFactor={16} position={[0, 0, 1.65]} center>
+                    <div 
+                        className="pointer-events-none select-none text-[6px] text-[#00ffff] bg-slate-950/90 px-1.5 py-0.5 rounded border border-[#00ffff]/40 font-mono shadow-[0_0_8px_rgba(0,255,255,0.2)] tracking-wider"
+                    >
+                        {`0x${node.macroIndex.toString(16).toUpperCase()}${node.subIndex.toString(16).toUpperCase()}`}
+                    </div>
+                </Html>
+            )}
         </group>
 
     );

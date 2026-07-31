@@ -1,4 +1,5 @@
 import React from 'react';
+import { getPhysicsSpecs } from '@dusan-game/shared';
 
 const Hand = ({ cards, activeCardId, onCardClick }) => {
   if (!cards || cards.length === 0) {
@@ -8,7 +9,7 @@ const Hand = ({ cards, activeCardId, onCardClick }) => {
   return (
     <div className="hand">
       {cards.map(card => {
-        // Farby podľa pravidiel: Červená=Útok, Modrá=Kúzlo/Obrana, Žltá=Pohyb, Čierna=Helper/Doplnok
+        // Colors according to rules: Red=Attack, Blue=Spell/Defense, Yellow=Movement, Black=Helper
         let cardClass = "card ";
         if (card.type === 'ACTION') {
           if (card.voltage > 0) cardClass += "red";
@@ -22,6 +23,11 @@ const Hand = ({ cards, activeCardId, onCardClick }) => {
           cardClass += " active";
         }
 
+        // Add ultimate border for premium feel
+        if (card.voltage > 5 || card.resistance > 5) {
+          cardClass += " hs-card-ultimate";
+        }
+
         return (
           <div 
             key={card.id} 
@@ -33,13 +39,44 @@ const Hand = ({ cards, activeCardId, onCardClick }) => {
               onCardClick(card.id);
             }}
           >
-            <h4>{card.name}</h4>
-            <div className="stats">
-              {card.voltage > 0 && <span>V: {card.voltage}</span>}
-              {card.resistance > 0 && <span>R: {card.resistance}</span>}
-              {card.semanticErosion > 0 && <span>D: {card.semanticErosion}</span>}
+            {/* Hearthstone Cost Badge */}
+            <div className="hs-card-cost-badge">
+              {getPhysicsSpecs(card.id)?.cost !== undefined ? getPhysicsSpecs(card.id).cost : (card.cost !== undefined ? card.cost : (card.voltage || card.resistance || 2))}
             </div>
-            <div className="type">{card.type}</div>
+
+            {/* Hearthstone Oval Art Frame */}
+            <div className="hs-card-art-frame">
+              <svg className="w-full h-full" viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
+                <defs>
+                  <radialGradient id={`glow-${card.id}`} cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor={card.voltage > 0 ? '#ff3366' : '#2dd3f1'} stopOpacity="0.8"/>
+                    <stop offset="100%" stopColor="#05050f" stopOpacity="0.1"/>
+                  </radialGradient>
+                </defs>
+                <ellipse cx="50%" cy="50%" rx="40" ry="30" fill={`url(#glow-${card.id})`} />
+                <path d="M 30,50 Q 50,20 70,50" fill="none" stroke="#b2944b" strokeWidth="1.5" />
+              </svg>
+            </div>
+
+            {/* Hearthstone Name Banner */}
+            <div className="hs-card-name-banner">
+              {card.name}
+            </div>
+
+            {/* Hearthstone Parchment Description Box */}
+            <div className="hs-card-desc-box">
+              {card.description || `Generuje ${card.voltage || card.resistance || 3} bodov energie. Typ: ${card.type}.`}
+            </div>
+
+            {/* Hearthstone Attack Badge (Voltage) */}
+            <div className="hs-card-stat-star">
+              {card.voltage || 0}
+            </div>
+
+            {/* Hearthstone Shield Badge (Resistance) */}
+            <div className="hs-card-stat-shield">
+              {card.resistance || 0}
+            </div>
           </div>
         );
       })}

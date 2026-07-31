@@ -62,7 +62,7 @@ export class TacticalGenerativeCoordinator {
     };
 
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('TIMEOUT')), 250);
+      setTimeout(() => reject(new Error('TIMEOUT')), 2500);
     });
 
     try {

@@ -23,7 +23,7 @@ export default function AdminDiagnosticsPanel({ onClose, initialEntropy = 0.4, o
     const handleForcePhaseOverride = async () => {
         logToConsole(`Overriding phase machine: Phase -> ${selectedPhase}, Player -> ${selectedPlayer}`);
         try {
-            const res = await fetch('http://localhost:3001/api/admin/phase/override', {
+            const res = await fetch('/api/admin/phase/override', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phase: selectedPhase, activePlayerId: selectedPlayer })

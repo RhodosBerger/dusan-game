@@ -10,14 +10,15 @@ import { startBackoffice } from './backoffice';
 import { AIOpponentDirector } from './models/AIOpponentDirector';
 import { initializeSeedData } from './seedData';
 import { DailyQuestEngine } from './models/DailyQuestEngine';
+import { TradingSimulator } from './economy/TradingSimulator';
 import { ActionNode } from './models/ActionNode';
 import { Instruction } from './models/Instruction';
 import { TacticalAssembler } from './models/TacticalAssembler';
 import { Thread } from './models/Thread';
-import { BiomeEngine, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter } from '@dusan-game/shared';
+import { BiomeEngine, Pathfinder, CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, getPhysicsSpecs, applyRuleAdjustments, AdrenalineDirector, ITEMS_CATALOG, OhmGridEvaluator, SpatialGuidanceSystem, SovereignScenarioInterpreter, SovereignKeyframeInterpreter, SovereignGenerativeOrchestrator, SovereignRealityMatrix, SovereignLIFOArbiter, SovereignPredictiveGenerator, SovereignFailoverGateway, SovereignPhraseGenerator, SovereignTaskScheduler, GoCoreMediator } from '@dusan-game/shared';
 import { SemanticGameplayCoordinator } from './models/SemanticGameplayCoordinator';
 import { TerrainTelemetryCoordinator } from './models/TerrainTelemetryCoordinator';
-import { RenderPriorityBalancer } from './models/RenderPriorityBalancer';
+import { RenderPriorityBalancer } from '@dusan-game/shared';
 import { GameplayCompositorManager } from './models/GameplayCompositorManager';
 import { GameplayCompositionEngine } from './models/GameplayCompositionEngine';
 import { AestheticMarketCoordinator } from './models/AestheticMarketCoordinator';
@@ -32,6 +33,8 @@ import { SovereignTelemetrySpawner } from './models/SovereignTelemetrySpawner';
 import { SovereignCombinatoricsRegistry } from './models/SovereignCombinatoricsRegistry';
 import { ClickHouseTelemetryClient } from './models/ClickHouseTelemetryClient';
 import { SovereignLayerLogger } from './utils/SovereignLayerLogger';
+import { DevOpsTelemetryWatcher } from './utils/devopsTelemetryWatcher';
+import { SovereignBridgeCoordinator } from '@dusan-game/shared';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
 
@@ -66,26 +69,102 @@ interface WaitingPlayer {
 }
 
 const socketToThread = new Map<string, string>();
+const bridgeCoordinator = new SovereignBridgeCoordinator();
 const matchmakingQueue: WaitingPlayer[] = [];
 const activeMatches = new Map<string, { engine: SovereignEngine; players: string[]; interval: NodeJS.Timeout; aiDirector?: AIOpponentDirector; aiThreadId?: string }>();
 
+const globalDdaConfig = {
+  winChance: 0.65,
+  stepsAhead: 3,
+  cullingDistance: 8,
+  proceduralSpawnsEnabled: true
+};
+
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
+import { SovereignIntrospectionEngine } from './models/SovereignIntrospectionEngine';
 
 const dbSync = new DatabaseSyncManager('./database.db');
+
+class ServerDeltaManager {
+  private static lastStates = new Map<string, string>(); // room/socket ID -> JSON string of last state
+
+  public static emitState(roomOrSocket: any, id: string, nextState: any) {
+    const serialized = JSON.stringify(nextState);
+    const last = this.lastStates.get(id);
+    if (last) {
+      const prev = JSON.parse(last);
+      const delta = this.computeDelta(prev, nextState);
+      if (delta && Object.keys(delta).length > 0) {
+        this.lastStates.set(id, serialized);
+        roomOrSocket.emit('state_delta', delta);
+        return;
+      }
+    }
+    this.lastStates.set(id, serialized);
+    roomOrSocket.emit('state_resolved', nextState);
+  }
+
+  public static clearState(id: string) {
+    this.lastStates.delete(id);
+  }
+
+  private static computeDelta(prev: any, next: any): any {
+    if (prev === next) return null;
+    if (typeof prev !== 'object' || typeof next !== 'object' || prev === null || next === null) {
+      return next;
+    }
+    const delta: any = {};
+    let hasChanges = false;
+    for (const key of Object.keys(next)) {
+      if (!(key in prev)) {
+        delta[key] = next[key];
+        hasChanges = true;
+      } else {
+        const subDelta = this.computeDelta(prev[key], next[key]);
+        if (subDelta !== null) {
+          delta[key] = subDelta;
+          hasChanges = true;
+        }
+      }
+    }
+    return hasChanges ? delta : null;
+  }
+}
+
+
+
+class BackofficeRegulators {
+  public static config = {
+    enabledDraco: true,
+    enabledTurnBalancer: true,
+    enabledTransparency: true,
+    enabledGodRays: true,
+    enabledItemLoaders: true,
+    enabledOpenVINO: true,
+    enabledDeltaCompression: true,
+    selectedTexture: 'moss_base',
+    textureBoost: true,
+    textureBevel: false,
+    textureSpecular: true
+  };
+}
 
 const getEngineContext = (sock: any) => {
   const matchId = sock.data.matchId;
   if (matchId && activeMatches.has(matchId)) {
     const match = activeMatches.get(matchId)!;
+    const roomName = `room_${matchId}`;
     return {
       engine: match.engine,
-      targetEmit: (event: string, payload: any) => io.to(`room_${matchId}`).emit(event, payload),
+      targetEmit: (event: string, payload: any) => io.to(roomName).emit(event, payload),
+      targetEmitState: (state: any) => ServerDeltaManager.emitState(io.to(roomName), roomName, state),
       matchId
     };
   }
   return {
     engine: defaultEngine,
     targetEmit: (event: string, payload: any) => io.emit(event, payload),
+    targetEmitState: (state: any) => ServerDeltaManager.emitState(io, 'default_match', state),
     matchId: 'default_match'
   };
 };
@@ -107,7 +186,7 @@ const saveEngineState = (engine: SovereignEngine, matchId: string) => {
 setInterval(() => {
   if (defaultEngine.turnStateMachine.currentPhase === 'INTERRUPT_WINDOW') {
     defaultEngine.turnStateMachine.tickTimer();
-    io.emit('state_resolved', defaultEngine.getState());
+    ServerDeltaManager.emitState(io, 'default_match', defaultEngine.getState());
   }
 }, 1000);
 
@@ -126,12 +205,13 @@ io.on('connection', (socket) => {
 
   if (sandboxThreadId && defaultEngine.addPlayer(sandboxThreadId)) {
     socketToThread.set(socket.id, sandboxThreadId);
+    bridgeCoordinator.registerMapping(socket.id, sandboxThreadId);
     console.log(`${socket.id} joined the default game as ${sandboxThreadId}.`);
   } else {
     console.log(`${socket.id} joined as spectator.`);
   }
   socket.emit('initial_map', defaultEngine.getStaticMapState());
-  socket.emit('state_resolved', defaultEngine.getState());
+  ServerDeltaManager.emitState(socket, socket.id, defaultEngine.getState());
 
   // Načítanie a interpretácia herných scenárov
   socket.on('load_scenario', (payload: { scenarioName: string }) => {
@@ -289,6 +369,8 @@ io.on('connection', (socket) => {
 
       socketToThread.set(p1.socketId, 'thread_king_ai');
       socketToThread.set(p2.socketId, 'thread_hacker_root');
+      bridgeCoordinator.registerMapping(p1.socketId, 'thread_king_ai');
+      bridgeCoordinator.registerMapping(p2.socketId, 'thread_hacker_root');
 
       // Automaticky spustíme hru po pridaní oboch hráčov
       matchEngine.startGame();
@@ -296,7 +378,7 @@ io.on('connection', (socket) => {
       const matchInterval = setInterval(() => {
         if (matchEngine.turnStateMachine.currentPhase === 'INTERRUPT_WINDOW') {
           matchEngine.turnStateMachine.tickTimer();
-          io.to(roomName).emit('state_resolved', matchEngine.getState());
+          ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
         }
       }, 1000);
 
@@ -308,7 +390,7 @@ io.on('connection', (socket) => {
 
       io.to(roomName).emit('match_started', { matchId, theme: p1.theme, mode: 'PVP' });
       io.to(roomName).emit('initial_map', matchEngine.getStaticMapState());
-      io.to(roomName).emit('state_resolved', matchEngine.getState());
+      ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
       console.log(`[LOBBY] PvP Match ${matchId} started between ${p1.name} and ${p2.name}.`);
     }
   });
@@ -398,6 +480,7 @@ io.on('connection', (socket) => {
     }
 
     socketToThread.set(socket.id, chosenHero);
+    bridgeCoordinator.registerMapping(socket.id, chosenHero);
 
     // Automaticky spustíme hru
     matchEngine.startGame();
@@ -407,13 +490,13 @@ io.on('connection', (socket) => {
     const matchInterval = setInterval(() => {
       if (matchEngine.turnStateMachine.currentPhase === 'INTERRUPT_WINDOW') {
         matchEngine.turnStateMachine.tickTimer();
-        io.to(roomName).emit('state_resolved', matchEngine.getState());
+        ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
       }
 
       // AI protivník: max. 1 akcia za sekundu, nech má ťah čitateľné tempo
       if (aiDirector.tick()) {
         saveEngineState(matchEngine, matchId);
-        io.to(roomName).emit('state_resolved', matchEngine.getState());
+        ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
       }
     }, 1000);
 
@@ -428,13 +511,14 @@ io.on('connection', (socket) => {
     socket.emit('match_started', { matchId, theme: payload.theme, mode: 'AI' });
     io.to(roomName).emit('initial_map', matchEngine.getStaticMapState());
     saveEngineState(matchEngine, matchId);
-    io.to(roomName).emit('state_resolved', matchEngine.getState());
+    ServerDeltaManager.emitState(io.to(roomName), roomName, matchEngine.getState());
     console.log(`[LOBBY] AI Match ${matchId} started for player ${payload.name}.`);
   });
 
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     socketToThread.delete(socket.id);
+    bridgeCoordinator.removeMapping(socket.id);
     
     // Odstránenie z queue ak sa odpojil pred spustením zápasu
     const qIndex = matchmakingQueue.findIndex(p => p.socketId === socket.id);
@@ -444,6 +528,11 @@ io.on('connection', (socket) => {
     
     // Vyčistenie inštancie pri odpojení všetkých hráčov
     const matchId = socket.data.matchId;
+    ServerDeltaManager.clearState(socket.id);
+    if (matchId) {
+      ServerDeltaManager.clearState(`room_${matchId}`);
+    }
+
     if (matchId && activeMatches.has(matchId)) {
       const match = activeMatches.get(matchId)!;
       clearInterval(match.interval);
@@ -525,6 +614,58 @@ io.on('connection', (socket) => {
     
     // Každá zahraná karta sa presunie do odkladacieho balíčka
     activePlayerThread.discardPile.push(instruction);
+
+    // ── Semantic Weather Action Tensors ─────────────────────────────────────
+    const cardIdLower = payload.cardId.toLowerCase();
+    let selectedWeather: string | null = null;
+    if (cardIdLower.includes('toxic') || cardIdLower.includes('acid') || cardIdLower.includes('swamp') || cardIdLower.includes('poison')) {
+      selectedWeather = 'TOXIC_STORM';
+    } else if (cardIdLower.includes('void') || cardIdLower.includes('collapse') || cardIdLower.includes('darkness') || cardIdLower.includes('purge')) {
+      selectedWeather = 'BLIZZARD';
+    } else if (cardIdLower.includes('crystal') || cardIdLower.includes('laser') || cardIdLower.includes('beam') || cardIdLower.includes('shatter')) {
+      selectedWeather = 'CLEAR';
+    }
+
+    if (selectedWeather) {
+      console.log(`[WEATHER_TENSOR] Card ${payload.cardId} triggers environmental flux: ${selectedWeather}`);
+      const goBridge = new GoCoreMediator(GO_CORE_URL);
+      
+      const flatBlocks: any[] = [];
+      engine.map.chunks.forEach(chunk => {
+        chunk.blocks.forEach(block => {
+          flatBlocks.push({
+            macroIndex: chunk.id,
+            subIndex: block.id,
+            friction: block.friction || 1.0,
+            conductivity: block.conductivity || 0.5,
+            hazardIndex: block.hazardIndex || 0.0,
+            walkable: block.walkable !== false
+          });
+        });
+      });
+
+      goBridge.calculateEnvironmentFlux(selectedWeather, flatBlocks)
+        .then(updatedBlocks => {
+          updatedBlocks.forEach(upNode => {
+            const chunk = engine.map.chunks.find(c => c.id === upNode.macroIndex);
+            const block = chunk?.blocks.find(b => b.id === upNode.subIndex);
+            if (block) {
+              block.friction = upNode.friction ?? 1.0;
+              block.conductivity = upNode.conductivity ?? 0.5;
+              block.hazardIndex = upNode.hazardIndex ?? 0.0;
+            }
+          });
+          
+          io.to(matchId).emit('weather_change', {
+            weather: selectedWeather,
+            logs: `Authoritative weather flux mutated grid to ${selectedWeather}!`
+          });
+          console.log(`[WEATHER_TENSOR] Broadcasted weather change event: ${selectedWeather}`);
+        })
+        .catch(err => {
+          console.error('[WEATHER_TENSOR_ERROR] Failed environment flux calculation:', err);
+        });
+    }
 
     // ── Void Walker Entropy Check ──────────────────────────────────────────
     if (baseCard && baseCard.heroId === 'void') {
@@ -627,6 +768,21 @@ io.on('connection', (socket) => {
       console.log(`[OPENVINO FOCUS BONUS] High focus detected (${(engine as any).lastFocusIndex.toFixed(2)} > 0.8). Card voltage boosted to ${finalSpecs.voltage}V!`);
     }
 
+    const lastBlinks = (engine as any).lastBlinkCount || 0;
+    const lastFace = (engine as any).lastFaceMovement || 0.0;
+    const lastFatigue = (engine as any).lastFatigueIndex || 0.0;
+    const lastEmotion = (engine as any).lastEmotion || 'CALM';
+
+    if (lastBlinks > 5 || lastFace > 0.7 || lastFatigue > 0.65) {
+      engine.globalEntropy = Number((engine.globalEntropy + 0.04).toFixed(2));
+      console.log(`[OPENVINO DYNAMIC STRESS] Stressed play detected (Blinks: ${lastBlinks}, Face: ${lastFace}). Global entropy increased to ${engine.globalEntropy}!`);
+    }
+
+    if (lastFatigue > 0.6 || lastEmotion === 'STRESSED') {
+      finalSpecs.resistance = Math.max(1, finalSpecs.resistance - 1);
+      console.log(`[OPENVINO EMOTIONAL ADAPTATION] Reduced resistance to ${finalSpecs.resistance} to assist fatigued/stressed player.`);
+    }
+
     const isCardUltimate = baseCard ? (baseCard.isUltimate || false) : false;
 
     targetEmit('card_played_effect', {
@@ -638,6 +794,57 @@ io.on('connection', (socket) => {
       damage: Math.round(finalSpecs.voltage * 1.2),
       sourceId: activePlayerId
     });
+
+    // Update daily quests progress for the playing thread
+    activePlayerThread.updateQuestProgress('SPEND_ENERGY', Number(instruction.energyCost) || 0);
+    if (isCardUltimate) {
+      activePlayerThread.updateQuestProgress('CAST_ULTIMATE', 1);
+    }
+
+    // Dynamic Terrain Resonator: Check if card action is high-voltage (>5.0V raw, i.e., >75V UI representation)
+    if (payload.targetHex && finalSpecs.voltage > 5.0) {
+      console.log(`[RESONATOR_WAVE] High-voltage action detected: ${finalSpecs.voltage}V (> 5.0V raw). Triggering seismic shockwave!`);
+      const targetChunkId = payload.targetHex.meta;
+      const targetBlockId = payload.targetHex.hex;
+      
+      const targetCoords = BiomeEngine.getHexCoordinates(targetChunkId, targetBlockId);
+      const vibratingHexes: { meta: number; hex: number; cracked: boolean }[] = [];
+
+      engine.map.chunks.forEach(chunk => {
+        chunk.blocks.forEach(block => {
+          const blockCoords = BiomeEngine.getHexCoordinates(chunk.id, block.id);
+          const dist = Pathfinder.hexDistance(targetCoords.q, targetCoords.r, blockCoords.q, blockCoords.r);
+          
+          if (dist <= 1) {
+            // All nodes within radius 1 vibrate
+            (block as any).vibrating = true;
+            
+            // Adjacent tiles (dist === 1) suffer temporary reduction in walkability
+            if (dist === 1) {
+              block.walkable = false;
+              (block as any).restoreWalkability = 1; // will be restored next turn
+              
+              // If already damaged (hazardIndex > 0.6), they crack and collapse in 2 turns
+              if (block.hazardIndex > 0.6) {
+                block.collapseInTurns = 2;
+                vibratingHexes.push({ meta: chunk.id, hex: block.id, cracked: true });
+                console.log(`[RESONATOR_CRACK] Tile M${chunk.id}_S${block.id} is cracked and will collapse in 2 turns!`);
+              } else {
+                vibratingHexes.push({ meta: chunk.id, hex: block.id, cracked: false });
+              }
+            } else {
+              vibratingHexes.push({ meta: chunk.id, hex: block.id, cracked: false });
+            }
+          }
+        });
+      });
+
+      io.to(matchId).emit('resonator_wave', {
+        targetHex: payload.targetHex,
+        seismicRadius: 1,
+        vibratingHexes
+      });
+    }
 
     // ── Log Combat Telemetry to Go Core (GPS/Magnitude/Manner) ───────────────
     if (payload.targetHex) {
@@ -798,9 +1005,10 @@ io.on('connection', (socket) => {
         const energyCost = (metaDist - 1) * 3;
         if (engine.systemEnergy >= energyCost) {
           engine.systemEnergy -= energyCost;
+          thread.updateQuestProgress('SPEND_ENERGY', energyCost);
           console.log(`[POHYB JUMP] Long range jump to M${payload.targetHex.meta} cost ${energyCost} energy. System energy left: ${engine.systemEnergy}`);
         } else {
-          console.log(`[POHYB BLOK] Príliš ďaleko (vzdialenosť metapozícií ${metaDist} > 1) a nedostatočná energia (potrebné ${energyCost}, k dispozícii ${engine.systemEnergy}).`);
+          console.log(`[POHYB BLOK] Príliš ďaleko (vzdialenosť metapozícií ${metaDist} > 1) and nedostatočná energia (potrebné ${energyCost}, k dispozícii ${engine.systemEnergy}).`);
           return;
         }
       }
@@ -844,12 +1052,60 @@ io.on('connection', (socket) => {
     const targetBlock = targetChunk?.blocks.find(b => b.id === payload.targetHex.hex);
     if (targetBlock && targetBlock.hasChest) {
       targetBlock.hasChest = false; // consume
+      thread.updateQuestProgress('COLLECT_CHEST', 1);
       
-      const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
-      thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 1;
-      thread.xp = (thread.xp || 0) + 50;
-      
-      console.log(`[CHEST CLAIM] Player ${thread.id} claimed loot chest. +1 ${materialToGive}, +50 XP!`);
+      const roll = Math.random();
+      let chestMsg = '';
+      if (roll < 0.3) {
+        // Roll random item from catalog
+        const catalogKeys = Object.keys(ITEMS_CATALOG);
+        const randomKey = catalogKeys[Math.floor(Math.random() * catalogKeys.length)];
+        const item = ITEMS_CATALOG[randomKey];
+        if (item) {
+          try {
+            if (item.category === 'MAGIC' && item.heroClass) {
+              dbSync.addPlayerArtifact(
+                thread.name,
+                item.key,
+                item.category,
+                item.heroClass,
+                item.statBonus?.spellReach ?? 0,
+                item.statBonus?.damage ?? 0
+              );
+              thread.artifacts = dbSync.getPlayerArtifacts(thread.name).map((art: any) => ({
+                id: art.id,
+                artifactKey: art.artifact_key,
+                category: art.category,
+                heroClass: art.hero_class,
+                spellReachBonus: art.spell_reach_bonus,
+                damageBonus: art.damage_bonus
+              }));
+            } else {
+              dbSync.addPlayerItem(thread.name, item.key, item.category);
+              thread.items = dbSync.getPlayerItems(thread.name);
+            }
+            chestMsg = `Claimed chest: found ${item.name}! Added to database inventory.`;
+            console.log(`[CHEST CLAIM] Player ${thread.id} found ${item.name} in chest!`);
+          } catch (e: any) {
+            console.error(`[CHEST CLAIM ERROR] Failed to save item to database:`, e);
+            const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
+            thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 2;
+            thread.xp = (thread.xp || 0) + 100;
+            chestMsg = `Claimed chest: +2 ${materialToGive}, +100 XP (DB Write Fallback)`;
+          }
+        } else {
+          const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
+          thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 2;
+          thread.xp = (thread.xp || 0) + 100;
+          chestMsg = `Claimed chest: +2 ${materialToGive}, +100 XP`;
+        }
+      } else {
+        const materialToGive = thread.id === 'thread_king_ai' ? 'CrystalShard' : 'Spores';
+        thread.materials[materialToGive] = (thread.materials[materialToGive] || 0) + 2;
+        thread.xp = (thread.xp || 0) + 100;
+        chestMsg = `Claimed chest: +2 ${materialToGive}, +100 XP`;
+        console.log(`[CHEST CLAIM] Player ${thread.id} claimed loot chest. +2 ${materialToGive}, +100 XP!`);
+      }
       
       // RPG Level Up check: each level requires level * 100 XP
       const nextLevelXp = (thread.level || 1) * 100;
@@ -864,14 +1120,14 @@ io.on('connection', (socket) => {
       engine.traceLog.push({
         type: 'ChestClaim',
         threadId: thread.id,
-        message: `Loot chest claimed! +1 ${materialToGive}, +50 XP`,
+        message: chestMsg,
         timestamp: Date.now()
       } as any);
     }
 
     const biomeDetails = BiomeEngine.getBiomeForHex(payload.targetHex.meta, payload.targetHex.hex);
-    if (biomeDetails && biomeDetails.biome === 'TOXIC_SWAMP') {
-      thread.updateQuestProgress('REACH_BIOME', 1, 'TOXIC_SWAMP');
+    if (biomeDetails) {
+      thread.updateQuestProgress('REACH_BIOME', 1, biomeDetails.biome);
     }
 
     // Trigger trap check for moved player!
@@ -1170,6 +1426,185 @@ app.get('/api/telemetry', (req, res) => {
   }
 });
 
+const devopsWatcher = new DevOpsTelemetryWatcher('./database.db');
+
+app.get('/api/devops/telemetry', (req, res) => {
+  try {
+    const metrics = devopsWatcher.scan();
+    res.json(metrics);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/telemetry/planning', (req, res) => {
+  try {
+    const kclLayer = SovereignLayerLogger.getLayer('GAUSS_SEIDEL_KCL') || {
+      layerName: 'GAUSS_SEIDEL_KCL',
+      efficiencyRating: 'OPTIMAL',
+      cpuExecutionTimeMs: 0.12,
+      memoryFootprintMb: 2.4,
+      operationalStatus: 'STANDBY',
+      telemetryPayloadBytes: 256
+    };
+
+    const gazeLayer = SovereignLayerLogger.getLayer('OPENVINO_GAZE_TRACKING') || {
+      layerName: 'OPENVINO_GAZE_TRACKING',
+      efficiencyRating: 'OPTIMAL',
+      cpuExecutionTimeMs: 0.45,
+      memoryFootprintMb: 4.8,
+      operationalStatus: 'STANDBY',
+      telemetryPayloadBytes: 128
+    };
+
+    const dbStats = DatabaseSyncManager.getBufferStats();
+
+    res.status(200).json({
+      timestamp: new Date().toISOString(),
+      layers: {
+        GAUSS_SEIDEL_KCL: kclLayer,
+        OPENVINO_GAZE_TRACKING: gazeLayer,
+        SQLITE_DEBOUNCED_WAL: {
+          layerName: 'SQLITE_DEBOUNCED_WAL',
+          efficiencyRating: 'OPTIMAL',
+          cpuExecutionTimeMs: dbStats.averageLatencyMs,
+          memoryFootprintMb: 1.2,
+          operationalStatus: dbStats.status,
+          telemetryPayloadBytes: dbStats.queueSize * 128,
+          stats: dbStats
+        }
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/telemetry/introspection', async (req, res) => {
+  try {
+    const analysis = await SovereignIntrospectionEngine.analyzeLogs(
+      defaultEngine.traceLog,
+      dbSync
+    );
+    res.status(200).json(analysis);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/predict', (req, res) => {
+  try {
+    const meta = parseInt(req.query.meta as string || '0', 10);
+    const hex = parseInt(req.query.hex as string || '0', 10);
+    const verb = (req.query.verb as string || 'DEPLOY').toUpperCase();
+    const prediction = SovereignPredictiveGenerator.predictNextState(meta, hex, verb);
+    res.json(prediction);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/predict/log', (req, res) => {
+  try {
+    const { session = 'default', verb = 'DEPLOY', impact = {} } = req.body;
+    SovereignPredictiveGenerator.writeImpactLog(session, verb, impact);
+    res.json({ success: true, logs: SovereignPredictiveGenerator.getImpactLogs() });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/cards/fuse', (req, res) => {
+  try {
+    const { cardId1, cardId2, playerId, matchId } = req.body;
+    
+    // Find engine context: check activeMatches first, then fallback to defaultEngine
+    let targetEngine = defaultEngine;
+    if (matchId && activeMatches.has(matchId)) {
+      const matchObj = activeMatches.get(matchId);
+      if (matchObj && matchObj.engine) {
+        targetEngine = matchObj.engine;
+      }
+    }
+
+    const player = targetEngine.threads.find((t: any) => t.id === playerId);
+    if (!player) {
+      res.status(404).json({ error: 'Player thread not found.' });
+      return;
+    }
+
+    const c1Index = player.currentBuffer.findIndex((c: any) => c.id === cardId1);
+    const c2Index = player.currentBuffer.findIndex((c: any) => c.id === cardId2);
+
+    if (c1Index === -1 || c2Index === -1 || cardId1 === cardId2) {
+      res.status(400).json({ error: 'One or both cards not found in hand.' });
+      return;
+    }
+
+    const c1 = player.currentBuffer[c1Index];
+    const c2 = player.currentBuffer[c2Index];
+
+    const c1Cost = c1.cost !== undefined ? c1.cost : (c1.energyCost !== undefined ? c1.energyCost : 1);
+    const c2Cost = c2.cost !== undefined ? c2.cost : (c2.energyCost !== undefined ? c2.energyCost : 1);
+    const avgCost = Math.ceil((c1Cost + c2Cost) / 2);
+    const fusedType = c1.type === c2.type ? c1.type : 'HYBRID';
+    
+    const visualProfile = SovereignPredictiveGenerator.predictNextState(0, 0, c1.id + c2.id);
+
+    const fusedCard = {
+      id: `fused_${c1.id}_${c2.id}_${Date.now()}`,
+      name: `${c1.name.split(' ')[0]} ${c2.name.split(' ').slice(-1)[0]}`,
+      type: fusedType === 'HYBRID' ? 'ACTION' : fusedType,
+      cost: avgCost,
+      energyCost: avgCost,
+      damage: Math.max(c1.damage || 1, c2.damage || 1),
+      armor: Math.max(c1.armor || 0, c2.armor || 0),
+      hpChange: Math.max(c1.hpChange || 1, c2.hpChange || 1),
+      isUltimate: false,
+      effects: {
+        thermalThrottling: false,
+        chronoLock: false,
+        syntaxMute: false,
+        threadIsolation: false
+      },
+      desc: `FUSED: ${c1.desc || ''} + ${c2.desc || ''}`,
+      visualProfile,
+      parentTypes: [c1.type, c2.type]
+    };
+
+    player.currentBuffer = player.currentBuffer.filter((_: any, idx: number) => idx !== c1Index && idx !== c2Index);
+    player.currentBuffer.push(fusedCard);
+
+    if (matchId && activeMatches.has(matchId)) {
+      saveEngineState(targetEngine, matchId);
+      io.to(matchId).emit('state_resolved', targetEngine.getState());
+    }
+
+    res.json({ success: true, fusedCard, gameState: targetEngine.getState() });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/health/go-core', async (req, res) => {
+  try {
+    const online = await SovereignFailoverGateway.verifyHealth('http://localhost:8081');
+    res.json({ online });
+  } catch (e: any) {
+    res.json({ online: false, error: e.message });
+  }
+});
+
+app.post('/api/simulation/geometry-nodes', (req, res) => {
+  try {
+    const { verb = 'DEFORM', target = 'HEX' } = req.body;
+    const stats = SovereignPhraseGenerator.compilePhrase(verb, target);
+    res.json(stats);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/telemetry/planning', (req, res) => {
   try {
     const { playedCards = [], availableEnergy = 50, currentPhase = 'ACTION' } = req.body;
@@ -1241,8 +1676,15 @@ app.post('/api/telemetry/vision', async (req, res) => {
 
     const focusVal = details.focus_index !== undefined ? details.focus_index : 0.85;
     const fatigueVal = details.fatigue_index !== undefined ? details.fatigue_index : 0.15;
+    const blinkVal = details.blink_count !== undefined ? details.blink_count : 0;
+    const faceVal = details.face_movement !== undefined ? details.face_movement : 0.0;
+    const emotionVal = details.emotion !== undefined ? details.emotion : 'CALM';
+
     (defaultEngine as any).lastFocusIndex = focusVal;
     (defaultEngine as any).lastFatigueIndex = fatigueVal;
+    (defaultEngine as any).lastBlinkCount = blinkVal;
+    (defaultEngine as any).lastFaceMovement = faceVal;
+    (defaultEngine as any).lastEmotion = emotionVal;
 
     ClickHouseTelemetryClient.logVision({
       session_id: payload.session_id || 'unknown_session',
@@ -1279,6 +1721,53 @@ app.post('/api/ml/archetype/adapt', (req, res) => {
   (defaultEngine as any).activeArchetype = archetype;
   console.log(`[ML ARCHETYPE ADAPT] Player ${username} classified as ${archetype}. Spawner probability adjusted.`);
   res.status(200).json({ success: true, message: `Successfully updated player archetype to ${archetype}` });
+});
+
+// ── Backoffice Regulators endpoints (CMS Sync) ──────────────────────────────
+app.get('/api/backoffice/regulators', (req, res) => {
+  res.status(200).json(BackofficeRegulators.config);
+});
+
+app.post('/api/backoffice/regulators', (req, res) => {
+  BackofficeRegulators.config = {
+    ...BackofficeRegulators.config,
+    ...req.body
+  };
+  res.status(200).json({ success: true, config: BackofficeRegulators.config });
+});
+
+// ── Backoffice Task Priority Scheduler endpoints (SJF priority queue) ───────
+app.get('/api/backoffice/tasks', (req, res) => {
+  res.status(200).json(SovereignTaskScheduler.getTasks());
+});
+
+app.post('/api/backoffice/tasks', (req, res) => {
+  const { name, estimatedDurationMs, priority } = req.body;
+  if (!name || estimatedDurationMs === undefined || priority === undefined) {
+    res.status(400).json({ error: 'name, estimatedDurationMs and priority are required' });
+    return;
+  }
+  const task = SovereignTaskScheduler.addTask(name, Number(estimatedDurationMs), Number(priority));
+  res.status(201).json({ success: true, task });
+});
+
+app.delete('/api/backoffice/tasks/:uid', (req, res) => {
+  const { uid } = req.params;
+  const success = SovereignTaskScheduler.removeTask(uid);
+  if (success) {
+    res.status(200).json({ success: true, message: `Task ${uid} removed` });
+  } else {
+    res.status(404).json({ error: `Task ${uid} not found` });
+  }
+});
+
+// ── Backoffice active session UIDs endpoint ────────────────────────────
+app.get('/api/backoffice/sessions', (req, res) => {
+  const list: any[] = [];
+  socketToThread.forEach((threadId, socketId) => {
+    list.push({ socketId, threadId });
+  });
+  res.status(200).json(list);
 });
 
 app.get('/api/db/registers', (req, res) => {
@@ -1367,6 +1856,206 @@ app.get('/api/db/players', (req, res) => {
   try {
     const players = dbSync.getAllPlayers();
     res.status(200).json(players);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/leaderboard', (req, res) => {
+  try {
+    const entries = dbSync.getAllLeaderboards();
+    res.status(200).json(entries);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/leaderboard/evaluate', (req, res) => {
+  try {
+    const { playerId, stepsTaken, npcWins, npcMatches, aiWins, aiMatches, playerWins, playerMatches } = req.body;
+    const { SovereignLeaderboardEvaluator } = require('@dusan-game/shared');
+    
+    const rawData = {
+      playerId: playerId || 'crystal_king',
+      stepsTaken: stepsTaken || 0,
+      npcWins: npcWins || 0,
+      npcMatches: npcMatches || 0,
+      aiWins: aiWins || 0,
+      aiMatches: aiMatches || 0,
+      playerWins: playerWins || 0,
+      playerMatches: playerMatches || 0
+    };
+
+    const evaluated = SovereignLeaderboardEvaluator.evaluatePlayerStats(rawData);
+    const dbEntry = SovereignLeaderboardEvaluator.generateDatabaseEntry(evaluated);
+    
+    dbSync.savePlayerLeaderboard(dbEntry);
+
+    res.status(200).json({ success: true, evaluated });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/premium-items', (req, res) => {
+  try {
+    const items = dbSync.getPremiumItems();
+    res.status(200).json(items);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/purchase', (req, res) => {
+  try {
+    const { playerId, premiumItemId } = req.body;
+    const purchase = {
+      id: `purch_${Date.now()}`,
+      playerId,
+      premiumItemId,
+      status: 'COMPLETED'
+    };
+    dbSync.savePremiumPurchase(purchase);
+    res.status(200).json({ success: true, purchase });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/modifiers/:skill', (req, res) => {
+  try {
+    const modifiers = dbSync.getSkillModifiers(req.params.skill);
+    res.status(200).json(modifiers);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/purchases/:playerId', (req, res) => {
+  try {
+    const purchases = dbSync.getPlayerPurchases(req.params.playerId);
+    res.status(200).json(purchases);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/connections', (req, res) => {
+  try {
+    const mappings = bridgeCoordinator.getActiveMappings();
+    const hexCoords = ['0x12', '0x2B', '0x35', '0x71', '0x1C', '0x4D', '0x5E', '0x8F'];
+    const coordinates = hexCoords.map((coord, idx) => {
+      const distance = idx + 1;
+      let layer = 'COSMETIC';
+      if (distance <= 3) {
+        layer = 'CRITICAL';
+      } else if (distance <= globalDdaConfig.cullingDistance) {
+        layer = 'STRUCTURAL';
+      }
+      return {
+        coord,
+        distance,
+        layer,
+        cullActive: distance > globalDdaConfig.cullingDistance
+      };
+    });
+
+    res.status(200).json({
+      activeConnections: mappings,
+      coordinates
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/connections/mock', (req, res) => {
+  try {
+    const { socketId, threadId } = req.body;
+    if (!socketId || !threadId) {
+      res.status(400).json({ error: 'Missing socketId or threadId' });
+      return;
+    }
+    bridgeCoordinator.registerMapping(socketId, threadId);
+    socketToThread.set(socketId, threadId);
+    res.status(200).json({ success: true, registered: { socketId, threadId } });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/connections/mock-disconnect', (req, res) => {
+  try {
+    const { socketId } = req.body;
+    if (!socketId) {
+      res.status(400).json({ error: 'Missing socketId' });
+      return;
+    }
+    bridgeCoordinator.removeMapping(socketId);
+    socketToThread.delete(socketId);
+    res.status(200).json({ success: true, disconnected: socketId });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/b2b/clickhouse/status', (req, res) => {
+  try {
+    const fallbackRecords = ClickHouseTelemetryClient.readFallbackFile();
+    const isOnline = (ClickHouseTelemetryClient as any).isInitialized;
+    
+    const fallbackCounts = {
+      VISION: fallbackRecords.filter(r => r.type === 'VISION').length,
+      COMBAT: fallbackRecords.filter(r => r.type === 'COMBAT').length,
+      SHORT_CIRCUIT: fallbackRecords.filter(r => r.type === 'SHORT_CIRCUIT').length
+    };
+
+    res.status(200).json({
+      online: isOnline,
+      url: (ClickHouseTelemetryClient as any).clickhouseUrl,
+      fallbackPath: (ClickHouseTelemetryClient as any).fallbackPath,
+      fallbackRecordsCount: fallbackRecords.length,
+      fallbackCounts
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/b2b/clickhouse/mock', (req, res) => {
+  try {
+    const { type } = req.body;
+    if (type === 'VISION') {
+      ClickHouseTelemetryClient.logVision({
+        session_id: "mock_b2b_session_" + Math.floor(Math.random() * 100),
+        fps: 59.9,
+        latency_ms: 12.4,
+        defect_class: 1,
+        confidence: 0.94,
+        timestamp: Date.now()
+      });
+    } else if (type === 'COMBAT') {
+      ClickHouseTelemetryClient.logCombat({
+        match_id: "mock_b2b_match_" + Math.floor(Math.random() * 100),
+        player_id: "mock_player",
+        card_id: "voltage_surge",
+        voltage: 7.2,
+        current: 2.1,
+        timestamp: Date.now()
+      });
+    } else if (type === 'SHORT_CIRCUIT') {
+      ClickHouseTelemetryClient.logShortCircuit({
+        sector_id: "M1_S2",
+        voltage: 15.0,
+        resistance: 1.2,
+        current_load: 12.5,
+        timestamp: Date.now()
+      });
+    } else {
+      res.status(400).json({ error: 'Invalid mock event type' });
+      return;
+    }
+    res.status(200).json({ success: true, loggedType: type });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -1605,6 +2294,113 @@ app.post('/api/admin/logic/evaluate', (req, res) => {
   res.json(evaluation);
 });
 
+app.post('/api/admin/spawn-predicted-items', (req, res) => {
+  try {
+    const { username } = req.body;
+    const targetUser = username || 'thread_king_ai';
+    
+    // Clear previous items using the new DatabaseSyncManager helper
+    dbSync.clearPlayerItems(targetUser);
+
+    // Spawn every item defined in ITEMS_CATALOG
+    const keys = Object.keys(ITEMS_CATALOG);
+    for (const key of keys) {
+      const item = ITEMS_CATALOG[key];
+      dbSync.addPlayerItem(targetUser, item.key, item.category);
+    }
+    
+    res.json({ success: true, message: `Successfully spawned all ${keys.length} items for player ${targetUser}.` });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+interface SimulatedMatch {
+  playerHP: number;
+  bossHP: number;
+  turn: 'PLAYER' | 'NPC';
+  logs: string[];
+  hand: any[];
+}
+
+let activeSimulatedMatch: SimulatedMatch = {
+  playerHP: 15,
+  bossHP: 30,
+  turn: 'PLAYER',
+  logs: ['[Start] Battle initialized: Player Crystal Faction vs Sentinel Boss (30 HP).'],
+  hand: [
+    { id: 'c1', name: 'Crystal Blast', voltage: 4, cost: 1, type: 'ACTION', description: 'Deals 4 damage to boss.' },
+    { id: 'c2', name: 'Aether Shield', resistance: 3, cost: 2, type: 'ACTION', description: 'Blocks incoming damage.' },
+    { id: 'c3', name: 'Mana Recharge', voltage: 0, cost: 0, type: 'ACTION', description: 'Restores HP.' }
+  ]
+};
+
+app.post('/api/admin/ai-match/start', (req, res) => {
+  activeSimulatedMatch = {
+    playerHP: 15,
+    bossHP: 30,
+    turn: 'PLAYER',
+    logs: ['[Start] Battle initialized: Player Crystal Faction vs Sentinel Boss (30 HP).'],
+    hand: [
+      { id: 'c1', name: 'Crystal Blast', voltage: 4, cost: 1, type: 'ACTION', description: 'Deals 4 damage to boss.' },
+      { id: 'c2', name: 'Aether Shield', resistance: 3, cost: 2, type: 'ACTION', description: 'Blocks incoming damage.' },
+      { id: 'c3', name: 'Mana Recharge', voltage: 0, cost: 0, type: 'ACTION', description: 'Restores HP.' }
+    ]
+  };
+  res.json({ success: true, match: activeSimulatedMatch });
+});
+
+app.post('/api/admin/ai-match/play-card', (req, res) => {
+  try {
+    const { cardId } = req.body;
+    const cardIndex = activeSimulatedMatch.hand.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) {
+      return res.status(400).json({ error: 'Card not found in hand' });
+    }
+
+    const card = activeSimulatedMatch.hand[cardIndex];
+    
+    // Process player turn
+    let logMsg = `[Turn Player] Played ${card.name}. `;
+    if (card.voltage > 0) {
+      activeSimulatedMatch.bossHP = Math.max(0, activeSimulatedMatch.bossHP - card.voltage);
+      logMsg += `Dealt ${card.voltage} damage to Sentinel Boss.`;
+    } else if (card.resistance > 0) {
+      activeSimulatedMatch.playerHP = Math.min(25, activeSimulatedMatch.playerHP + card.resistance);
+      logMsg += `Healed player for +${card.resistance} HP.`;
+    } else {
+      activeSimulatedMatch.playerHP = Math.min(25, activeSimulatedMatch.playerHP + 5);
+      logMsg += `Recharged energy. Healed +5 HP.`;
+    }
+    activeSimulatedMatch.logs.push(logMsg);
+
+    // Consume card
+    activeSimulatedMatch.hand.splice(cardIndex, 1);
+    
+    // Draw replacement card
+    const randomCard = [
+      { id: 'c' + Date.now(), name: 'Crystal Burst', voltage: 5, cost: 2, type: 'ACTION', description: 'Deals 5 damage.' },
+      { id: 'c' + (Date.now() + 1), name: 'Aether Barrier', resistance: 4, cost: 3, type: 'ACTION', description: 'Heals +4 HP.' }
+    ][Math.floor(Math.random() * 2)];
+    activeSimulatedMatch.hand.push(randomCard);
+
+    // Execute NPC counter-turn if boss still alive
+    if (activeSimulatedMatch.bossHP > 0) {
+      activeSimulatedMatch.turn = 'NPC';
+      const npcDmg = Math.floor(Math.random() * 3) + 2;
+      activeSimulatedMatch.playerHP = Math.max(0, activeSimulatedMatch.playerHP - npcDmg);
+      activeSimulatedMatch.logs.push(`[Turn NPC] Sentinel Boss strikes back. Dealt ${npcDmg} damage to Player.`);
+      activeSimulatedMatch.turn = 'PLAYER';
+    } else {
+      activeSimulatedMatch.logs.push(`[Victory] Sentinel Boss has been defeated!`);
+    }
+
+    res.json({ success: true, match: activeSimulatedMatch });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/phase/override', (req, res) => {
   try {
     const { phase, activePlayerId } = req.body;
@@ -1617,6 +2413,23 @@ app.post('/api/admin/phase/override', (req, res) => {
     }
     io.emit('state_resolved', defaultEngine.getState());
     res.json({ success: true, phase: defaultEngine.turnStateMachine.currentPhase, activePlayerId: defaultEngine.turnStateMachine.activePlayerId });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/dda/config', (req, res) => {
+  res.json(globalDdaConfig);
+});
+
+app.post('/api/admin/dda/config', (req, res) => {
+  try {
+    const { winChance, stepsAhead, cullingDistance, proceduralSpawnsEnabled } = req.body;
+    if (typeof winChance === 'number') globalDdaConfig.winChance = winChance;
+    if (typeof stepsAhead === 'number') globalDdaConfig.stepsAhead = stepsAhead;
+    if (typeof cullingDistance === 'number') globalDdaConfig.cullingDistance = cullingDistance;
+    if (typeof proceduralSpawnsEnabled === 'boolean') globalDdaConfig.proceduralSpawnsEnabled = proceduralSpawnsEnabled;
+    res.json({ success: true, config: globalDdaConfig });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -1791,6 +2604,57 @@ app.get('/api/system/statistics-report', (req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.get('/api/assets/3d-models', (req, res) => {
+  const models = [
+    {
+      id: 'model_crystal_hero',
+      name: 'Crystal Hero (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_crystal.glb',
+      meshType: 'GLTF',
+      walkProfile: 'slow_walk',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_run', 'mixamo_jump', 'mixamo_attack']
+    },
+    {
+      id: 'model_toxic_hero',
+      name: 'Toxic Swamer (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_toxic.glb',
+      meshType: 'GLTF',
+      walkProfile: 'slime_trail',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_run', 'mixamo_attack']
+    },
+    {
+      id: 'model_void_hero',
+      name: 'Void Infiltrator (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_void.glb',
+      meshType: 'GLTF',
+      walkProfile: 'teleport_dash',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_jump', 'mixamo_attack']
+    },
+    {
+      id: 'model_druid_hero',
+      name: 'Druid Glider (Mixamo Rigged)',
+      category: 'character',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/hero_druid.glb',
+      meshType: 'GLTF',
+      walkProfile: 'earth_glide',
+      animations: ['mixamo_idle', 'mixamo_walk', 'mixamo_run', 'mixamo_jump', 'mixamo_attack']
+    },
+    {
+      id: 'model_gear_tech',
+      name: 'Procedural Gear Tech (Static)',
+      category: 'prop',
+      url: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/gear_tech.glb',
+      meshType: 'PRIMITIVE_GEAR',
+      walkProfile: 'static',
+      animations: ['rotate_y_loop']
+    }
+  ];
+  res.json(models);
 });
 
 app.post('/api/telemetry/evaluate-spawn', async (req, res) => {
@@ -2124,10 +2988,25 @@ app.post('/api/end-turn', (req, res) => {
 
 app.post('/api/match/mulligan', (req, res) => {
   try {
-    const { playerId, cardIds } = req.body;
-    defaultEngine.turnStateMachine.executeMulligan(playerId, cardIds || []);
-    io.emit('state_resolved', defaultEngine.getState());
-    res.status(200).json({ success: true, state: defaultEngine.getState() });
+    const { playerId, cardIds, matchId } = req.body;
+    let targetEngine = defaultEngine;
+    if (matchId && activeMatches.has(matchId)) {
+      const matchObj = activeMatches.get(matchId);
+      if (matchObj && matchObj.engine) {
+        targetEngine = matchObj.engine;
+      }
+    }
+    targetEngine.turnStateMachine.executeMulligan(playerId, cardIds || []);
+    
+    // Automatically complete mulligan for AI opponent if present
+    const aiThreads = targetEngine.threads.filter(t => t.type === 'PLAYER' && t.id !== playerId && t.name === "Sovereign AI");
+    aiThreads.forEach(ai => {
+      targetEngine.turnStateMachine.executeMulligan(ai.id, []);
+    });
+
+    const roomName = matchId ? `room_${matchId}` : 'default_match';
+    ServerDeltaManager.emitState(io.to(roomName), roomName, targetEngine.getState());
+    res.status(200).json({ success: true, state: targetEngine.getState() });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -2478,8 +3357,154 @@ app.get('/health', (req, res) => {
   res.status(200).send('Server is healthy');
 });
 
+app.post('/api/quests/procedural', async (req, res) => {
+  try {
+    const { username, hexCoord, hp, level, terrain } = req.body;
+    
+    const goResponse = await fetch(`${GO_CORE_URL}/api/telemetry/position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        log: {
+          playerId: username || 'player_default',
+          hexCoord: hexCoord || '0x00',
+          hp: Number(hp) || 10,
+          level: Number(level) || 1
+        },
+        terrain: terrain || 'WOODEN'
+      })
+    });
+    
+    if (!goResponse.ok) {
+      throw new Error(`Go Core returned error: ${await goResponse.text()}`);
+    }
+    
+    const questResp = await goResponse.json();
+    
+    const db = (dbSync as any).db;
+    db.prepare(`
+      INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
+      VALUES (?, ?, ?, ?)
+    `).run(
+      Date.now(),
+      hexCoord || '0x00',
+      JSON.stringify(questResp),
+      `AI Quest Generated: ${questResp.title}`
+    );
+    
+    dbSync.logTelemetry(username || 'player_default', 'QUEST_GEN', questResp);
+    
+    const player = dbSync.getOrCreatePlayer(username || 'player_default', 'crystal');
+    let activeQuests: any[] = [];
+    try {
+      const parsed = JSON.parse(player.quests);
+      activeQuests = parsed.activeList || [];
+    } catch (_) {
+      activeQuests = [];
+    }
+    
+    const newQuest = {
+      id: questResp.questId,
+      title: questResp.title,
+      description: questResp.story,
+      objectiveType: questResp.objectives[0]?.type || 'REACH_TILE',
+      targetValue: questResp.objectives[0]?.value || 1,
+      targetName: questResp.objectives[0]?.targetTile || '0x00',
+      progress: 0,
+      completed: false,
+      xpReward: questResp.xpReward,
+      materialReward: { type: 'CrystalShard', amount: 5 }
+    };
+    
+    activeQuests.push(newQuest);
+    
+    const updatedQuestsJson = JSON.stringify({
+      lastRefresh: Date.now(),
+      activeList: activeQuests
+    });
+    
+    db.prepare('UPDATE players SET quests = ? WHERE username = ?').run(updatedQuestsJson, username || 'player_default');
+    
+    res.json({
+      success: true,
+      quest: questResp,
+      databaseLogged: true
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/trades/offer', async (req, res) => {
+  try {
+    const { senderId, offeredCardId, requestedCardDef, receiverId } = req.body;
+    const trade = await TradingSimulator.createTradeOffer(senderId, offeredCardId, requestedCardDef, receiverId);
+    res.json(trade);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/trades/pending', async (req, res) => {
+  try {
+    const { playerId } = req.query;
+    const trades = await TradingSimulator.listPendingOffers(playerId as string);
+    res.json(trades);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/trades/accept', async (req, res) => {
+  try {
+    const { receiverId, tradeId, acceptedCardId } = req.body;
+    const trade = await TradingSimulator.acceptTradeOffer(receiverId, tradeId, acceptedCardId);
+    res.json(trade);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+function setupRuleWatcher() {
+  const adjustmentsPath = path.join(__dirname, 'models', 'rule_adjustments.json');
+  
+  const loadAdjustments = () => {
+    try {
+      if (fs.existsSync(adjustmentsPath)) {
+        const raw = fs.readFileSync(adjustmentsPath, 'utf8');
+        const adjustments = JSON.parse(raw);
+        applyRuleAdjustments(adjustments);
+        console.log('[RULE_WATCHER] Loaded rule adjustments from disk:', adjustments);
+      }
+    } catch (err: any) {
+      console.warn('[RULE_WATCHER] Error loading rule adjustments:', err.message);
+    }
+  };
+
+  // Load initially
+  loadAdjustments();
+
+  // Watch for changes (fs.watch)
+  try {
+    fs.watch(adjustmentsPath, (eventType) => {
+      if (eventType === 'change') {
+        console.log('[RULE_WATCHER] rule_adjustments.json changed, reloading...');
+        // Debounce slightly to allow writes to finish
+        setTimeout(loadAdjustments, 100);
+      }
+    });
+    console.log('[RULE_WATCHER] Watching adjustments file for dynamic rule patches:', adjustmentsPath);
+  } catch (err: any) {
+    console.warn('[RULE_WATCHER] Failed to watch adjustments file:', err.message);
+  }
+}
+
 server.listen(PORT, async () => {
   console.log(`SovereignEngine listening on port ${PORT}`);
+  
+  // Initialize dynamic rule hot-reloader
+  setupRuleWatcher();
+
   try {
      await ClickHouseTelemetryClient.init();
   } catch (err: any) {

@@ -1,5 +1,6 @@
 import { getPhysicsSpecs } from "./PhysicsActionDataset";
 import { AethericDiceEngine } from "./AethericDiceEngine";
+import { ITEMS_CATALOG } from "../data/itemsCatalog";
 
 export interface OutcomeVector {
     damageApplied: number;
@@ -25,6 +26,34 @@ export class AlgebraicActionTensor {
         // 1. Základné hodnoty z fyzikálnej špecifikácie karty
         let damage = specs.damage !== undefined ? specs.damage : 1;
         
+        // Dynamické priradenie bonusov z artefaktov
+        let artifactDmgBonus = 0;
+        if (source?.artifacts && Array.isArray(source.artifacts)) {
+            source.artifacts.forEach((art: any) => {
+                if (art.damageBonus) {
+                    artifactDmgBonus += art.damageBonus;
+                }
+            });
+        }
+
+        // Dynamické priradenie bonusov z predmetov (zbraň s durability > 0)
+        let itemDmgBonus = 0;
+        if (source?.items && Array.isArray(source.items)) {
+            source.items.forEach((item: any) => {
+                const catalogItem = ITEMS_CATALOG[item.itemKey];
+                const itemDurability = item.durability !== undefined ? item.durability : 100;
+                if (catalogItem && itemDurability > 0) {
+                    if ((catalogItem.category === 'WEAPON' || catalogItem.category === 'MAGIC') && catalogItem.statBonus?.damage) {
+                        itemDmgBonus += catalogItem.statBonus.damage * (item.quantity || 1);
+                    }
+                }
+            });
+        }
+
+        if (damage > 0) {
+            damage += (artifactDmgBonus + itemDmgBonus);
+        }
+
         const hazardIndex = targetHex?.hazardIndex ?? 0;
         const friction = targetHex?.friction ?? 0;
         const effectiveVoltage = specs.voltage + hazardIndex * 1.5;

@@ -11,11 +11,11 @@ export default function TelemetryDashboard({ onClose }) {
     const fetchData = React.useCallback(async () => {
         try {
             setLoading(true);
-            const regRes = await fetch('http://localhost:3001/api/db/registers');
+            const regRes = await fetch('/api/db/registers');
             const regData = await regRes.json();
             setRegisters(Array.isArray(regData) ? regData : []);
 
-            const playRes = await fetch('http://localhost:3001/api/db/players');
+            const playRes = await fetch('/api/db/players');
             const playData = await playRes.json();
             setPlayers(Array.isArray(playData) ? playData : []);
 

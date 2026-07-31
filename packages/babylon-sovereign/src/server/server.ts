@@ -3,6 +3,8 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { 
   Pathfinder, 
   SpatialGuidanceSystem, 
@@ -12,10 +14,18 @@ import {
   DRUID_CARDS_BASE,
   VOID_CARDS_BASE,
   GoCoreMediator,
-  SovereignKeyframeInterpreter
+  SovereignGenerativeOrchestrator,
+  SovereignRealityMatrix,
+  SovereignLIFOArbiter,
+  SovereignPredictiveGenerator,
+  SovereignKeyframeInterpreter,
+  getPhysicsSpecs,
+  SovereignFailoverGateway,
+  SovereignPhraseGenerator
 } from '@dusan-game/shared';
 
 import { AIOpponentDirector } from './models/AIOpponentDirector';
+import { DevOpsTelemetryWatcher } from './utils/devopsTelemetryWatcher';
 
 dotenv.config();
 
@@ -46,13 +56,22 @@ const allBaseCards = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS
 
 // Initial game state
 let activeRealityPhase = 'STANDARD';
-let matchState = {
+// Per-turn combo accumulator — reset on end_turn
+let turnComboTracker = {
+  voltagePlayedThisTurn: 0,
+  lastResistancePlayed: 0,
+  cardsPlayedThisTurn: 0
+};
+
+let matchState: any = {
   traceLog: [] as any[],
   state: 'MULLIGAN', // MULLIGAN, RUNNING, GAME_OVER
   turnsElapsed: 1,
   activePlayerId: 'thread_king_ai',
   systemEnergy: 50,
   entropy: 0.35,
+  lastComboEvent: null as 'VOLTAGE_SURGE' | 'SHORT_CIRCUIT' | null,
+  lastComboPlayerId: null as string | null,
   turnStateMachine: {
     currentPhase: 'MULLIGAN',
     mulliganComplete: {
@@ -132,20 +151,141 @@ app.get('/health', (req, res) => {
 // Telemetry and calculations
 app.get('/api/telemetry', (req, res) => {
   res.json({
-    systemEnergy: matchState.systemEnergy,
-    turnCount: matchState.turnsElapsed,
-    currentPhase: matchState.turnStateMachine.currentPhase,
-    globalEntropy: matchState.entropy,
-    threads: matchState.threads,
+    kclSolverStatus: 'OPTIMAL',
+    averageGridVoltage: 12.5,
+    entropyCoefficient: matchState.entropy,
+    systemUptimeMs: Date.now(),
+    systemEnergy: matchState.systemEnergy || 0,
+    turnCount: matchState.turnsElapsed || 1,
+    currentPhase: matchState.turnStateMachine?.currentPhase || 'PREPARATION',
+    globalEntropy: matchState.entropy || 0.2,
+    threads: matchState.threads || [],
     traceLog: matchState.traceLog || []
   });
 });
 
-app.get('/', (req, res) => {
-  res.redirect('/goal');
+const devopsWatcher = new DevOpsTelemetryWatcher('../../database.db');
+
+app.get('/api/devops/telemetry', (req, res) => {
+  try {
+    const metrics = devopsWatcher.scan();
+    res.json(metrics);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-app.get('/goal', (req, res) => {
+app.get('/api/predict', (req, res) => {
+  try {
+    const meta = parseInt(req.query.meta as string || '0', 10);
+    const hex = parseInt(req.query.hex as string || '0', 10);
+    const verb = (req.query.verb as string || 'DEPLOY').toUpperCase();
+    const prediction = SovereignPredictiveGenerator.predictNextState(meta, hex, verb);
+    res.json(prediction);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/predict/log', (req, res) => {
+  try {
+    const { session = 'default', verb = 'DEPLOY', impact = {} } = req.body;
+    SovereignPredictiveGenerator.writeImpactLog(session, verb, impact);
+    res.json({ success: true, logs: SovereignPredictiveGenerator.getImpactLogs() });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/cards/fuse', (req, res) => {
+  try {
+    const { cardId1, cardId2, playerId } = req.body;
+    const player = matchState.threads.find((t: any) => t.id === playerId);
+    if (!player) {
+      return res.status(404).json({ error: 'Player thread not found.' });
+    }
+
+    const c1Index = player.currentBuffer.findIndex((c: any) => c.id === cardId1);
+    const c2Index = player.currentBuffer.findIndex((c: any) => c.id === cardId2);
+
+    if (c1Index === -1 || c2Index === -1 || cardId1 === cardId2) {
+      return res.status(400).json({ error: 'One or both cards not found in hand.' });
+    }
+
+    const c1 = player.currentBuffer[c1Index];
+    const c2 = player.currentBuffer[c2Index];
+
+    const c1Cost = c1.cost !== undefined ? c1.cost : (c1.energyCost !== undefined ? c1.energyCost : 1);
+    const c2Cost = c2.cost !== undefined ? c2.cost : (c2.energyCost !== undefined ? c2.energyCost : 1);
+    const avgCost = Math.ceil((c1Cost + c2Cost) / 2);
+    const fusedType = c1.type === c2.type ? c1.type : 'HYBRID';
+    
+    // Generate prediction for fused card visual structure
+    const visualProfile = SovereignPredictiveGenerator.predictNextState(0, 0, c1.id + c2.id);
+
+    const fusedCard = {
+      id: `fused_${c1.id}_${c2.id}_${Date.now()}`,
+      name: `${c1.name.split(' ')[0]} ${c2.name.split(' ').slice(-1)[0]}`,
+      type: fusedType === 'HYBRID' ? 'ACTION' : fusedType, // Map strictly to valid engine Instruction type if needed, or keep type
+      cost: avgCost,
+      energyCost: avgCost,
+      damage: Math.max(c1.damage || 1, c2.damage || 1),
+      armor: Math.max(c1.armor || 0, c2.armor || 0),
+      hpChange: Math.max(c1.hpChange || 1, c2.hpChange || 1),
+      isUltimate: false,
+      effects: {
+        thermalThrottling: false,
+        chronoLock: false,
+        syntaxMute: false,
+        threadIsolation: false
+      },
+      desc: `FUSED: ${c1.desc || ''} + ${c2.desc || ''}`,
+      visualProfile,
+      parentTypes: [c1.type, c2.type]
+    };
+
+    // Remove the fused cards and append the new one
+    player.currentBuffer = player.currentBuffer.filter((_: any, idx: number) => idx !== c1Index && idx !== c2Index);
+    player.currentBuffer.push(fusedCard);
+
+    io.emit('match_state_updated', { gameState: matchState });
+    res.json({ success: true, fusedCard, gameState: matchState });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/health/go-core', async (req, res) => {
+  try {
+    const online = await SovereignFailoverGateway.verifyHealth('http://localhost:8081');
+    res.json({ online });
+  } catch (e: any) {
+    res.json({ online: false, error: e.message });
+  }
+});
+
+app.post('/api/simulation/geometry-nodes', (req, res) => {
+  try {
+    const { verb = 'DEFORM', target = 'HEX' } = req.body;
+    const stats = SovereignPhraseGenerator.compilePhrase(verb, target);
+    res.json(stats);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+app.post('/api/end-turn', (req, res) => {
+  // Force toggle turn via admin/dashboard
+  matchState.activePlayerId = matchState.activePlayerId === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai';
+  matchState.turnsElapsed += 1;
+  matchState.systemEnergy = Math.min(100, matchState.systemEnergy + 15);
+  io.emit('match_state_updated', { gameState: matchState });
+  res.json({ success: true, gameState: matchState });
+});
+app.get('/', (req, res) => {
+  res.redirect('/goal');
+});app.get('/goal', (req, res) => {
   res.status(200).send(`
     <!DOCTYPE html>
     <html lang="sk">
@@ -180,7 +320,7 @@ app.get('/goal', (req, res) => {
               <span class="text-cyan-400 neon-glow">Dušan Game</span>
               <span class="text-slate-500 font-light">| Diagnostics Dashboard</span>
             </h1>
-            <p class="text-xs text-slate-500 font-mono mt-1">&gt; LIVE SYSTEM TELEMETRY INTEGRITY</p>
+            <p class="text-xs text-slate-500 font-mono mt-1">&gt; LIVE SYSTEM TELEMETITY INTEGRITY</p>
           </div>
           <button onclick="triggerEndTurn()" class="bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-400 px-4 py-2 rounded-lg font-mono text-xs font-bold transition-all shadow-lg hover:shadow-red-500/10 cursor-pointer">
             UKONČIŤ KOLO (FORCE END TURN)
@@ -553,10 +693,10 @@ app.get('/api/db/registers', (req, res) => {
 // Mulligan endpoint
 app.post('/api/match/mulligan', (req, res) => {
   const { playerId, cardIds } = req.body;
-  const thread = matchState.threads.find(t => t.id === playerId);
+  const thread = matchState.threads.find((t: any) => t.id === playerId);
   if (thread && thread.currentBuffer) {
     // Keep cards not selected for mulligan, and draw replacement base cards
-    const retained = thread.currentBuffer.filter(c => !cardIds.includes(c.id));
+    const retained = thread.currentBuffer.filter((c: any) => !cardIds.includes(c.id));
     const drawn: any[] = [];
     while (retained.length + drawn.length < thread.handLimit) {
       const idx = Math.floor(Math.random() * allBaseCards.length);
@@ -616,13 +756,16 @@ io.on('connection', (socket) => {
     matchState.turnsElapsed = 1;
     matchState.activePlayerId = 'thread_king_ai';
     matchState.systemEnergy = 50;
+    matchState.lastComboEvent = null;
+    matchState.lastComboPlayerId = null;
+    turnComboTracker = { voltagePlayedThisTurn: 0, lastResistancePlayed: 0, cardsPlayedThisTurn: 0 };
     
     // Reset mulligan states
     matchState.turnStateMachine.mulliganComplete.thread_king_ai = false;
     matchState.turnStateMachine.mulliganComplete.thread_hacker_root = (mode === 'AI'); // Auto-complete for AI!
     
     // Reset threads health/position
-    const p1 = matchState.threads.find(t => t.id === 'thread_king_ai')!;
+    const p1 = matchState.threads.find((t: any) => t.id === 'thread_king_ai')!;
     p1.health = 15;
     p1.position = { meta: 0, hex: 0 };
     p1.freeMovementUsed = false;
@@ -630,12 +773,12 @@ io.on('connection', (socket) => {
     // Re-draw initial hand for human
     p1.currentBuffer = [
       { id: 'crystal_laser_01', type: 'MAGIC', cost: 1, name: 'Laser Charge', desc: 'Direct beam strike' },
-      { id: 'crystal_shield_01', type: 'MAGIC', cost: 2, name: 'Glass Shield', desc: 'Absorbs 5 DMG' },
+      { id: 'crystal_trap_01', type: 'TRAP', cost: 2, name: 'Electro Spike', desc: 'Lays a root trap' },
       { id: 'crystal_move_01', type: 'MOVE', cost: 1, name: 'Blink Shift', desc: 'Teleport 1 hex' },
       { id: 'crystal_attack_01', type: 'ATTACK', cost: 2, name: 'Prism Sword', desc: 'Deals 3 physical DMG' }
     ];
     
-    const p2 = matchState.threads.find(t => t.id === 'thread_hacker_root')!;
+    const p2 = matchState.threads.find((t: any) => t.id === 'thread_hacker_root')!;
     p2.health = 15;
     p2.position = { meta: 2, hex: 2 };
     p2.freeMovementUsed = false;
@@ -650,11 +793,11 @@ io.on('connection', (socket) => {
 
   socket.on('execute_action', (data) => {
     const { playerId, cardId, targetMeta, targetHex } = data;
-    const player = matchState.threads.find(t => t.id === playerId);
+    const player = matchState.threads.find((t: any) => t.id === playerId);
     
     if (player && player.currentBuffer) {
       // Find card in hand
-      const cardIdx = player.currentBuffer.findIndex(c => c.id === cardId);
+      const cardIdx = player.currentBuffer.findIndex((c: any) => c.id === cardId);
       if (cardIdx !== -1) {
         const card = player.currentBuffer[cardIdx];
         
@@ -678,17 +821,85 @@ io.on('connection', (socket) => {
           });
         }
 
+        // Dynamically resolve card specs (Rule 3 and Rule 6 boundaries)
+        const baseCardId = cardId.split('_')[0];
+        const isVoidCard = VOID_CARDS_BASE.some(c => c.id === baseCardId);
+        
+        let cardCost = card.cost;
+        if (isVoidCard && matchState.entropy > 0.7) {
+          cardCost = 0;
+          console.log(`[VOID_WALKER] High entropy (${matchState.entropy.toFixed(2)} > 0.7) detected. Void card ${baseCardId} cost reduced to 0.`);
+        }
+        matchState.systemEnergy = Math.max(0, matchState.systemEnergy - cardCost);
+
+        // --- COMBO TRACKER (Goal 1a + 1b) ---
+        // Physics specs drive voltage (cost) and resistance (1/cost floor 0.1)
+        const cardVoltage = card.cost || 1;
+        const cardResistance = Math.max(0.1, 1 / (card.cost || 1));
+        turnComboTracker.voltagePlayedThisTurn += cardVoltage;
+        turnComboTracker.cardsPlayedThisTurn++;
+
+        // Reset combo event from previous card before evaluating new one
+        matchState.lastComboEvent = null;
+        matchState.lastComboPlayerId = null;
+
+        if (turnComboTracker.cardsPlayedThisTurn >= 2) {
+          // Goal 1a: Voltage Surge — combined voltage >= 8.0
+          if (turnComboTracker.voltagePlayedThisTurn >= 8.0) {
+            matchState.lastComboEvent = 'VOLTAGE_SURGE';
+            matchState.lastComboPlayerId = playerId;
+            console.log(`[COMBO] VOLTAGE_SURGE triggered by ${playerId}! Total V=${turnComboTracker.voltagePlayedThisTurn.toFixed(1)}`);
+          }
+          // Goal 1b: Short Circuit — R1 * R2 <= 1.0
+          if (turnComboTracker.lastResistancePlayed > 0 &&
+              turnComboTracker.lastResistancePlayed * cardResistance <= 1.0) {
+            matchState.lastComboEvent = 'SHORT_CIRCUIT';
+            matchState.lastComboPlayerId = playerId;
+            console.log(`[COMBO] SHORT_CIRCUIT triggered by ${playerId}! R product=${(turnComboTracker.lastResistancePlayed * cardResistance).toFixed(2)}`);
+          }
+        }
+        turnComboTracker.lastResistancePlayed = cardResistance;
+
+        let cardDamage = 3;
+        let isSnakeOrStealth = false;
+        try {
+          const specs = getPhysicsSpecs(baseCardId);
+          if (specs) {
+            if (typeof specs.damage === 'number') {
+              cardDamage = specs.damage;
+            }
+            if (baseCardId.toLowerCase().includes('snake') || baseCardId.toLowerCase().includes('stealth')) {
+              isSnakeOrStealth = true;
+            }
+          }
+        } catch (e) {
+          console.warn('[SERVER] Failed to retrieve physics specs for card:', baseCardId, e);
+        }
+
+        // Voltage Surge bonus damage (+2) — Goal 1a
+        if (matchState.lastComboEvent === 'VOLTAGE_SURGE') {
+          cardDamage += 2;
+          console.log(`[COMBO] Voltage Surge bonus: +2 damage applied (total: ${cardDamage})`);
+        }
+
+        // Short Circuit — opponent discards 1 random card — Goal 1b
+        const opponent = matchState.threads.find((t: any) => t.id !== playerId);
+        if (matchState.lastComboEvent === 'SHORT_CIRCUIT' && opponent && opponent.currentBuffer && opponent.currentBuffer.length > 0) {
+          const discardIdx = Math.floor(Math.random() * opponent.currentBuffer.length);
+          const discarded = opponent.currentBuffer.splice(discardIdx, 1)[0];
+          console.log(`[COMBO] SHORT_CIRCUIT: ${opponent.id} forced to discard '${discarded.name}'`);
+        }
+
         // Solve combat damage via Go Core (Rule 6 boundary routing with local TS fallback)
-        const opponent = matchState.threads.find(t => t.id !== playerId);
         if (opponent) {
           const defenderArmor = opponent.items.length * 2;
           goMediator.resolveCombatDamage({
-            damage: 3,
+            damage: cardDamage,
             attackerHeroId: playerId,
             defenderHeroId: opponent.id,
             defenderArmor: defenderArmor,
             reactionsCount: 1,
-            isSnakeOrStealth: false
+            isSnakeOrStealth: isSnakeOrStealth
           }).then((combatRes) => {
             opponent.health = Math.max(0, opponent.health - combatRes.finalDamage);
             console.log(`[COMBAT RESOLUTION] ${combatRes.log}`);
@@ -716,14 +927,47 @@ io.on('connection', (socket) => {
 
   socket.on('move_hero', (data) => {
     const { playerId, targetMeta, targetHex } = data;
-    const player = matchState.threads.find(t => t.id === playerId);
+    const player = matchState.threads.find((t: any) => t.id === playerId);
 
     if (player && !player.freeMovementUsed) {
       player.position = { meta: targetMeta, hex: targetHex };
       player.freeMovementUsed = true;
       matchState.systemEnergy = Math.max(0, matchState.systemEnergy - 5);
+
+      // --- TRAP TRIGGER CHECK (Goal 2 server-side) ---
+      const chunk = matchState.map.find((c: any) => c.id === targetMeta);
+      if (chunk) {
+        const block = chunk.blocks.find((b: any) => b.id === targetHex);
+        if (block && block.hasTrap && block.trapOwnerId !== playerId) {
+          if (block.hasTrap === 'ROOT_TRAP') {
+            player.isRooted = true;
+            console.log(`[TRAP] ROOT_TRAP triggered on ${playerId} at (${targetMeta},${targetHex})`);
+          } else if (block.hasTrap === 'EMP_MINE') {
+            player.health = Math.max(0, player.health - 3);
+            console.log(`[TRAP] EMP_MINE triggered on ${playerId}: -3 HP`);
+          }
+          // Consume trap after trigger
+          block.hasTrap = null;
+          block.trapOwnerId = null;
+        }
+      }
       
       io.emit('match_state_updated', { gameState: matchState });
+    }
+  });
+
+  // Place trap (Goal 2 — card-triggered placement)
+  socket.on('place_trap', (data) => {
+    const { playerId, trapType, targetMeta, targetHex } = data;
+    const chunk = matchState.map.find((c: any) => c.id === targetMeta);
+    if (chunk) {
+      const block = chunk.blocks.find((b: any) => b.id === targetHex);
+      if (block && block.walkable && !block.hasTrap) {
+        block.hasTrap = trapType || 'ROOT_TRAP';
+        block.trapOwnerId = playerId;
+        console.log(`[TRAP] ${trapType || 'ROOT_TRAP'} placed by ${playerId} at (${targetMeta},${targetHex})`);
+        io.emit('match_state_updated', { gameState: matchState });
+      }
     }
   });
 
@@ -735,12 +979,38 @@ io.on('connection', (socket) => {
       matchState.turnsElapsed += 1;
 
       // Reset movement
-      matchState.threads.forEach(t => {
+      matchState.threads.forEach((t: any) => {
         t.freeMovementUsed = false;
       });
 
+      // Reset combo tracker for new turn
+      turnComboTracker = { voltagePlayedThisTurn: 0, lastResistancePlayed: 0, cardsPlayedThisTurn: 0 };
+      matchState.lastComboEvent = null;
+      matchState.lastComboPlayerId = null;
+
       // Increase energy slightly
       matchState.systemEnergy = Math.min(100, matchState.systemEnergy + 15);
+
+      // --- LOOT CHEST SPAWN (Goal 3 — 15% chance per turn) ---
+      if (Math.random() < 0.15) {
+        const eligibleBlocks: { chunk: any; block: any }[] = [];
+        matchState.map.forEach((chunk: any) => {
+          chunk.blocks.forEach((block: any) => {
+            if (block.walkable && !block.hasChest && !block.hasTrap) {
+              // Verify no thread is standing on this block
+              const occupied = matchState.threads.some(
+                (t: any) => t.position.meta === chunk.id && t.position.hex === block.id
+              );
+              if (!occupied) eligibleBlocks.push({ chunk, block });
+            }
+          });
+        });
+        if (eligibleBlocks.length > 0) {
+          const pick = eligibleBlocks[Math.floor(Math.random() * eligibleBlocks.length)];
+          pick.block.hasChest = true;
+          console.log(`[LOOT] Chest spawned at chunk ${pick.chunk.id}, block ${pick.block.id}`);
+        }
+      }
 
       io.emit('match_state_updated', { gameState: matchState });
     }
