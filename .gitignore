@@ -1,10 +1,16 @@
 ```
 # Dependencies
 node_modules/
+.pnpm-store/
+.yarn/
+.yarn-cache/
 
-# Test coverage and build artifacts
+# Build outputs
+dist/
+build/
 coverage/
-.nyc_output/
+htmlcov/
+target/
 __pycache__/
 *.pyc
 *.pyo
@@ -12,77 +18,54 @@ __pycache__/
 *.class
 *.o
 *.obj
-*.out
 *.exe
 *.dll
 *.so
 *.a
-*.lib
-*.dylib
-*.jar
-*.war
-*.ear
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-.installed.cfg
-*.egg
+*.out
 
 # Environment
 .env
 .env.local
 .env.*
-.env~*
-.env.local~
+!.env.example
+!.env.sample
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Logs
 *.log
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.swp
-*.swo
-
-# IDE specific
-.vscode/
-.idea/
-*.iml
-*.ipr
-*.iws
-.project
-.classpath
-.settings/
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Testing
-.jest/
-jest/
-mocha.opts
-test-report.xml
-coverage-final.json
-
-# Node.js
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# TypeScript/JavaScript build output
-*.js.map
-*.ts.map
-*.jsx.map
-*.tsx.map
-lib/
-out/
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Testing
+.mypy_cache/
+.pytest_cache/
+.nyc_output/
+coverage/
+
+# Package managers
+.jspm/
+.bower_components/
+bower_components/
+
+# Runtime data
+.happypack/
+.tern-port
+.sass-cache
+
+# IDE specific
+*.sublime-project
+*.sublime-workspace
+nbproject/
 ```
