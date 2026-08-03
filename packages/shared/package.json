@@ -4,9 +4,16 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "@types/node": "^26.1.2",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "simplex-noise": "^4.0.3",
+    "three": "^0.185.1"
   }
 }
