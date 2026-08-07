@@ -29,6 +29,15 @@
     "vitest": "^1.1.0",
     "@changesets/cli": "^2.27.0"
   },
+  "dependencies": {
+    "@openrouter/sdk": "^1.2.3",
+    "@types/three": "^0.185.3",
+    "@vitejs/plugin-react": "^6.0.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.185.1",
+    "vite": "^8.2.0"
+  },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
