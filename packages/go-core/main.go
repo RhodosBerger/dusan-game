@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -398,6 +399,11 @@ func main() {
 	http.HandleFunc("/health", handleHealth)
 
 	port := 8081
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		if parsedPort, err := strconv.Atoi(envPort); err == nil {
+			port = parsedPort
+		}
+	}
 	fmt.Printf("[GO_CORE] Spúšťam vysokovýkonné Go jadro na porte %d...\n", port)
 	if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
 		fmt.Printf("[GO_CORE] Chyba servera: %v\n", err)
