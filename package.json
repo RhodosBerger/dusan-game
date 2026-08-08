@@ -22,15 +22,16 @@
     "clean": "rm -rf node_modules packages/*/node_modules apps/*/node_modules"
   },
   "devDependencies": {
-    "typescript": "^5.3.0",
+    "@changesets/cli": "^2.27.0",
+    "concurrently": "^8.2.0",
     "eslint": "^8.56.0",
     "prettier": "^3.1.0",
-    "concurrently": "^8.2.0",
-    "vitest": "^1.1.0",
-    "@changesets/cli": "^2.27.0"
+    "typescript": "^5.3.0",
+    "vitest": "^1.1.0"
   },
   "dependencies": {
     "@openrouter/sdk": "^1.2.3",
+    "@qoder-ai/qoder-agent-sdk": "^1.0.19",
     "@types/three": "^0.185.3",
     "@vitejs/plugin-react": "^6.0.5",
     "react": "^19.2.8",
