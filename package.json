@@ -14,6 +14,8 @@
     "dev:server": "npm run dev --workspace=apps/game-server",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npx playwright test --config=playwright.config.ts",
+    "playwright:install": "npx playwright install --with-deps chromium",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "editor": "npm run dev --workspace=apps/editor-tool",
@@ -27,7 +29,10 @@
     "prettier": "^3.1.0",
     "concurrently": "^8.2.0",
     "vitest": "^1.1.0",
-    "@changesets/cli": "^2.27.0"
+    "@changesets/cli": "^2.27.0",
+    "playwright": "^1.52.0",
+    "serve": "^14.2.0",
+    "wait-on": "^9.0.1"
   },
   "dependencies": {
     "@openrouter/sdk": "^1.2.3",
