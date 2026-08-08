@@ -13,7 +13,15 @@
     "dev:client": "npm run dev --workspace=apps/game-client",
     "dev:server": "npm run dev --workspace=apps/game-server",
     "build": "npm run build --workspaces",
+    "build:shared": "npm run build --workspace=@dusan-game/shared",
+    "build:client": "npm run build --workspace=client",
     "test": "npm run test --workspaces --if-present",
+<<<<<<< Updated upstream
+=======
+    "test:server": "npm run test --workspace=@dusan-game/server",
+    "test:e2e": "npx playwright test --config=playwright.config.ts",
+    "playwright:install": "npx playwright install --with-deps chromium",
+>>>>>>> Stashed changes
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "editor": "npm run dev --workspace=apps/editor-tool",
@@ -27,7 +35,15 @@
     "prettier": "^3.1.0",
     "concurrently": "^8.2.0",
     "vitest": "^1.1.0",
+<<<<<<< Updated upstream
     "@changesets/cli": "^2.27.0"
+=======
+    "@changesets/cli": "^2.27.0",
+    "playwright": "^1.52.0",
+    "@playwright/test": "^1.52.0",
+    "serve": "^14.2.0",
+    "wait-on": "^9.0.1"
+>>>>>>> Stashed changes
   },
   "dependencies": {
     "@openrouter/sdk": "^1.2.3",
@@ -60,5 +76,12 @@
   "bugs": {
     "url": "https://github.com/dusan-game/engine/issues"
   },
-  "homepage": "https://dusan-game.dev"
+  "homepage": "https://dusan-game.dev",
+  "allowScripts": {
+    "@openrouter/sdk": false,
+    "@prisma/client": false,
+    "@prisma/engines": false,
+    "prisma": false,
+    "esbuild": false
+  }
 }
