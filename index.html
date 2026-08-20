@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEX ENTROPY: Dopamine Protocol</title>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff41;
+            --neon-red: #ff3131;
+            --bg-color: #050505;
+            --ui-bg: rgba(10, 10, 15, 0.85);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Courier New', Courier, monospace;
+            color: white;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-panel {
+            background: var(--ui-bg);
+            border: 1px solid var(--neon-blue);
+            padding: 15px;
+            border-radius: 4px;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+            max-width: 300px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .stat-box {
+            margin-bottom: 10px;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 10px;
+            background: #333;
+            margin-top: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s ease, background-color 0.3s;
+        }
+
+        #hp-bar { background-color: var(--neon-red); width: 100%; }
+        #dopamine-bar { background-color: var(--neon-green); width: 50%; }
+        #mana-bar { background-color: var(--neon-blue); width: 100%; }
+
+        .log-window {
+            height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+            border-top: 1px solid #333;
+            margin-top: 10px;
+            padding-top: 5px;
+            color: #aaa;
+        }
+
+        .log-entry { margin-bottom: 4px; }
+        .log-entry.crit { color: var(--neon-pink); font-weight: bold; }
+        .log-entry.info { color: var(--neon-blue); }
+        .log-entry.danger { color: var(--neon-red); }
+
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+            align-self: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        }
+
+        .btn:hover {
+            background: var(--neon-blue);
+            color: black;
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+
+        .btn:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .quest-panel {
+            position: absolute;
+            right: 20px;
+            top: 80px;
+            width: 250px;
+            border-color: var(--neon-pink);
+        }
+
+        .quest-title { color: var(--neon-pink); font-weight: bold; margin-bottom: 5px; }
+        .quest-desc { font-size: 11px; line-height: 1.4; }
+
+        /* Scanline effect */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.3;
+        }
+
+        #loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 1s;
+        }
+
+        .loader-text {
+            color: var(--neon-green);
+            font-size: 24px;
+            margin-bottom: 20px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            border: 1px solid white;
+            padding: 5px;
+            font-size: 10px;
+            pointer-events: none;
+            display: none;
+            z-index: 20;
+        }
+    </style>
+    <!-- Import Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Import Simplex Noise for procedural gen -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="loading-screen">
+        <div class="loader-text">INITIALIZING HEX ENTROPY...</div>
+        <div style="color: #666; font-size: 12px;">Loading Neural Assets & Terrain Chunks</div>
+    </div>
+    
+    <div class="scanlines"></div>
+    
+    <div id="ui-layer">
+        <div class="top-bar">
+            <div class="hud-panel">
+                <div class="stat-box">
+                    <div>INTEGRITY (HP) <span id="hp-val">100%</span></div>
+                    <div class="bar-container"><div id="hp-bar" class="bar-fill"></div></div>
+                </div>
+                <div class="stat-box">
+                    <div>DOPAMINE LEVEL <span id="dop-val">50%</span></div>
+                    <div class="bar-container"><div id="dopamine-bar" class="bar-fill"></div></div>
+                </div>
+                <div class="stat-box">
+                    <div>MANA / ACTION <span id="mana-val">100%</span></div>
+                    <div class="bar-container"><div id="mana-bar" class="bar-fill"></div></div>
+                </div>
+                <div style="font-size: 10px; color: #666; margin-top:5px;">TURN: <span id="turn-counter" style="color:white">1</span></div>
+            </div>
+
+            <div class="hud-panel quest-panel" id="quest-box" style="display:none;">
+                <div class="quest-title" id="quest-title">QUEST INITIALIZED</div>
+                <div class="quest-desc" id="quest-desc">Analyzing narrative threads...</div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn" id="btn-scan" onclick="game.actions.scan()">Scan Area</button>
+            <button class="btn" id="btn-attack" onclick="game.actions.attack()">Fire Weapon</button>
+            <button class="btn" id="btn-skill" onclick="game.actions.skill()">Cast Spell</button>
+            <button class="btn" id="btn-wait" onclick="game.actions.wait()">Wait / Analyze</button>
+        </div>
+
+        <div class="hud-panel" style="align-self: flex-start; width: 400px;">
+            <div style="color: var(--neon-blue); font-weight: bold;">COMBAT LOG // ORACLE AI</div>
+            <div class="log-window" id="combat-log"></div>
+        </div>
+    </div>
+    
+    <div id="tooltip" class="tooltip"></div>
+</div>
+
+<script>
+/**
+ * HEX ENTROPY: DOPAMINE PROTOCOL
+ * A remix of successful mechanics: Hex exploration, Narrative RPG, Tactical Combat.
+ */
+
+// --- CONFIGURATION & CONSTANTS ---
+const CONFIG = {
+    hexSize: 4,
+    mapRadius: 8,
+    colors: {
+        water: 0x001133,
+        landHigh: 0x00ff41, // Neon Green
+        landMid: 0x0088aa,
+        landLow: 0x222222,
+        enemy: 0xff3131,
+        player: 0x00f3ff,
+        highlight: 0xffffff
+    },
+    dopamineThresholds: {
+        high: 80,
+        low: 30
+    }
+};
+
+// --- UTILS ---
+const Utils = {
+    random: (min, max) => Math.random() * (max - min) + min,
+    randomInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+    lerp: (start, end, t) => start * (1 - t) + end * t,
+    hexToPixel: (q, r, size) => {
+        const x = size * (3/2 * q);
+        const z = size * (Math.sqrt(3)/2 * q + Math.sqrt(3) * r);
+        return { x, z };
+    },
+    pixelToHex: (x, z, size) => {
+        const q = (2/3 * x) / size;
+        const r = (-1/3 * x + Math.sqrt(3)/3 * z) / size;
+        return Utils.hexRound(q, r);
+    },
+    hexRound: (q, r) => {
+        let s = -q - r;
+        let rq = Math.round(q);
+        let rr = Math.round(r);
+        let rs = Math.round(s);
+        const q_diff = Math.abs(rq - q);
+        const r_diff = Math.abs(rr - r);
+        const s_diff = Math.abs(rs - s);
+        if (q_diff > r_diff && q_diff > s_diff) rq = -rr - rs;
+        else if (r_diff > s_diff) rr = -rq - rs;
+        else rs = -rq - rr;
+        return { q: rq, r: rr };
+    },
+    distanceHex: (a, b) => {
+        return (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.s - b.s)) / 2;
+    }
+};
+
+// --- DATA STRUCTURES ---
+
+class Entity {
+    constructor(id, type, stats) {
+        this.id = id;
+        this.type = type; // 'player', 'enemy', 'npc'
+        this.stats = {
+            hp: stats.hp || 100,
+            maxHp: stats.hp || 100,
+            mana: stats.mana || 50,
+            maxMana: stats.mana || 50,
+            dmg: stats.dmg || 10,
+            acc: stats.acc || 0.8
+        };
+        this.position = { q: 0, r: 0, s: 0 }; // Hex coords
+        this.story = null;
+        this.mesh = null;
+        this.isDead = false;
+    }
+
+    takeDamage(amount) {
+        this.stats.hp -= amount;
+        if (this.stats.hp <= 0) {
+            this.stats.hp = 0;
+            this.isDead = true;
+        }
+        game.ui.log(`${this.type.toUpperCase()} took ${amount} dmg!`, amount > 20 ? 'crit' : 'normal');
+        game.world.updateEntityVisuals(this);
+        game.system.checkDopamineChange(this.isDead ? 20 : -5);
+    }
+}
+
+class Quest {
+    constructor() {
+        this.templates = [
+            { title: "The Lost Signal", desc: "Locate the source of the anomaly in Sector 4.", type: "explore" },
+            { title: "Neural Cleanup", desc: "Eliminate corrupted nodes (Enemies).", type: "combat" },
+            { title: "Data Recovery", desc: "Survive 3 turns without taking damage.", type: "survival" }
+        ];
+        this.active = null;
+        this.progress = 0;
+    }
+
+    generate() {
+        const template = this.templates[Utils.randomInt(0, this.templates.length - 1)];
+        this.active = { ...template };
+        this.progress = 0;
+        game.ui.updateQuest(this.active);
+        game.ui.log(`New Quest: ${this.active.title}`, 'info');
+    }
+}
+
+// --- CORE SYSTEMS ---
+
+class DopamineSystem {
+    constructor() {
+        this.level = 50; // 0 to 100
+        this.targetLevel = 50;
+        this.pulseSpeed = 1.0;
+        this.colorShift = 0;
+    }
+
+    update(dt) {
+        // Smooth interpolation
+        this.level = Utils.lerp(this.level, this.targetLevel, dt * 0.5);
+        
+        // Visual feedback based on level
+        if (this.level > CONFIG.dopamineThresholds.high) {
+            this.pulseSpeed = 2.0;
+            document.documentElement.style.setProperty('--neon-blue', '#00ffff');
+            document.documentElement.style.setProperty('--neon-green', '#ccff00');
+            game.world.setDistortion(0.0); // Stable world
+        } else if (this.level < CONFIG.dopamineThresholds.low) {
+            this.pulseSpeed = 0.2;
+            document.documentElement.style.setProperty('--neon-blue', '#550000');
+            document.documentElement.style.setProperty('--neon-green', '#555500');
+            game.world.setDistortion(0.5); // Glitchy world
+        } else {
+            this.pulseSpeed = 1.0;
+            document.documentElement.style.setProperty('--neon-blue', '#00f3ff');
+            document.documentElement.style.setProperty('--neon-green', '#00ff41');
+            game.world.setDistortion(0.1);
+        }
+
+        game.ui.updateStats();
+    }
+
+    change(amount) {
+        this.targetLevel = Math.max(0, Math.min(100, this.targetLevel + amount));
+    }
+}
+
+class OracleAI {
+    constructor() {
+        this.context = [];
+    }
+
+    analyze(logEntry, gameState) {
+        // Simulated LLM logic based on rules
+        const responses = [
+            "Probability of success increased by 15% due to terrain advantage.",
+            "Warning: Enemy pattern suggests ambush in next turn.",
+            "Dopamine levels optimal. Recommend aggressive engagement.",
+            "Reality stability fluctuating. Conserve mana.",
+            "Target identified as high-value narrative node."
+        ];
+        
+        if (gameState.dopamine < 30) return "CRITICAL: System instability detected. Retreat advised.";
+        if (gameState.playerHp < 20) return "URGENT: Integrity critical. Healing protocols required.";
+        
+        return responses[Utils.randomInt(0, responses.length - 1)];
+    }
+}
+
+// --- WORLD ENGINE (Three.js) ---
+
+class WorldEngine {
+    constructor() {
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(0x050505, 0.03);
+        
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.set(0, 30, 20);
+        this.camera.lookAt(0, 0, 0);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('game-container').appendChild(this.renderer.domElement);
+
+        this.lighting = new THREE.HemisphereLight(0xffffff, 0x000000, 0.8);
+        this.scene.add(this.lighting);
+        this.dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        this.dirLight.position.set(10, 20, 10);
+        this.scene.add(this.dirLight);
+
+        this.hexes = new Map(); // Map "q,r" -> Mesh
+        this.entities = [];
+        this.projectiles = [];
+        this.particles = [];
+        
+        this.simplex = new SimplexNoise();
+        this.distortionUniform = null;
+
+        this.initShaders();
+        this.generateMap();
+        
+        // Interaction
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        this.hoveredHex = null;
+        
+        window.addEventListener('resize', () => this.onResize());
+        window.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        window.addEventListener('click', () => this.onClick());
+    }
+
+    initShaders() {
+        // Custom shader for "Peeling" and "Project Genie" texture projection effect
+        const vertexShader = `
+            uniform float uTime;
+            uniform float uDistortion;
+            varying vec2 vUv;
+            varying float vElevation;
+            
+            void main() {
+                vUv = uv;
+                vec3 newPos = position;
+                
+                // Peeling effect based on distortion uniform
+                float noise = sin(position.x * 0.5 + uTime) * cos(position.z * 0.5 + uTime);
+                newPos.z += noise * uDistortion * 2.0;
+                
+                // Waving water/land
+                newPos.z += sin(uv.x * 10.0 + uTime) * 0.2;
+                
+                vElevation = newPos.z;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float uTime;
+            uniform vec3 uColorHigh;
+            uniform vec3 uColorLow;
+            varying float vElevation;
+            varying vec2 vUv;
+            
+            void main() {
+                // Dynamic coloring based on elevation (simulating texture projection)
+                float mixStrength = (vElevation + 1.0) / 3.0;
+                vec3 finalColor = mix(uColorLow, uColorHigh, clamp(mixStrength, 0.0, 1.0));
+                
+                // Grid lines
+                float grid = step(0.95, fract(vUv.x * 10.0)) + step(0.95, fract(vUv.y * 10.0));
+                finalColor += vec3(grid * 0.2);
+                
+                gl_FragColor = vec4(finalColor, 0.9);
+            }
+        `;
+
+        this.material = new THREE.ShaderMaterial({
+            vertexShader,
+            fragmentShader,
+            uniforms: {
+                uTime: { value: 0 },
+                uDistortion: { value: 0.0 },
+                uColorHigh: { value: new THREE.Color(CONFIG.colors.landHigh) },
+                uColorLow: { value: new THREE.Color(CONFIG.colors.landLow) }
+            },
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+        
+        this.distortionUniform = this.material.uniforms.uDistortion;
+    }
+
+    setDistortion(val) {
+        if(this.distortionUniform) this.distortionUniform.value = val;
+    }
+
+    generateMap() {
+        const geometry = new THREE.CircleGeometry(CONFIG.hexSize, 6); // Hex approximation
+        
+        for (let q = -CONFIG.mapRadius; q <= CONFIG.mapRadius; q++) {
+            let r1 = Math.max(-CONFIG.mapRadius, -q - CONFIG.mapRadius);
+            let r2 = Math.min(CONFIG.mapRadius, -q + CONFIG.mapRadius);
+            
+            for (let r = r1; r <= r2; r++) {
+                const pos = Utils.hexToPixel(q, r, CONFIG.hexSize);
+                
+                // Procedural height/noise
+                const noiseVal = this.simplex.noise2D(q * 0.1, r * 0.1);
+                const isWater = noiseVal < -0.2;
+                
+                const mesh = new THREE.Mesh(geometry, this.material.clone());
+                mesh.position.set(pos.x, noiseVal * 2, pos.z);
+                
+                // Color variation
+                if (isWater) {
+                    mesh.material.uniforms.uColorHigh.value.setHex(CONFIG.colors.water);
+                    mesh.material.uniforms.uColorLow.value.setHex(CONFIG.colors.water);
+                    mesh.scale.set(0.9, 0.9, 0.9);
+                } else {
+                    mesh.scale.set(0.95, 0.95, 0.95);
+                }
+                
+                mesh.userData = { q, r, type: isWater ? 'water' : 'land' };
+                this.scene.add(mesh);
+                this.hexes.set(`${q},${r}`, mesh);
+            }
+        }
+    }
+
+    spawnEntity(entity, q, r) {
+        entity.position = { q, r, s: -q-r };
+        const pos = Utils.hexToPixel(q, r, CONFIG.hexSize);
+        
+        const geo = entity.type === 'player' ? new THREE.ConeGeometry(1, 2, 4) : new THREE.BoxGeometry(1.5, 1.5, 1.5);
+        const mat = new THREE.MeshStandardMaterial({ 
+            color: entity.type === 'player' ? CONFIG.colors.player : CONFIG.colors.enemy,
+            emissive: entity.type === 'player' ? 0x0044aa : 0x440000,
+            emissiveIntensity: 0.5
+        });
+        
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(pos.x, 2, pos.z);
+        
+        if (entity.type === 'player') mesh.rotation.x = Math.PI / 2;
+        
+        this.scene.add(mesh);
+        entity.mesh = mesh;
+        this.entities.push(entity);
+        
+        // Add point light to entity
+        const light = new THREE.PointLight(mat.color, 1, 10);
+        light.position.set(0, 1, 0);
+        mesh.add(light);
+    }
+
+    updateEntityVisuals(entity) {
+        if (!entity.mesh) return;
+        // Flash red on damage
+        entity.mesh.material.emissive.setHex(0xff0000);
+        setTimeout(() => {
+            if(entity.mesh) {
+                entity.mesh.material.emissive.setHex(entity.type === 'player' ? 0x0044aa : 0x440000);
+            }
+        }, 200);
+        
+        if (entity.isDead) {
+            this.scene.remove(entity.mesh);
+            this.entities = this.entities.filter(e => e !== entity);
+            this.createExplosion(entity.mesh.position);
+        }
+    }
+
+    fireProjectile(startHex, endHex, type = 'bullet') {
+        const start = Utils.hexToPixel(startHex.q, startHex.r, CONFIG.hexSize);
+        const end = Utils.hexToPixel(endHex.q, endHex.r, CONFIG.hexSize);
+        
+        const geo = new THREE.SphereGeometry(0.3);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const mesh = new THREE.Mesh(geo, mat);
+        
+        mesh.position.set(start.x, 2, start.z);
+        this.scene.add(mesh);
+        
+        this.projectiles.push({
+            mesh,
+            start: new THREE.Vector3(start.x, 2, start.z),
+            end: new THREE.Vector3(end.x, 2, end.z),
+            progress: 0,
+            speed: 0.05,
+            type
+        });
+        
+        game.ui.log(`Firing projectile to ${endHex.q},${endHex.r}...`, 'info');
+    }
+
+    createExplosion(pos) {
+        for(let i=0; i<10; i++) {
+            const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pos);
+            mesh.position.y += Math.random();
+            
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.5,
+                (Math.random() - 0.5) * 0.5 + 0.5,
+                (Math.random() - 0.5) * 0.5
+            );
+            
+            this.particles.push({ mesh, vel, life: 1.0 });
+            this.scene.add(mesh);
+        }
+    }
+
+    onMouseMove(event) {
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(Array.from(this.hexes.values()));
+        
+        if (intersects.length > 0) {
+            const obj = intersects[0].object;
+            if (this.hoveredHex !== obj) {
+                if (this.hoveredHex) this.hoveredHex.material.opacity = 0.9;
+                this.hoveredHex = obj;
+                this.hoveredHex.material.opacity = 1.0;
+                
+                // Update Tooltip
+                const tooltip = document.getElementById('tooltip');
+                tooltip.style.display = 'block';
+                tooltip.style.left = event.clientX + 10 + 'px';
+                tooltip.style.top = event.clientY + 10 + 'px';
+                tooltip.innerHTML = `SECTOR ${obj.userData.q},${obj.userData.r}<br>ELEVATION: ${obj.position.y.toFixed(1)}`;
+            }
+        } else {
+            if (this.hoveredHex) this.hoveredHex.material.opacity = 0.9;
+            this.hoveredHex = null;
+            document.getElementById('tooltip').style.display = 'none';
+        }
+    }
+    
+    onClick() {
+        if (this.hoveredHex && game.state.turn === 'player') {
+            game.handleHexClick(this.hoveredHex.userData);
+        }
+    }
+
+    onResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    animate(time) {
+        requestAnimationFrame((t) => this.animate(t));
+        
+        const dt = 0.016;
+        this.material.uniforms.uTime.value = time * 0.001;
+        
+        // Camera follow player smoothly
+        const player = game.entities.find(e => e.type === 'player');
+        if (player && player.mesh) {
+            const targetPos = new THREE.Vector3(player.mesh.position.x, player.mesh.position.y + 15, player.mesh.position.z + 12);
+            this.camera.position.lerp(targetPos, 0.05);
+            this.camera.lookAt(player.mesh.position);
+        }
+        
+        // Projectiles
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            p.progress += p.speed;
+            p.mesh.position.lerpVectors(p.start, p.end, p.progress);
+            
+            if (p.progress >= 1) {
+                this.scene.remove(p.mesh);
+                this.projectiles.splice(i, 1);
+                this.checkHit(p.end);
+            }
+        }
+        
+        // Particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt;
+            p.mesh.position.add(p.vel);
+            p.mesh.rotation.x += dt;
+            p.mesh.scale.multiplyScalar(0.95);
+            if (p.life <= 0) {
+                this.scene.remove(p.mesh);
+                this.particles.splice(i, 1);
+            }
+        }
+        
+        this.renderer.render(this.scene, this.camera);
+    }
+    
+    checkHit(pos) {
+        // Simple distance check for hit detection
+        const hex = Utils.pixelToHex(pos.x, pos.z, CONFIG.hexSize);
+        const target = game.entities.find(e => 
+            e.position.q === hex.q && e.position.r === hex.r && e.type === 'enemy'
+        );
+        
+        if (target) {
+            const dmg = Utils.randomInt(15, 30);
+            target.takeDamage(dmg);
+            this.createExplosion(pos);
+            game.ui.log(`Target Hit! Dealt ${dmg} DMG.`, 'crit');
+            
+            if (target.isDead) {
+                game.system.checkDopamineChange(15);
+                game.quest.progress++;
+                if (game.quest.progress >= 3) game.quest.generate();
+            }
+        } else {
+            game.ui.log(`Missed target at ${hex.q},${hex.r}.`, 'normal');
+            game.system.checkDopamineChange(-2);
+        }
+        
+        game.endTurn();
+    }
+}
+
+// --- GAME MANAGER ---
+
+class Game {
+    constructor() {
+        this.world = new WorldEngine();
+        this.ui = new UI();
+        this.system = new DopamineSystem();
+        this.oracle = new OracleAI();
+        this.quest = new Quest();
+        
+        this.entities = [];
+        this.state = {
+            turn: 'player', // player, enemy
+            turnCount: 1
+        };
+        
+        this.init();
+    }
+    
+    init() {
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.opacity = 0;
+            setTimeout(() => document.getElementById('loading-screen').remove(), 1000);
+            
+            // Spawn Player
+            const player = new Entity('p1', 'player', { hp: 100, mana: 50, dmg: 20 });
+            this.world.spawnEntity(player, 0, 0);
+            this.entities.push(player);
+            
+            // Spawn Enemies
+            for(let i=0; i<4; i++) {
+                const q = Utils.randomInt(-4, 4);
+                const r = Utils.randomInt(-4, 4);
+                if (q===0 && r===0) continue;
+                const enemy = new Entity(`e${i}`, 'enemy', { hp: 60, dmg: 10 });
+                this.world.spawnEntity(enemy, q, r);
+                this.entities.push(enemy);
+            }
+            
+            this.quest.generate();
+            this.ui.log("System Online. Welcome to Hex Entropy.", "info");
+            this.ui.log("Objective: Eliminate corrupted nodes.", "info");
+            
+            this.loop();
+        }, 1500);
+    }
+    
+    loop() {
+        const time = performance.now();
+        this.system.update(0.016);
+        this.world.animate(time);
+        requestAnimationFrame(() => this.loop());
+    }
+    
+    handleHexClick(hexData) {
+        if (this.state.turn !== 'player') return;
+        
+        const player = this.entities.find(e => e.type === 'player');
+        const dist = Utils.distanceHex(player.position, hexData);
+        
+        if (dist > 6) {
+            this.ui.log("Target out of range!", "danger");
+            return;
+        }
+        
+        if (player.stats.mana < 10) {
+            this.ui.log("Insufficient Mana!", "danger");
+            return;
+        }
+        
+        player.stats.mana -= 10;
+        this.ui.updateStats();
+        this.world.fireProjectile(player.position, hexData);
+    }
+    
+    endTurn() {
+        this.state.turn = 'enemy';
+        this.ui.toggleActions(false);
+        
+        setTimeout(() => this.enemyTurn(), 1000);
+    }
+    
+    enemyTurn() {
+        const enemies = this.entities.filter(e => e.type === 'enemy' && !e.isDead);
+        const player = this.entities.find(e => e.type === 'player');
+        
+        if (!player || player.isDead) {
+            this.ui.log("GAME OVER. Reality collapsed.", "crit");
+            return;
+        }
+        
+        let actionsCompleted = 0;
+        
+        enemies.forEach(enemy => {
+            setTimeout(() => {
+                if (enemy.isDead) return;
+                
+                const dist = Utils.distanceHex(enemy.position, player.position);
+                if (dist <= 5) {
+                    // Attack
+                    const hitChance = 0.7 - (dist * 0.05);
+                    if (Math.random() < hitChance) {
+                        const dmg = Utils.randomInt(5, 15);
+                        player.takeDamage(dmg);
+                        this.ui.log(`Enemy attacked you for ${dmg} DMG!`, 'danger');
+                        
+                        // Oracle reaction
+                        const advice = this.oracle.analyze('damage', { dopamine: this.system.level, playerHp: player.stats.hp });
+                        this.ui.log(`ORACLE: ${advice}`, 'info');
+                    } else {
+                        this.ui.log("Enemy missed.", "normal");
+                    }
+                }
+                
+                actionsCompleted++;
+                if (actionsCompleted === enemies.length) {
+                    this.startPlayerTurn();
+                }
+            }, 500);
+        });
+        
+        if (enemies.length === 0) this.startPlayerTurn();
+    }
+    
+    startPlayerTurn() {
+        this.state.turn = 'player';
+        this.state.turnCount++;
+        this.ui.updateTurn(this.state.turnCount);
+        this.ui.toggleActions(true);
+        
+        // Regen Mana
+        const player = this.entities.find(e => e.type === 'player');
+        if (player) {
+            player.stats.mana = Math.min(player.stats.maxMana, player.stats.mana + 15);
+            this.ui.updateStats();
+        }
+        
+        this.ui.log("--- PLAYER TURN ---", "info");
+    }
+    
+    actions = {
+        scan: () => {
+            const player = this.entities.find(e => e.type === 'player');
+            const advice = this.oracle.analyze('scan', { dopamine: this.system.level, playerHp: player.stats.hp });
+            this.ui.log(`SCAN RESULT: ${advice}`, 'info');
+            this.system.change(5);
+            this.endTurn();
+        },
+        attack: () => {
+            this.ui.log("Select a target on the map.", "info");
+            // Logic handled in click handler
+        },
+        skill: () => {
+            const player = this.entities.find(e => e.type === 'player');
+            if (player.stats.mana < 30) {
+                this.ui.log("Not enough mana for Skill!", "danger");
+                return;
+            }
+            player.stats.mana -= 30;
+            this.ui.updateStats();
+            
+            // AoE Heal/Damage
+            this.entities.forEach(e => {
+                if (!e.isDead && Utils.distanceHex(player.position, e.position) <= 3) {
+                    if (e.type === 'player') {
+                        e.stats.hp = Math.min(e.stats.maxHp, e.stats.hp + 20);
+                        this.ui.log("Self-Repair initiated (+20 HP)", "info");
+                    } else {
+                        e.takeDamage(25);
+                        this.ui.log("Nano-Swarm deployed (25 DMG)", "crit");
+                    }
+                    this.world.updateEntityVisuals(e);
+                }
+            });
+            this.system.change(10);
+            this.endTurn();
+        },
+        wait: () => {
+            this.ui.log("Waiting... analyzing patterns.", "info");
+            this.system.change(5);
+            player.stats.mana = Math.min(player.stats.maxMana, player.stats.mana + 10);
+            this.ui.updateStats();
+            this.endTurn();
+        }
+    }
+}
+
+class UI {
+    constructor() {
+        this.logEl = document.getElementById('combat-log');
+        this.hpBar = document.getElementById('hp-bar');
+        this.dopBar = document.getElementById('dopamine-bar');
+        this.manaBar = document.getElementById('mana-bar');
+        this.hpVal = document.getElementById('hp-val');
+        this.dopVal = document.getElementById('dop-val');
+        this.manaVal = document.getElementById('mana-val');
+        this.turnEl = document.getElementById('turn-counter');
+        this.btns = document.querySelectorAll('.action-bar .btn');
+    }
+    
+    log(msg, type = 'normal') {
+        const div = document.createElement('div');
+        div.className = `log-entry ${type}`;
+        div.innerText = `> ${msg}`;
+        this.logEl.prepend(div);
+    }
+    
+    updateStats() {
+        const player = game.entities.find(e => e.type === 'player');
+        if (!player) return;
+        
+        const hpPct = (player.stats.hp / player.stats.maxHp) * 100;
+        const dopPct = game.system.level;
+        const manaPct = (player.stats.mana / player.stats.maxMana) * 100;
+        
+        this.hpBar.style.width = `${hpPct}%`;
+        this.dopBar.style.width = `${dopPct}%`;
+        this.manaBar.style.width = `${manaPct}%`;
+        
+        this.hpVal.innerText = `${Math.ceil(hpPct)}%`;
+        this.dopVal.innerText = `${Math.ceil(dopPct)}%`;
+        this.manaVal.innerText = `${Math.ceil(manaPct)}%`;
+        
+        // Dynamic colors based on status
+        if (hpPct < 30) this.hpBar.style.backgroundColor = '#ff0000';
+        else this.hpBar.style.backgroundColor = '#00ff41';
+    }
+    
+    updateTurn(num) {
+        this.turnEl.innerText = num;
+    }
+    
+    toggleActions(enable) {
+        this.btns.forEach(b => b.disabled = !enable);
+    }
+    
+    updateQuest(quest) {
+        const box = document.getElementById('quest-box');
+        box.style.display = 'block';
+        document.getElementById('quest-title').innerText = quest.title;
+        document.getElementById('quest-desc').innerText = quest.desc;
+    }
+}
+
+// Start Game
+const game = new Game();
+
+</script>
+</body>
+</html>
