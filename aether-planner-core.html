@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER PLANNER CORE | Advanced Framework</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg: #0a0a12;
+            --glass: rgba(20, 20, 30, 0.85);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #e0e0e0;
+            --success: #00ff9d;
+            --warning: #ffcc00;
+            --danger: #ff4757;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            overflow: hidden; 
+            height: 100vh;
+            display: flex;
+        }
+
+        #renderCanvas { 
+            width: 100%; 
+            height: 100%; 
+            touch-action: none; 
+            position: absolute;
+            z-index: 1;
+        }
+
+        /* UI Overlay System */
+        .ui-layer {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            grid-template-rows: 60px 1fr 250px;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .panel:hover { border-color: var(--primary); }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(90deg, rgba(0,243,255,0.1), transparent);
+        }
+
+        .logo { font-size: 24px; font-weight: bold; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; }
+        
+        .controls { display: flex; gap: 10px; }
+        
+        button {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        button:hover { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
+        button.active { background: var(--secondary); border-color: var(--secondary); }
+
+        /* Sidebar Left - Project Context */
+        .sidebar-left { grid-row: 2 / 4; }
+        
+        .context-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        .context-item:hover { background: rgba(255,255,255,0.08); }
+        .context-item.active { border-left-color: var(--success); background: rgba(0,255,157,0.1); }
+
+        /* Main Viewport Info */
+        .viewport-info {
+            grid-column: 2;
+            grid-row: 2;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            pointer-events: none;
+        }
+
+        .status-badge {
+            font-size: 14px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid var(--border);
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        /* Sidebar Right - Calculator & API */
+        .sidebar-right { grid-row: 2 / 4; overflow-y: auto; }
+
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .total-display {
+            font-size: 24px;
+            color: var(--success);
+            text-align: right;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        /* Bottom Panel - Task Queue / Cards */
+        .bottom-panel {
+            grid-column: 2;
+            grid-row: 3;
+            flex-direction: row;
+            gap: 15px;
+            overflow-x: auto;
+            align-items: flex-end;
+            padding-bottom: 10px;
+        }
+
+        .task-card {
+            min-width: 140px;
+            height: 180px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-card:hover {
+            transform: translateY(-20px) scale(1.05);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.2);
+            border-color: var(--primary);
+            z-index: 20;
+        }
+
+        .card-type { font-size: 10px; text-transform: uppercase; color: var(--secondary); font-weight: bold; }
+        .card-title { font-size: 14px; font-weight: bold; margin: 5px 0; }
+        .card-stats { font-size: 11px; color: #aaa; }
+        .card-cost { font-size: 12px; color: var(--warning); margin-top: auto; }
+
+        .biome-indicator {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 4px;
+        }
+        .biome-forest { background: var(--success); }
+        .biome-swamp { background: #8a2be2; }
+        .biome-ice { background: #00ffff; }
+
+        /* Language Switcher */
+        .lang-switch {
+            display: flex;
+            gap: 5px;
+        }
+        .lang-btn {
+            padding: 4px 8px;
+            font-size: 10px;
+            opacity: 0.6;
+        }
+        .lang-btn.active { opacity: 1; background: var(--primary); color: #000; }
+
+        /* Loading Overlay */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s;
+        }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .ui-layer { grid-template-columns: 250px 1fr; }
+            .sidebar-right { grid-column: 2; grid-row: 3; }
+            .bottom-panel { grid-column: 1 / -1; grid-row: 4; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <h2 style="margin-top: 20px; color: var(--primary);">INITIALIZING AETHER CORE...</h2>
+        <p style="color: #666; font-size: 12px; margin-top: 10px;">Loading Biome Assets | Connecting API | Compiling Shaders</p>
+    </div>
+
+    <!-- 3D Canvas -->
+    <canvas id="renderCanvas"></canvas>
+
+    <!-- UI Layer -->
+    <div class="ui-layer">
+        <!-- Header -->
+        <div class="panel header">
+            <div class="logo">AETHER <span style="color:#fff">PLANNER</span></div>
+            <div class="controls">
+                <div class="lang-switch">
+                    <button class="lang-btn active" onclick="setLang('EN')">EN</button>
+                    <button class="lang-btn" onclick="setLang('SK')">SK</button>
+                    <button class="lang-btn" onclick="setLang('DE')">DE</button>
+                    <button class="lang-btn" onclick="setLang('CZ')">CZ</button>
+                </div>
+                <button onclick="toggleView('design')">Design Mode</button>
+                <button onclick="toggleView('analytics')">Analytics</button>
+                <button onclick="simulateAPI()" style="border-color: var(--success); color: var(--success);">API Status: OK</button>
+            </div>
+        </div>
+
+        <!-- Left Sidebar: Contexts -->
+        <div class="panel sidebar-left">
+            <h3 style="margin-bottom: 15px; font-size: 14px; color: var(--primary);" data-i18n="contexts">PROJECT CONTEXTS</h3>
+            <div class="context-item active" onclick="switchBiome('forest')">
+                <div style="font-weight:bold">Forest Expansion</div>
+                <div style="font-size:11px; color:#aaa">Growth Phase | Low Risk</div>
+            </div>
+            <div class="context-item" onclick="switchBiome('swamp')">
+                <div style="font-weight:bold">Toxic Legacy</div>
+                <div style="font-size:11px; color:#aaa">Refactoring | High Complexity</div>
+            </div>
+            <div class="context-item" onclick="switchBiome('ice')">
+                <div style="font-weight:bold">Frozen Core</div>
+                <div style="font-size:11px; color:#aaa">Maintenance | Stable</div>
+            </div>
+            
+            <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border);">
+                <h4 style="font-size: 12px; margin-bottom: 10px;">Anti-Spam Shield</h4>
+                <div style="font-size: 11px; color: var(--success);">● Active (PoW Verified)</div>
+                <div style="font-size: 10px; color: #666; margin-top: 5px;">Last Check: <span id="last-check">Now</span></div>
+            </div>
+        </div>
+
+        <!-- Center Info -->
+        <div class="viewport-info">
+            <h1 id="main-title" style="font-size: 32px; text-shadow: 0 0 20px rgba(0,0,0,0.8);">FOREST BIOME</h1>
+            <div class="status-badge">Fibonacci Grid Active | Golden Ratio Layout</div>
+        </div>
+
+        <!-- Right Sidebar: Calculator -->
+        <div class="panel sidebar-right">
+            <h3 style="margin-bottom: 15px; font-size: 14px; color: var(--primary);" data-i18n="calculator">COST CALCULATOR</h3>
+            
+            <div class="calc-row">
+                <span>Base Materials</span>
+                <span id="cost-materials">€0.00</span>
+            </div>
+            <div class="calc-row">
+                <span>Labor (Hours)</span>
+                <span id="cost-labor">€0.00</span>
+            </div>
+            <div class="calc-row">
+                <span>Complexity Multiplier</span>
+                <span id="cost-multiplier">x1.0</span>
+            </div>
+            <div class="calc-row">
+                <span>Risk Buffer (15%)</span>
+                <span id="cost-risk">€0.00</span>
+            </div>
+
+            <div class="total-display" id="total-cost">€0.00</div>
+
+            <div style="margin-top: 20px;">
+                <h4 style="font-size: 12px; margin-bottom: 10px;">API Endpoints</h4>
+                <div style="font-size: 10px; font-family: monospace; color: #888;">
+                    GET /api/v1/projects<br>
+                    POST /api/v1/calculate<br>
+                    WS /stream/analytics
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom: Task Cards -->
+        <div class="panel bottom-panel" id="card-container">
+            <!-- Cards injected via JS -->
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE & CONFIG ---
+        const state = {
+            lang: 'EN',
+            currentBiome: 'forest',
+            tasks: [],
+            costs: { materials: 0, labor: 0, multiplier: 1.0 },
+            apiConnected: false
+        };
+
+        const translations = {
+            EN: { contexts: "PROJECT CONTEXTS", calculator: "COST CALCULATOR", title_forest: "FOREST BIOME", title_swamp: "TOXIC SWAMP", title_ice: "GLACIER ICE" },
+            SK: { contexts: "KONTEXTY PROJEKTU", calculator: "KALKULÁTOR NÁKLADOV", title_forest: "LESNÝ BIÓM", title_swamp: "TOXICKÁ MOČIAR", title_ice: "ĽADOVEC" },
+            DE: { contexts: "PROJEKTKONTEXTE", calculator: "KOSTENRECHNER", title_forest: "WALD BIOM", title_swamp: "GIFT SUMPF", title_ice: "GLETSCHER EIS" },
+            CZ: { contexts: "KONTEXTY PROJEKTU", calculator: "KALKULAČKA NÁKLADŮ", title_forest: "LESNÍ BIOM", title_swamp: "TOXICKÁ MOČÁL", title_ice: "LEDOWEC" }
+        };
+
+        // --- BABYLON JS ENGINE ---
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.04, 0.04, 0.07, 1);
+            
+            // Camera (Isometric)
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 4, Math.PI / 3, 25, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 10;
+            camera.upperRadiusLimit = 50;
+
+            // Lighting
+            const hemiLight = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
+            hemiLight.intensity = 0.6;
+            const dirLight = new BABYLON.DirectionalLight("dir", new BABYLON.Vector3(-1, -2, -1), scene);
+            dirLight.position = new BABYLON.Vector3(20, 40, 20);
+            dirLight.intensity = 0.8;
+            
+            // Shadows
+            const shadowGen = new BABYLON.ShadowGenerator(1024, dirLight);
+            shadowGen.useBlurExponentialShadowMap = true;
+
+            // Ground (Hex Grid Placeholder)
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 40, height: 40}, scene);
+            const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            groundMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.15);
+            groundMat.specularColor = new BABYLON.Color3(0,0,0);
+            ground.material = groundMat;
+            ground.receiveShadows = true;
+
+            // Hex Grid Generation (Procedural)
+            const hexes = [];
+            const hexSize = 2;
+            const rows = 7;
+            const cols = 9;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const offset = (r % 2) * (hexSize * Math.sqrt(3) / 2);
+                    const x = c * (hexSize * Math.sqrt(3)) + offset - (cols * hexSize * Math.sqrt(3) / 2);
+                    const z = r * (hexSize * 1.5) - (rows * hexSize * 1.5 / 2);
+                    
+                    const hex = BABYLON.MeshBuilder.CreatePolygon("hex", {
+                        shape: [
+                            new BABYLON.Vector2(0, hexSize),
+                            new BABYLON.Vector2(hexSize * Math.sqrt(3)/2, hexSize/2),
+                            new BABYLON.Vector2(hexSize * Math.sqrt(3)/2, -hexSize/2),
+                            new BABYLON.Vector2(0, -hexSize),
+                            new BABYLON.Vector2(-hexSize * Math.sqrt(3)/2, -hexSize/2),
+                            new BABYLON.Vector2(-hexSize * Math.sqrt(3)/2, hexSize/2)
+                        ]
+                    }, scene);
+                    
+                    hex.position = new BABYLON.Vector3(x, 0.1, z);
+                    hex.rotation.x = Math.PI / 2;
+                    
+                    // Material based on biome (initial)
+                    const mat = new BABYLON.StandardMaterial("hexMat", scene);
+                    mat.diffuseColor = new BABYLON.Color3(0.2, 0.8, 0.3); // Forest default
+                    mat.emissiveColor = new BABYLON.Color3(0.05, 0.2, 0.1);
+                    mat.specularPower = 64;
+                    hex.material = mat;
+                    hex.receiveShadows = true;
+                    shadowGen.getShadowMap().renderList.push(hex);
+                    
+                    hexes.push({ mesh: hex, r, c, baseColor: mat.diffuseColor.clone() });
+                }
+            }
+
+            // Particles System (Biome Aura)
+            const particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
+            particleSystem.particleTexture = new BABYLON.Texture("https://babylonjs-playground.com/textures/flare.png", scene);
+            particleSystem.minEmitBox = new BABYLON.Vector3(-10, 0.5, -10);
+            particleSystem.maxEmitBox = new BABYLON.Vector3(10, 0.5, 10);
+            particleSystem.color1 = new BABYLON.Color4(0.2, 1.0, 0.5, 0.8);
+            particleSystem.color2 = new BABYLON.Color4(0.2, 0.5, 1.0, 0.8);
+            particleSystem.minSize = 0.1;
+            particleSystem.maxSize = 0.4;
+            particleSystem.minLifeTime = 2.0;
+            particleSystem.maxLifeTime = 4.0;
+            particleSystem.emitRate = 50;
+            particleSystem.gravity = new BABYLON.Vector3(0, 0.5, 0);
+            particleSystem.direction1 = new BABYLON.Vector3(-1, 2, -1);
+            particleSystem.direction2 = new BABYLON.Vector3(1, 2, 1);
+            particleSystem.minAngularSpeed = -0.5;
+            particleSystem.maxAngularSpeed = 0.5;
+            particleSystem.start();
+
+            // Animation Loop for Pulse
+            scene.registerBeforeRender(() => {
+                const time = Date.now() * 0.001;
+                hexes.forEach((h, i) => {
+                    if (i % 3 === 0) {
+                        const pulse = Math.sin(time * 2 + i) * 0.05;
+                        h.mesh.material.emissiveColor = h.baseColor.scale(0.2 + pulse);
+                    }
+                });
+                
+                // Parallax effect on particles based on camera
+                particleSystem.color1 = new BABYLON.Color4(
+                    state.currentBiome === 'forest' ? 0.2 : (state.currentBiome === 'swamp' ? 0.5 : 0.0),
+                    state.currentBiome === 'forest' ? 1.0 : (state.currentBiome === 'swamp' ? 0.2 : 0.8),
+                    state.currentBiome === 'forest' ? 0.5 : (state.currentBiome === 'swamp' ? 0.8 : 1.0),
+                    0.8
+                );
+            });
+
+            return scene;
+        };
+
+        const scene = createScene();
+        engine.runRenderLoop(function () { scene.render(); });
+        window.addEventListener("resize", function () { engine.resize(); });
+
+        // --- LOGIC & INTERACTION ---
+
+        function setLang(lang) {
+            state.lang = lang;
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update Text
+            document.querySelector('[data-i18n="contexts"]').innerText = translations[lang].contexts;
+            document.querySelector('[data-i18n="calculator"]').innerText = translations[lang].calculator;
+            updateTitle();
+        }
+
+        function updateTitle() {
+            const key = `title_${state.currentBiome}`;
+            document.getElementById('main-title').innerText = translations[state.lang][key] || "UNKNOWN";
+        }
+
+        function switchBiome(biome) {
+            state.currentBiome = biome;
+            
+            // Update UI Active State
+            document.querySelectorAll('.context-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // Update 3D Scene Colors
+            const hexes = scene.meshes.filter(m => m.name.startsWith("hex"));
+            let color, emissive;
+            
+            if (biome === 'forest') {
+                color = new BABYLON.Color3(0.2, 0.8, 0.3);
+                emissive = new BABYLON.Color3(0.05, 0.2, 0.1);
+            } else if (biome === 'swamp') {
+                color = new BABYLON.Color3(0.3, 0.1, 0.4);
+                emissive = new BABYLON.Color3(0.1, 0.05, 0.2);
+            } else if (biome === 'ice') {
+                color = new BABYLON.Color3(0.7, 0.9, 1.0);
+                emissive = new BABYLON.Color3(0.2, 0.3, 0.4);
+            }
+
+            hexes.forEach(h => {
+                if(h.material) {
+                    h.material.diffuseColor = color;
+                    h.material.emissiveColor = emissive;
+                }
+            });
+
+            updateTitle();
+            generateTasks(biome);
+            recalculateCosts();
+        }
+
+        function generateTasks(biome) {
+            const container = document.getElementById('card-container');
+            container.innerHTML = '';
+            state.tasks = [];
+
+            const taskTypes = {
+                forest: [
+                    { title: "Planting", cost: 120, type: "Growth", stat: "+5 Stability" },
+                    { title: "Pathway", cost: 80, type: "Infra", stat: "+2 Speed" },
+                    { title: "Watchtower", cost: 200, type: "Defense", stat: "+10 Vision" }
+                ],
+                swamp: [
+                    { title: "Purify", cost: 300, type: "Cleanup", stat: "-Risk" },
+                    { title: "Bridge", cost: 450, type: "Infra", stat: "Access" },
+                    { title: "Sample", cost: 150, type: "Research", stat: "+Data" }
+                ],
+                ice: [
+                    { title: "Insulate", cost: 250, type: "Maint", stat: "+Stability" },
+                    { title: "Scan", cost: 100, type: "Analysis", stat: "+Info" },
+                    { title: "Reinforce", cost: 320, type: "Struct", stat: "+HP" }
+                ]
+            };
+
+            const tasks = taskTypes[biome] || taskTypes.forest;
+            
+            tasks.forEach((t, i) => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.innerHTML = `
+                    <div class="biome-indicator biome-${biome}"></div>
+                    <div>
+                        <div class="card-type">${t.type}</div>
+                        <div class="card-title">${t.title}</div>
+                        <div class="card-stats">${t.stat}</div>
+                    </div>
+                    <div class="card-cost">€${t.cost}</div>
+                `;
+                
+                // Drag simulation logic could go here
+                card.onclick = () => {
+                    addTaskToCalc(t.cost);
+                    card.style.transform = "scale(0.9)";
+                    setTimeout(() => card.style.transform = "", 200);
+                };
+                
+                container.appendChild(card);
+                state.tasks.push(t);
+            });
+        }
+
+        function addTaskToCalc(cost) {
+            state.costs.materials += cost;
+            recalculateCosts();
+        }
+
+        function recalculateCosts() {
+            const mat = state.costs.materials;
+            const hours = Math.floor(mat / 50); // Mock logic
+            const laborCost = hours * 45; // €45/hr
+            const multiplier = state.currentBiome === 'swamp' ? 1.5 : (state.currentBiome === 'ice' ? 1.2 : 1.0);
+            const subtotal = (mat + laborCost) * multiplier;
+            const risk = subtotal * 0.15;
+            const total = subtotal + risk;
+
+            document.getElementById('cost-materials').innerText = `€${mat.toFixed(2)}`;
+            document.getElementById('cost-labor').innerText = `€${laborCost.toFixed(2)} (${hours}h)`;
+            document.getElementById('cost-multiplier').innerText = `x${multiplier}`;
+            document.getElementById('cost-risk').innerText = `€${risk.toFixed(2)}`;
+            document.getElementById('total-cost').innerText = `€${total.toFixed(2)}`;
+        }
+
+        function simulateAPI() {
+            const btn = event.target;
+            btn.innerText = "Connecting...";
+            setTimeout(() => {
+                state.apiConnected = true;
+                btn.innerText = "API Status: OK";
+                btn.style.boxShadow = "0 0 15px var(--success)";
+                document.getElementById('last-check').innerText = new Date().toLocaleTimeString();
+            }, 1500);
+        }
+
+        function toggleView(mode) {
+            // Placeholder for view switching logic
+            alert(`Switching to ${mode} mode. (Integration point for Analytics/Design views)`);
+        }
+
+        // Initialize
+        setTimeout(() => {
+            document.getElementById('loader').style.opacity = 0;
+            setTimeout(() => document.getElementById('loader').remove(), 500);
+            generateTasks('forest');
+        }, 1500);
+
+    </script>
+</body>
+</html>
+</think>

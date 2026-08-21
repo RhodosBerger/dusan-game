@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas RPG: AI Oracle & Card Battle Simulation</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --panel-bg: #2a2a2a;
+            --text-color: #e0e0e0;
+            --accent: #00ff9d;
+            --danger: #ff4d4d;
+            --mana: #4d94ff;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            flex: 2;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 2px solid #333;
+        }
+        canvas {
+            background: #000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border: 1px solid #444;
+        }
+        #ui-panel {
+            flex: 1;
+            padding: 20px;
+            background-color: var(--panel-bg);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+        .section {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+        .section h3 { margin-top: 0; color: var(--accent); font-size: 14px; text-transform: uppercase; }
+        
+        /* Stats */
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .bar-container { width: 100%; height: 10px; background: #444; border-radius: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+        #hp-bar { background-color: var(--danger); }
+        #mana-bar { background-color: var(--mana); }
+
+        /* Cards */
+        .card-hand { display: flex; gap: 10px; flex-wrap: wrap; }
+        .card {
+            width: 80px;
+            height: 110px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s;
+            user-select: none;
+        }
+        .card:hover { transform: translateY(-5px); border-color: var(--accent); }
+        .card-cost { position: absolute; top: -5px; left: -5px; background: var(--mana); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        
+        /* Logs */
+        #log-container {
+            height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            background: #000;
+            padding: 10px;
+            border: 1px solid #333;
+        }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px; }
+        .log-turn { color: #888; }
+        .log-action { color: var(--accent); }
+        .log-ai { color: #d48aff; font-style: italic; }
+
+        /* Controls */
+        button {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 5px;
+        }
+        button:hover { opacity: 0.9; }
+        button.secondary { background: #555; color: white; }
+
+        #oracle-status {
+            font-size: 11px;
+            color: #d48aff;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div style="position: absolute; top: 10px; left: 10px; color: #666; font-size: 12px;">
+        FPS: <span id="fps-counter">0</span> | Entities: <span id="entity-count">0</span>
+    </div>
+</div>
+
+<div id="ui-panel">
+    <div class="section">
+        <h3>Player Status (RPG)</h3>
+        <div class="stat-row"><span>HP</span> <span id="hp-text">100/100</span></div>
+        <div class="bar-container"><div id="hp-bar" class="bar-fill" style="width: 100%"></div></div>
+        <div style="height: 10px;"></div>
+        <div class="stat-row"><span>Mana</span> <span id="mana-text">50/50</span></div>
+        <div class="bar-container"><div id="mana-bar" class="bar-fill" style="width: 100%"></div></div>
+        <div class="stat-row" style="margin-top: 10px;"><span>Score</span> <span id="score-text" style="color: gold">0</span></div>
+    </div>
+
+    <div class="section">
+        <h3>Spell Cards (Hand)</h3>
+        <div id="card-hand" class="card-hand">
+            <!-- Cards injected via JS -->
+        </div>
+        <button onclick="game.drawCard()">Draw Card</button>
+    </div>
+
+    <div class="section">
+        <h3>Battle Log & AI Oracle</h3>
+        <div id="log-container"></div>
+        <div id="oracle-status">Waiting for battle data...</div>
+        <button class="secondary" onclick="game.triggerAIPrediction()">Run AI Prediction (Simulated LLM)</button>
+    </div>
+    
+    <div class="section">
+        <h3>Environment Control</h3>
+        <button class="secondary" onclick="game.toggleLabyrinth()">Toggle Labyrinth Mode</button>
+        <button class="secondary" onclick="game.resetSimulation()">Reset Simulation</button>
+    </div>
+</div>
+
+<script>
+/**
+ * CORE DATA TYPES & ENUMS
+ * Definícia datových typov pre simuláciu
+ */
+const EntityType = { PLAYER: 'player', ENEMY: 'enemy', PARTICLE: 'particle', TEXT: 'text' };
+const SpellType = { FIREBALL: 'fireball', HEAL: 'heal', SHIELD: 'shield', CHAOS: 'chaos' };
+const LogLevel = { INFO: 'info', ACTION: 'action', AI: 'ai' };
+
+/**
+ * UTILITIES
+ */
+const Utils = {
+    random: (min, max) => Math.random() * (max - min) + min,
+    uuid: () => Math.random().toString(36).substr(2, 9),
+    checkCollision: (rect1, rect2) => {
+        return (rect1.x < rect2.x + rect2.w &&
+                rect1.x + rect1.w > rect2.x &&
+                rect1.y < rect2.y + rect2.h &&
+                rect1.y + rect1.h > rect2.y);
+    }
+};
+
+/**
+ * GAME ENTITIES
+ * Objekty držiace herné mechaniky
+ */
+class GameObject {
+    constructor(type, x, y, w, h, color) {
+        this.id = Utils.uuid();
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.color = color;
+        this.vx = 0;
+        this.vy = 0;
+        this.markedForDeletion = false;
+        this.properties = {}; // Dynamicke vlastnosti (boolean logika)
+    }
+
+    update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        
+        // Jednoduchý tieň pre efekt hĺbky
+        ctx.strokeStyle = "rgba(0,0,0,0.5)";
+        ctx.strokeRect(this.x, this.y, this.w, this.h);
+    }
+}
+
+class Particle extends GameObject {
+    constructor(x, y, color, speed, life) {
+        super(EntityType.PARTICLE, x, y, 4, 4, color);
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.life = life;
+        this.maxLife = life;
+    }
+
+    update(dt) {
+        super.update(dt);
+        this.life -= dt;
+        if (this.life <= 0) this.markedForDeletion = true;
+        this.w = 4 * (this.life / this.maxLife);
+        this.h = 4 * (this.life / this.maxLife);
+    }
+}
+
+class FloatingText extends GameObject {
+    constructor(x, y, text, color) {
+        super(EntityType.TEXT, x, y, 0, 0, color);
+        this.text = text;
+        this.life = 1.0;
+        this.vy = -30; // Float up
+    }
+
+    update(dt) {
+        super.update(dt);
+        this.life -= dt;
+        if (this.life <= 0) this.markedForDeletion = true;
+    }
+
+    draw(ctx) {
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.font = "bold 16px Courier New";
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+/**
+ * CARD SYSTEM
+ * Hlavný herný element spúšťajúci akcie
+ */
+class Card {
+    constructor(name, cost, type, damage, effectDesc) {
+        this.id = Utils.uuid();
+        this.name = name;
+        this.cost = cost;
+        this.type = type;
+        this.damage = damage;
+        this.effectDesc = effectDesc;
+    }
+}
+
+/**
+ * ENGINE CORE
+ * Canvas rendering, Game Loop, State Management
+ */
+class GameEngine {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.lastTime = 0;
+        this.fps = 0;
+        
+        // Game State (CRUD Data)
+        this.state = {
+            player: { hp: 100, maxHp: 100, mana: 50, maxMana: 50, score: 0 },
+            enemies: [],
+            hand: [],
+            entities: [],
+            logs: [],
+            labyrinthMode: false,
+            entropy: 0.0 // Entropia prostredia ovplyvnená AI
+        };
+
+        this.init();
+    }
+
+    init() {
+        this.spawnEnemy();
+        this.drawCard();
+        this.drawCard();
+        this.drawCard();
+        this.log("Simulácia spustená. Čakám na vstup...", LogLevel.INFO);
+        requestAnimationFrame(t => this.loop(t));
+    }
+
+    spawnEnemy() {
+        const enemy = new GameObject(EntityType.ENEMY, 600, Utils.random(100, 500), 50, 50, '#ff4d4d');
+        enemy.properties = { hp: 100, maxHp: 100, isShielded: false };
+        this.state.enemies.push(enemy);
+        this.state.entities.push(enemy);
+    }
+
+    drawCard() {
+        if (this.state.hand.length >= 5) return;
+        const spells = [
+            new Card("Fireball", 10, SpellType.FIREBALL, 20, "Spôsobí oheň"),
+            new Card("Heal", 15, SpellType.HEAL, 0, "Obnoví život"),
+            new Card("Ice Shard", 5, SpellType.FIREBALL, 10, "Malý ľadový útok"),
+            new Card("Chaos Bolt", 25, SpellType.CHAOS, 0, "Náhodný efekt")
+        ];
+        const randomSpell = spells[Math.floor(Math.random() * spells.length)];
+        // Klonovanie aby sme nemali referencie
+        this.state.hand.push(new Card(randomSpell.name, randomSpell.cost, randomSpell.type, randomSpell.damage, randomSpell.effectDesc));
+        this.renderHand();
+    }
+
+    renderHand() {
+        const container = document.getElementById('card-hand');
+        container.innerHTML = '';
+        this.state.hand.forEach((card, index) => {
+            const el = document.createElement('div');
+            el.className = 'card';
+            el.innerHTML = `
+                <div class="card-cost">${card.cost}</div>
+                <div>${card.name}</div>
+                <div style="font-size:8px; margin-top:5px; color:#aaa">${card.type}</div>
+            `;
+            el.onclick = () => this.playCard(index);
+            container.appendChild(el);
+        });
+    }
+
+    playCard(index) {
+        const card = this.state.hand[index];
+        if (this.state.player.mana < card.cost) {
+            this.log("Nedostatok Many!", LogLevel.INFO);
+            return;
+        }
+
+        // CRUD Update: Mana
+        this.state.player.mana -= card.cost;
+        this.updateUI();
+
+        // Remove from hand
+        this.state.hand.splice(index, 1);
+        this.renderHand();
+
+        this.log(`Hráč zahral kartu: ${card.name}`, LogLevel.ACTION);
+
+        // Execution Logic based on Card Type
+        if (card.type === SpellType.FIREBALL) {
+            this.castProjectile(card);
+        } else if (card.type === SpellType.HEAL) {
+            this.state.player.hp = Math.min(this.state.player.maxHp, this.state.player.hp + 20);
+            this.spawnFloatingText(100, 300, "+20 HP", "#00ff9d");
+            this.createParticles(100, 300, "#00ff9d", 10);
+        } else if (card.type === SpellType.CHAOS) {
+            this.triggerChaos();
+        }
+
+        this.updateUI();
+        
+        // Trigger AI Analysis after action
+        setTimeout(() => this.triggerAIPrediction(), 500);
+    }
+
+    castProjectile(card) {
+        // Spawn projectile entity
+        const proj = new GameObject(EntityType.PARTICLE, 150, 300, 10, 10, '#ffa500');
+        proj.vx = 400; // Speed
+        proj.targetType = EntityType.ENEMY;
+        proj.damage = card.damage;
+        proj.onHit = (enemy) => {
+            enemy.properties.hp -= proj.damage;
+            this.state.player.score += 10;
+            this.spawnFloatingText(enemy.x, enemy.y, `-${proj.damage}`, "#ff4d4d");
+            this.createParticles(enemy.x, enemy.y, "#ff4d4d", 5);
+            
+            if (enemy.properties.hp <= 0) {
+                enemy.markedForDeletion = true;
+                this.log("Nepriateľ porazený!", LogLevel.ACTION);
+                setTimeout(() => this.spawnEnemy(), 2000);
+            }
+        };
+        this.state.entities.push(proj);
+    }
+
+    triggerChaos() {
+        this.state.entropy += 0.1;
+        this.log("Entropia stúpa! Realita sa narúša...", LogLevel.AI);
+        // Random effects
+        if (Math.random() > 0.5) {
+            this.state.player.mana = this.state.player.maxMana;
+            this.log("Chaotický príliv many!", LogLevel.ACTION);
+        } else {
+            this.state.enemies.forEach(e => e.properties.hp -= 10);
+            this.log("Chaotické poškodenie nepriateľov!", LogLevel.ACTION);
+        }
+    }
+
+    createParticles(x, y, color, count) {
+        for(let i=0; i<count; i++) {
+            this.state.entities.push(new Particle(x, y, color, Utils.random(50, 150), Utils.random(0.5, 1.0)));
+        }
+    }
+
+    spawnFloatingText(x, y, text, color) {
+        this.state.entities.push(new FloatingText(x, y, text, color));
+    }
+
+    /**
+     * AI ORACLE MODULE
+     * Simulácia LLM (OpenLLaMA) analýzy logov
+     */
+    triggerAIPrediction() {
+        const recentLogs = this.state.logs.slice(-5).map(l => l.msg).join(" ");
+        const status = document.getElementById('oracle-status');
+        
+        status.innerText = "Analyzujem logy cez LLM...";
+        
+        // Simulácia async volania na API (napr. OpenLLaMA)
+        setTimeout(() => {
+            // Tu by bol fetch() na tvoj backend s LLM
+            // Mock response based on game state logic
+            const prediction = this.mockLLMResponse(recentLogs);
+            
+            status.innerText = `Predikcia: ${prediction}`;
+            this.log(`AI Veštba: ${prediction}`, LogLevel.AI);
+
+            // Aplikácia "Veštby" na hru (mení budúcnosť)
+            this.applyAIEffect(prediction);
+            
+        }, 800);
+    }
+
+    mockLLMResponse(logContext) {
+        // Jednoduchá boolean logika simulujúca LLM rozhodovanie
+        const lowHp = this.state.player.hp < 30;
+        const highEntropy = this.state.entropy > 0.5;
+        const manyEnemies = this.state.enemies.length > 2;
+
+        if (lowHp) return "Hrozí kritické zranenie. Odporúčam útek alebo heal.";
+        if (highEntropy) return "Realita je nestabilná. Očakávaj náhodné eventy.";
+        if (manyEnemies) return "Presila nepriateľa. Použi area-of-effect kúzla.";
+        return "Boj prebieha štandardne. Šanca na výhru 85%.";
+    }
+
+    applyAIEffect(prediction) {
+        // Interpretácia reality na základe LLM outputu
+        if (prediction.includes("nestabilná")) {
+            this.state.labyrinthMode = !this.state.labyrinthMode;
+            this.log("AI zmenilo štruktúru labyrintu!", LogLevel.AI);
+        }
+        if (prediction.includes("85%")) {
+            // Buff pre hráča ako odmena za dobrú hru
+            this.state.player.mana = Math.min(this.state.player.maxMana, this.state.player.mana + 10);
+        }
+    }
+
+    log(msg, type) {
+        const entry = { msg, type, time: Date.now() };
+        this.state.logs.push(entry);
+        
+        const container = document.getElementById('log-container');
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        if (type === LogLevel.AI) div.classList.add('log-ai');
+        if (type === LogLevel.ACTION) div.classList.add('log-action');
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        container.prepend(div);
+    }
+
+    toggleLabyrinth() {
+        this.state.labyrinthMode = !this.state.labyrinthMode;
+        this.log(this.state.labyrinthMode ? "Režim Labyrintu AKTIVOVANÝ" : "Režim Labyrintu DEAKTIVOVANÝ", LogLevel.INFO);
+    }
+
+    resetSimulation() {
+        location.reload();
+    }
+
+    updateUI() {
+        document.getElementById('hp-text').innerText = `${Math.floor(this.state.player.hp)}/${this.state.player.maxHp}`;
+        document.getElementById('hp-bar').style.width = `${(this.state.player.hp / this.state.player.maxHp) * 100}%`;
+        
+        document.getElementById('mana-text').innerText = `${Math.floor(this.state.player.mana)}/${this.state.player.maxMana}`;
+        document.getElementById('mana-bar').style.width = `${(this.state.player.mana / this.state.player.maxMana) * 100}%`;
+        
+        document.getElementById('score-text').innerText = this.state.player.score;
+    }
+
+    /**
+     * MAIN LOOP
+     */
+    loop(timestamp) {
+        const dt = (timestamp - this.lastTime) / 1000;
+        this.lastTime = timestamp;
+        this.fps = Math.round(1 / dt);
+
+        // Clear
+        this.ctx.fillStyle = this.state.labyrinthMode ? '#1a0524' : '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Draw Labyrinth Background if active
+        if (this.state.labyrinthMode) {
+            this.ctx.strokeStyle = '#4d004d';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            for(let i=0; i<this.canvas.width; i+=50) {
+                this.ctx.moveTo(i, 0); this.ctx.lineTo(i, this.canvas.height);
+            }
+            for(let i=0; i<this.canvas.height; i+=50) {
+                this.ctx.moveTo(0, i); this.ctx.lineTo(this.canvas.width, i);
+            }
+            this.ctx.stroke();
+        }
+
+        // Update & Draw Entities
+        this.state.entities.forEach(e => e.update(dt));
+        this.state.entities = this.state.entities.filter(e => !e.markedForDeletion);
+        this.state.entities.forEach(e => e.draw(this.ctx));
+
+        // Collision Detection (Projectiles vs Enemies)
+        const projectiles = this.state.entities.filter(e => e.type === EntityType.PARTICLE && e.vx > 0);
+        const enemies = this.state.enemies.filter(e => !e.markedForDeletion);
+
+        projectiles.forEach(p => {
+            enemies.forEach(e => {
+                if (Utils.checkCollision(p, e)) {
+                    if (p.onHit) p.onHit(e);
+                    p.markedForDeletion = true;
+                }
+            });
+        });
+
+        // Regen Mana
+        if (this.state.player.mana < this.state.player.maxMana) {
+            this.state.player.mana += 0.05;
+            this.updateUI();
+        }
+
+        // Stats
+        document.getElementById('fps-counter').innerText = this.fps;
+        document.getElementById('entity-count').innerText = this.state.entities.length + this.state.enemies.length;
+
+        requestAnimationFrame(t => this.loop(t));
+    }
+}
+
+// Start Game
+const game = new GameEngine();
+
+</script>
+</body>
+</html>

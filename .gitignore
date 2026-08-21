@@ -1,53 +1,66 @@
-# Dependency directories
-**/node_modules/
-node_modules/
-
-# Build outputs
-**/dist/
-**/dist-ssr/
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+dist/
 build/
-bin/
-packages/go-core/go-core
-packages/go-core/go-core.exe
+target/
 
-# Virtual environments & Python cache
-**/.venv/
+# Dependencies
 .venv/
-**/__pycache__/
-**/*.pyc
-**/*.pyo
-**/*.pyd
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+.gradle/
 
-# Databases and Local Telemetry
-**/*.db
-**/*.db-journal
-**/*.db-shm
-**/*.db-wal
-**/generated_quests.json
-**/generated_dialogues.json
-
-# Log files
-**/*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Editor directories and files
-.vscode/
-.idea/
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Logs and temp files
+*.log
 *.tmp
+*.swp
+*.swo
 
-# Custom local environment files
+# Environment
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
