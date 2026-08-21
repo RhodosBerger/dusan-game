@@ -1,6 +1,6 @@
 import { ActionNode } from './ActionNode';
 import { SovereignEngine } from './SovereignEngine';
-import { CombinatoricProbabilityEngine, getPhysicsSpecs } from '@dusan-game/shared';
+import { CombinatoricProbabilityEngine, getPhysicsSpecs, INTERRUPT_WINDOW_SECONDS, MAX_LOG_ENTRIES } from '@dusan-game/shared';
 
 export type TurnPhase = 'PREPARATION' | 'ACTION' | 'INTERRUPT_WINDOW' | 'RESOLVE_NETWORK' | 'END_TURN';
 
@@ -65,7 +65,7 @@ export class TurnStateMachine {
       // Útoky spúšťajú reakčné okno prerušenia (Interrupt Window)
       this.currentAction = node;
       this.currentPhase = 'INTERRUPT_WINDOW';
-      this.timerLeft = 3; // 3-sekundové okno na reakciu
+      this.timerLeft = INTERRUPT_WINDOW_SECONDS; // configurable interrupt window
       
       // Prepnutie ťahu na obrancu na reakciu. Reagovať môže len HRÁČ — pri útoku
       // na jednotku/NPC dostáva reakčné okno jej majiteľ (jednotka nemá ruku kariet
@@ -120,12 +120,14 @@ export class TurnStateMachine {
           const opponentThread = this.engine.threads.find(t => t.id === opponentId);
           if (opponentThread && opponentThread.currentBuffer.length > 0) {
             const removedCard = opponentThread.currentBuffer.pop();
-            this.engine.traceLog.push({
-              type: 'Combo',
-              threadId: opponentId,
-              message: `Consecutive Short Circuit! Discarded ${removedCard?.id || 'card'}`,
-              timestamp: Date.now()
-            } as any);
+            if (removedCard) {
+              this.engine.traceLog.push({
+                type: 'Combo',
+                threadId: opponentId,
+                message: `Consecutive Short Circuit! Discarded ${removedCard.id}`,
+                timestamp: Date.now()
+              } as any);
+            }
           }
         }
       }
@@ -152,8 +154,8 @@ export class TurnStateMachine {
     // Pridanie reakcie do reťazca (stromová štruktúra reakcií)
     this.currentAction.reactions.push(node);
     
-    // Reset reakčného časovača na 3 sekundy pre prípadnú proti-reakciu
-    this.timerLeft = 3;
+    // Reset reakčného časovača na plné okno pre prípadnú proti-reakciu
+    this.timerLeft = INTERRUPT_WINDOW_SECONDS;
     console.log(`[STATE_MACHINE] Reakcia ${node.instruction.id} pridaná do reťazca. Časovač resetovaný na ${this.timerLeft}s.`);
   }
 
@@ -163,7 +165,8 @@ export class TurnStateMachine {
   tickTimer(): void {
     if (this.currentPhase !== 'INTERRUPT_WINDOW') return;
 
-    this.timerLeft--;
+    // Guard: prevent timer from going negative (race condition safety)
+    this.timerLeft = Math.max(0, this.timerLeft - 1);
     if (this.timerLeft <= 0) {
       console.log(`[STATE_MACHINE] Čas na reakciu vypršal. Automatické spustenie vyhodnotenia.`);
       this.resolveChain();
@@ -224,12 +227,14 @@ export class TurnStateMachine {
           const opponentThread = this.engine.threads.find(t => t.id === opponentId);
           if (opponentThread && opponentThread.currentBuffer.length > 0) {
             const removedCard = opponentThread.currentBuffer.pop();
-            this.engine.traceLog.push({
-              type: 'Combo',
-              threadId: opponentId,
-              message: `Short Circuit! Discarded ${removedCard?.id || 'card'}`,
-              timestamp: Date.now()
-            } as any);
+            if (removedCard) {
+              this.engine.traceLog.push({
+                type: 'Combo',
+                threadId: opponentId,
+                message: `Short Circuit! Discarded ${removedCard.id}`,
+                timestamp: Date.now()
+              } as any);
+            }
           }
         }
       });
@@ -298,11 +303,17 @@ export class TurnStateMachine {
       }
     }
 
+    // Trim traceLog to prevent unbounded memory growth
+    if (this.engine.traceLog.length > MAX_LOG_ENTRIES) {
+      this.engine.traceLog.splice(0, this.engine.traceLog.length - MAX_LOG_ENTRIES);
+    }
+
     const drawCard = (thread: any) => {
       if (thread.drawPile.length === 0) {
         if (thread.discardPile.length > 0) {
           thread.drawPile = [...thread.discardPile];
           thread.discardPile = [];
+          // Fisher-Yates shuffle
           for (let i = thread.drawPile.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [thread.drawPile[i], thread.drawPile[j]] = [thread.drawPile[j], thread.drawPile[i]];
@@ -310,7 +321,7 @@ export class TurnStateMachine {
           console.log(`[DECK_RECYCLE] Recycled and shuffled discard pile of thread ${thread.id} into draw pile.`);
         }
       }
-      return thread.drawPile.pop();
+      return thread.drawPile.length > 0 ? thread.drawPile.pop() : undefined;
     };
 
     // Dobratie kariet do limitu pre všetkých hráčov (pravidlo shody pri dobírání)

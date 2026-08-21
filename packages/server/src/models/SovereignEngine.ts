@@ -96,7 +96,7 @@ export class SovereignEngine {
     // Database telemetry logger subscriber
     mediator.subscribe('COMBAT_RESOLVED', (data) => {
       try {
-        const dbManager = new DatabaseSyncManager();
+        const dbManager = DatabaseSyncManager.getInstance();
         dbManager.saveMemoryRegister('0x00E0', `COMBAT_LOG_${data.timestamp}`, `Attacker: ${data.attackerId}, Target: ${data.targetId}, Damage: ${data.damage}`);
       } catch (e) {
         console.warn('[MEDIATOR DB SYNC FAILED]', e);
@@ -684,7 +684,7 @@ export class SovereignEngine {
       const hexDump = AlgebraicOpportunityGenerator.convertToHexDump(oppType, chunkId, blockId, val);
       
       // Save hex log to database representing memory registers/swap
-      const dbManager = new DatabaseSyncManager();
+      const dbManager = DatabaseSyncManager.getInstance();
       dbManager.saveMemoryRegister(address, hexDump, `${thread.id}: ${desc}`);
       
       this.traceLog.push({

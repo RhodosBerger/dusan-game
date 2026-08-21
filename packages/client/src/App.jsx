@@ -469,36 +469,35 @@ function App() {
         const alivePlayers = (gameState.threads || []).filter(t => t.type === 'PLAYER' && t.health > 0);
         const winner = alivePlayers.length === 1 ? alivePlayers[0] : null;
         return (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] pointer-events-auto">
-            <div className="bg-[#0b0b12]/95 border border-cyan-500/40 rounded-2xl px-10 py-8 text-center shadow-[0_0_60px_rgba(6,182,212,0.25)] flex flex-col items-center gap-4">
-              <div className="text-4xl">{winner ? '🏆' : '⚖️'}</div>
-              <h2 className="text-2xl font-bold text-white uppercase tracking-widest font-mono">Koniec hry</h2>
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-lg flex items-center justify-center z-[60] pointer-events-auto">
+            <div className="bg-gradient-to-b from-[#0b0b12] to-[#050508] border border-cyan-500/30 rounded-2xl px-12 py-10 text-center shadow-[0_0_80px_rgba(6,182,212,0.15)] flex flex-col items-center gap-5 min-w-[360px]">
+              <div className="text-5xl" style={{ filter: 'drop-shadow(0 0 20px rgba(6,182,212,0.4))' }}>{winner ? '\u1F3C6' : '\u2696'}</div>
+              <h2 className="text-2xl font-bold text-white uppercase tracking-widest" style={{ fontFamily: 'Orbitron, monospace' }}>GAME OVER</h2>
               <p className="text-sm font-mono text-cyan-300">
-                {winner ? `Víťaz: ${winner.name}` : 'Remíza — obaja hrdinovia padli.'}
+                {winner ? `Winner: ${winner.name}` : 'Draw — both heroes have fallen.'}
               </p>
               <button
                 onClick={() => window.location.reload()}
-                className="mt-2 bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-300 font-mono font-bold text-sm px-6 py-2.5 rounded-lg cursor-pointer transition-all uppercase tracking-wider"
+                className="mt-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 font-mono font-bold text-sm px-8 py-3 rounded-xl cursor-pointer transition-all uppercase tracking-wider hover:scale-105"
               >
-                ↺ Späť do lobby
+                ← BACK TO LOBBY
               </button>
             </div>
           </div>
         );
       })()}
-      {/* Floating button to open Combinatorics Sandbox */}
-      <button 
+      {/* Floating buttons — compact pill style */}
+      <button
         onClick={() => setIsCombinatoricsSandboxOpen(true)}
-        className="fixed top-4 left-[240px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer transition-all uppercase tracking-wider"
+        className="fixed top-3 left-3 z-50 bg-black/70 hover:bg-slate-900/80 border border-cyan-500/30 text-cyan-400/80 text-[10px] font-mono px-3 py-1.5 rounded-lg backdrop-blur-md hover:text-cyan-300 hover:border-cyan-500/50 cursor-pointer transition-all uppercase tracking-wide"
       >
-        🧪 Sandbox Kombinatoriky
+        ◈ Sandbox
       </button>
-      {/* Floating button to open Telemetry Dashboard */}
-      <button 
+      <button
         onClick={() => setIsTelemetryDashboardOpen(true)}
-        className="fixed top-4 left-[445px] z-50 bg-slate-900/85 hover:bg-slate-800 border border-purple-500/40 text-purple-400 text-xs font-mono px-3.5 py-1.5 rounded-lg shadow-lg hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] cursor-pointer transition-all uppercase tracking-wider"
+        className="fixed top-3 left-[120px] z-50 bg-black/70 hover:bg-slate-900/80 border border-purple-500/30 text-purple-400/80 text-[10px] font-mono px-3 py-1.5 rounded-lg backdrop-blur-md hover:text-purple-300 hover:border-purple-500/50 cursor-pointer transition-all uppercase tracking-wide"
       >
-        📊 Telemetry & DB
+        ✦ Telemetry
       </button>
       {/* Interaktívny Sandbox Modul */}
       {isCombinatoricsSandboxOpen && (

@@ -1,6 +1,9 @@
 import { getPhysicsSpecs } from "./PhysicsActionDataset";
 import { AethericDiceEngine } from "./AethericDiceEngine";
 
+/** Minimum resistance floor to prevent division by zero. */
+const MIN_RESISTANCE = 0.1;
+
 export interface OutcomeVector {
     damageApplied: number;
     energyDelta: number;
@@ -12,6 +15,26 @@ export interface OutcomeVector {
     diceFormula?: string;
 }
 
+/**
+ * Properties of the hero (Thread) that the tensor needs for evaluation.
+ * Replaces the previous `any` parameter with a strict contract.
+ */
+export interface ActionSource {
+    id?: string;
+    level?: number;
+    luck?: number;
+    isSlowed?: boolean;
+}
+
+/**
+ * Properties of the target hex context needed by the tensor.
+ */
+export interface TargetHexContext {
+    biome?: 'GLACIER' | 'TOXIC_SWAMP' | 'DESERT' | 'BARRENS' | 'LUSH_FOREST';
+    friction?: number;
+    hazardIndex?: number;
+}
+
 export class AlgebraicActionTensor {
     /**
      * Projektívna funkcia vyhodnotenia tenzora T_{i,j,k} pre výpočet výsledku hernej akcie.
@@ -19,7 +42,7 @@ export class AlgebraicActionTensor {
      * @param cardId ID zahranej karty
      * @param targetHex Cieľový hexagon arény (biome, friction, hazardIndex)
      */
-    static evaluate(source: any, cardId: string, targetHex: any): OutcomeVector {
+    static evaluate(source: ActionSource | null | undefined, cardId: string, targetHex: TargetHexContext | null | undefined): OutcomeVector {
         const specs = getPhysicsSpecs(cardId);
         
         // 1. Základné hodnoty z fyzikálnej špecifikácie karty
@@ -28,14 +51,16 @@ export class AlgebraicActionTensor {
         const hazardIndex = targetHex?.hazardIndex ?? 0;
         const friction = targetHex?.friction ?? 0;
         const effectiveVoltage = specs.voltage + hazardIndex * 1.5;
-        const effectiveResistance = specs.resistance + friction * 2.0;
+        const rawResistance = specs.resistance + friction * 2.0;
+        // Guard: prevent division by zero when both resistance and friction are 0
+        const effectiveResistance = Math.max(MIN_RESISTANCE, rawResistance);
         const effectiveCurrent = effectiveVoltage / effectiveResistance;
         const effectivePowerLoad = effectiveVoltage * effectiveCurrent;
 
         let energy = effectivePowerLoad * 1.5;
         let pushPull = specs.kineticForce;
         let success = 100.0;
-        let status: 'slowed' | 'rooted' | 'disarmed' | 'silenced' | 'none' = 'none';
+        let status: OutcomeVector['statusApplied'] = 'none';
 
         if (specs.effect) {
             if (specs.effect === 'slow') status = 'slowed';
@@ -70,15 +95,15 @@ export class AlgebraicActionTensor {
         }
 
         // 3. Vplyv vlastností hrdinu (Rozmer i)
-        const level = source?.level || 1;
-        const luck = source?.luck || 0.5;
-        const isSlowed = source?.isSlowed || false;
+        const level = source?.level ?? 1;
+        const luck = source?.luck ?? 0.5;
+        const isSlowed = source?.isSlowed ?? false;
 
         // Level modifikátor: lineárne navyšovanie základného poškodenia (+10% za level)
         damage = Math.round(damage * (1 + (level - 1) * 0.1));
         
         // 4. Aetheric Dice Roll Modification based on Protagonist Category
-        const categoryKey = AethericDiceEngine.getCategoryByHero(source?.id);
+        const categoryKey = AethericDiceEngine.getCategoryByHero(source?.id ?? null);
         const diceOutcome = AethericDiceEngine.applyDiceModification(categoryKey, damage);
         damage = diceOutcome.modifiedValue;
 
@@ -90,13 +115,14 @@ export class AlgebraicActionTensor {
             pushPull = Math.round(pushPull * 0.5);
         }
 
+        // Final safety: ensure no NaN or Infinity escapes
         return {
-            damageApplied: damage,
-            energyDelta: energy,
-            displacementDistance: pushPull,
+            damageApplied: isFinite(damage) ? damage : 0,
+            energyDelta: isFinite(energy) ? energy : 0,
+            displacementDistance: isFinite(pushPull) ? Math.max(0, pushPull) : 0,
             displacementType: specs.displacementType,
             statusApplied: status,
-            successProbability: success,
+            successProbability: isFinite(success) ? success : 60.0,
             diceRoll: diceOutcome.roll,
             diceFormula: diceOutcome.formula
         };
@@ -108,7 +134,7 @@ export class AlgebraicActionTensor {
      */
     static inferUnknown(
         cardId: string,
-        targetHex: any,
+        targetHex: TargetHexContext | null | undefined,
         targetOutcome: Partial<OutcomeVector>
     ): { requiredLevel?: number; requiredHazardIndex?: number } {
         const specs = getPhysicsSpecs(cardId);
@@ -130,7 +156,7 @@ export class AlgebraicActionTensor {
             const targetPowerLoad = targetOutcome.energyDelta / 1.5;
             const friction = targetHex?.friction ?? 0;
             const baseResistance = specs.resistance || 1.0;
-            const effectiveResistance = baseResistance + friction * 2.0;
+            const effectiveResistance = Math.max(MIN_RESISTANCE, baseResistance + friction * 2.0);
             // P = V^2 / R => V = sqrt(P * R)
             const targetVoltage = Math.sqrt(targetPowerLoad * effectiveResistance);
             const baseVoltage = specs.voltage;

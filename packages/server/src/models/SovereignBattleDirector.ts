@@ -14,7 +14,7 @@ export interface BattleOutcome {
 }
 
 export class SovereignBattleDirector {
-  private static dbManager = new DatabaseSyncManager();
+  private static dbManager = DatabaseSyncManager.getInstance();
 
   /**
    * Performs mathematical and statistical battle calculations between a Player fighter and an NPC monster.

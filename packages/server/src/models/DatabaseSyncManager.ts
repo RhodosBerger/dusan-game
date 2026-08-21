@@ -15,11 +15,38 @@ export interface DBPlayerProfile {
 }
 
 export class DatabaseSyncManager {
+  private static instance: DatabaseSyncManager | null = null;
   private db: any;
 
-  constructor(dbPath: string = './database.db') {
+  private constructor(dbPath: string = './database.db') {
     this.db = new DatabaseSync(dbPath);
     this.initSchema();
+  }
+
+  /**
+   * Singleton accessor — ensures only one DB connection exists per process.
+   * Pass `dbPath` only on first call; subsequent calls reuse the existing instance.
+   */
+  public static getInstance(dbPath: string = './database.db'): DatabaseSyncManager {
+    if (!DatabaseSyncManager.instance) {
+      DatabaseSyncManager.instance = new DatabaseSyncManager(dbPath);
+    }
+    return DatabaseSyncManager.instance;
+  }
+
+  /**
+   * Resets the singleton (for testing only).
+   * Closes and re-creates the connection on next `getInstance()` call.
+   */
+  public static resetInstance(): void {
+    if (DatabaseSyncManager.instance) {
+      try {
+        DatabaseSyncManager.instance.db.close();
+      } catch {
+        // close may already be called
+      }
+      DatabaseSyncManager.instance = null;
+    }
   }
 
   private initSchema() {
@@ -114,227 +141,298 @@ export class DatabaseSyncManager {
   }
 
   public saveComposition(inst: any): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO procedural_compositions (id, prompt, action_type, meta_id, hex_id, power_rating, description, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const id = inst.id || `comp_${Date.now()}`;
-    stmt.run(
-      id,
-      inst.prompt || inst.tacticPrompt || 'stealth',
-      inst.actionType,
-      inst.coordinates?.meta ?? 0,
-      inst.coordinates?.hex ?? 0,
-      inst.powerRating ?? 1.0,
-      inst.description || '',
-      inst.timestamp || Date.now()
-    );
+    try {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO procedural_compositions (id, prompt, action_type, meta_id, hex_id, power_rating, description, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const id = inst.id || `comp_${Date.now()}`;
+      stmt.run(
+        id,
+        inst.prompt || inst.tacticPrompt || 'stealth',
+        inst.actionType,
+        inst.coordinates?.meta ?? 0,
+        inst.coordinates?.hex ?? 0,
+        inst.powerRating ?? 1.0,
+        inst.description || '',
+        inst.timestamp || Date.now()
+      );
+    } catch (e) {
+      console.error('[DB ERROR] Failed to save composition:', e);
+    }
   }
 
   public getCompositions(): any[] {
-    const stmt = this.db.prepare('SELECT * FROM procedural_compositions ORDER BY created_at DESC');
-    const rows = stmt.all() as any[];
-    return rows.map(r => ({
-      id: r.id,
-      prompt: r.prompt,
-      actionType: r.action_type,
-      coordinates: {
-        meta: r.meta_id,
-        hex: r.hex_id
-      },
-      powerRating: r.power_rating,
-      description: r.description,
-      timestamp: r.created_at
-    }));
+    try {
+      const stmt = this.db.prepare('SELECT * FROM procedural_compositions ORDER BY created_at DESC');
+      const rows = stmt.all() as any[];
+      return rows.map(r => ({
+        id: r.id,
+        prompt: r.prompt,
+        actionType: r.action_type,
+        coordinates: {
+          meta: r.meta_id,
+          hex: r.hex_id
+        },
+        powerRating: r.power_rating,
+        description: r.description,
+        timestamp: r.created_at
+      }));
+    } catch (e) {
+      console.error('[DB ERROR] Failed to get compositions:', e);
+      return [];
+    }
   }
 
   public deleteComposition(id: string): void {
-    const stmt = this.db.prepare('DELETE FROM procedural_compositions WHERE id = ?');
-    stmt.run(id);
+    try {
+      const stmt = this.db.prepare('DELETE FROM procedural_compositions WHERE id = ?');
+      stmt.run(id);
+    } catch (e) {
+      console.error('[DB ERROR] Failed to delete composition:', e);
+    }
   }
 
   public getOrCreatePlayer(username: string, defaultHero: 'crystal' | 'toxic'): DBPlayerProfile {
-    const selectStmt = this.db.prepare('SELECT * FROM players WHERE username = ?');
-    const row = selectStmt.get(username) as any;
+    try {
+      const selectStmt = this.db.prepare('SELECT * FROM players WHERE username = ?');
+      const row = selectStmt.get(username) as any;
 
-    if (row) {
-      // DB stĺpce sú snake_case (max_health); profil používa camelCase.
-      // Defaulty chránia pred historicky poškodenými riadkami (NULL hodnoty).
+      if (row) {
+        // DB stĺpce sú snake_case (max_health); profil používa camelCase.
+        // Defaulty chránia pred historicky poškodenými riadkami (NULL hodnoty).
+        return {
+          id: row.id,
+          username: row.username,
+          level: row.level ?? 1,
+          xp: row.xp ?? 0,
+          maxHealth: row.max_health ?? 15,
+          armor: row.armor ?? 0,
+          luck: row.luck ?? 0.5,
+          materials: row.materials ?? '{}',
+          quests: row.quests ?? '[]'
+        };
+      }
+
+      // Ak neexistuje, vytvoríme profil
+      const id = `player_${username}_${Date.now()}`;
+      const defaultMaterials = defaultHero === 'crystal' 
+        ? JSON.stringify({ CrystalShard: 5, Spores: 0 })
+        : JSON.stringify({ CrystalShard: 0, Spores: 5 });
+        
+      // Predvolené štartovacie questy pre uloženie
+      const defaultQuests = JSON.stringify([
+        {
+          id: 'q_defeat_npcs',
+          title: 'Lov na procesory',
+          description: 'Poraz 2 NPC nepriateľské jednotky v Aréne.',
+          objectiveType: 'DEFEAT_NPC',
+          targetValue: 2,
+          progress: 0,
+          completed: false,
+          xpReward: 120,
+          materialReward: { type: defaultHero === 'crystal' ? 'CrystalShard' : 'Spores', amount: 5 }
+        },
+        {
+          id: 'q_reach_swamp',
+          title: 'Prieskum Toxických Hlbín',
+          description: 'Vstúp na políčko Toxic Swamp na preskúmanie anomálie.',
+          objectiveType: 'REACH_BIOME',
+          targetValue: 1,
+          targetName: 'TOXIC_SWAMP',
+          progress: 0,
+          completed: false,
+          xpReward: 80,
+          materialReward: { type: 'Spores', amount: 3 }
+        }
+      ]);
+
+      const maxHealth = defaultHero === 'crystal' ? 15 : 12;
+
+      const insertStmt = this.db.prepare(`
+        INSERT INTO players (id, username, level, xp, max_health, armor, luck, materials, quests)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      insertStmt.run(id, username, 1, 0, maxHealth, 0, 0.5, defaultMaterials, defaultQuests);
+
       return {
-        id: row.id,
-        username: row.username,
-        level: row.level ?? 1,
-        xp: row.xp ?? 0,
-        maxHealth: row.max_health ?? 15,
-        armor: row.armor ?? 0,
-        luck: row.luck ?? 0.5,
-        materials: row.materials ?? '{}',
-        quests: row.quests ?? '[]'
+        id,
+        username,
+        level: 1,
+        xp: 0,
+        maxHealth,
+        armor: 0,
+        luck: 0.5,
+        materials: defaultMaterials,
+        quests: defaultQuests
+      };
+    } catch (e) {
+      console.error('[DB ERROR] getOrCreatePlayer failed:', e);
+      // Return a safe fallback profile so the game doesn't crash
+      return {
+        id: `fallback_${username}`,
+        username,
+        level: 1,
+        xp: 0,
+        maxHealth: 15,
+        armor: 0,
+        luck: 0.5,
+        materials: '{}',
+        quests: '[]'
       };
     }
-
-    // Ak neexistuje, vytvoríme profil
-    const id = `player_${username}_${Date.now()}`;
-    const defaultMaterials = defaultHero === 'crystal' 
-      ? JSON.stringify({ CrystalShard: 5, Spores: 0 })
-      : JSON.stringify({ CrystalShard: 0, Spores: 5 });
-      
-    // Predvolené štartovacie questy pre uloženie
-    const defaultQuests = JSON.stringify([
-      {
-        id: 'q_defeat_npcs',
-        title: 'Lov na procesory',
-        description: 'Poraz 2 NPC nepriateľské jednotky v Aréne.',
-        objectiveType: 'DEFEAT_NPC',
-        targetValue: 2,
-        progress: 0,
-        completed: false,
-        xpReward: 120,
-        materialReward: { type: defaultHero === 'crystal' ? 'CrystalShard' : 'Spores', amount: 5 }
-      },
-      {
-        id: 'q_reach_swamp',
-        title: 'Prieskum Toxických Hlbín',
-        description: 'Vstúp na políčko Toxic Swamp na preskúmanie anomálie.',
-        objectiveType: 'REACH_BIOME',
-        targetValue: 1,
-        targetName: 'TOXIC_SWAMP',
-        progress: 0,
-        completed: false,
-        xpReward: 80,
-        materialReward: { type: 'Spores', amount: 3 }
-      }
-    ]);
-
-    const maxHealth = defaultHero === 'crystal' ? 15 : 12;
-
-    const insertStmt = this.db.prepare(`
-      INSERT INTO players (id, username, level, xp, max_health, armor, luck, materials, quests)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    insertStmt.run(id, username, 1, 0, maxHealth, 0, 0.5, defaultMaterials, defaultQuests);
-
-    return {
-      id,
-      username,
-      level: 1,
-      xp: 0,
-      maxHealth,
-      armor: 0,
-      luck: 0.5,
-      materials: defaultMaterials,
-      quests: defaultQuests
-    };
   }
 
   public savePlayerState(thread: Thread): boolean {
     if (thread.type !== 'PLAYER') return false;
 
-    const updateStmt = this.db.prepare(`
-      UPDATE players 
-      SET level = ?, xp = ?, max_health = ?, armor = ?, luck = ?, materials = ?, quests = ?
-      WHERE username = ?
-    `);
-
     try {
+      const updateStmt = this.db.prepare(`
+        UPDATE players 
+        SET level = ?, xp = ?, max_health = ?, armor = ?, luck = ?, materials = ?, quests = ?
+        WHERE username = ?
+      `);
+
       updateStmt.run(
         Number(thread.level) || 1,
         Number(thread.xp) || 0,
-        Number(thread.maxHealth) || 15,               // ← NaN by v DB skončilo ako NULL a poškodilo profil
+        Number(thread.maxHealth) || 15,
         Number(thread.armor) || 0,
-        Number(thread.luck) || 0.5,                   // ← explicit float cast fixes ERR_INVALID_ARG_TYPE
+        Number(thread.luck) || 0.5,
         JSON.stringify(thread.materials ?? {}),
         JSON.stringify(thread.quests ?? []),
         String(thread.name)
       );
       return true;
     } catch (e) {
-      console.error(`[DB ERROR] Nepodarilo sa uložiť profil hráča ${thread.name}:`, e);
+      console.error(`[DB ERROR] Failed to save profile for ${thread.name}:`, e);
       return false;
     }
   }
 
   public logTelemetry(sessionId: string, eventType: string, theory: any): void {
-    const insertStmt = this.db.prepare(`
-      INSERT INTO game_events_telemetry (session_id, event_type, telemetry_theory)
-      VALUES (?, ?, ?)
-    `);
     try {
-      insertStmt.run(sessionId, eventType, JSON.stringify(theory));
+      const insertStmt = this.db.prepare(`
+        INSERT INTO game_events_telemetry (session_id, event_type, telemetry_theory)
+        VALUES (?, ?, ?)
+      `);
+      // Cap serialized payload to 64KB to prevent runaway memory usage
+      const serialized = JSON.stringify(theory);
+      if (serialized.length > 65536) {
+        console.warn(`[DB WARN] Telemetry payload truncated (${serialized.length} bytes) for session ${sessionId}`);
+      }
+      insertStmt.run(sessionId, eventType, serialized.slice(0, 65536));
     } catch (e) {
-      console.error('[DB ERROR] Nepodarilo sa uložiť telemetrickú udalosť:', e);
+      console.error('[DB ERROR] Failed to log telemetry event:', e);
     }
   }
 
   public addPlayerItem(username: string, itemKey: string, category: string): void {
-    const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
-    const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
+    try {
+      const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
+      const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
 
-    if (existing) {
-      const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity + 1 WHERE id = ?');
-      updateStmt.run(existing.id);
-    } else {
-      const id = `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      const insertStmt = this.db.prepare('INSERT INTO player_items (id, player_username, item_key, category) VALUES (?, ?, ?, ?)');
-      insertStmt.run(id, username, itemKey, category);
+      if (existing) {
+        const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity + 1 WHERE id = ?');
+        updateStmt.run(existing.id);
+      } else {
+        const id = `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const insertStmt = this.db.prepare('INSERT INTO player_items (id, player_username, item_key, category) VALUES (?, ?, ?, ?)');
+        insertStmt.run(id, username, itemKey, category);
+      }
+    } catch (e) {
+      console.error('[DB ERROR] Failed to add player item:', e);
     }
   }
 
   public removePlayerItem(username: string, itemKey: string): boolean {
-    const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
-    const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
+    try {
+      const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
+      const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
 
-    if (!existing) return false;
+      if (!existing) return false;
 
-    if (existing.quantity > 1) {
-      const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity - 1 WHERE id = ?');
-      updateStmt.run(existing.id);
-    } else {
-      const deleteStmt = this.db.prepare('DELETE FROM player_items WHERE id = ?');
-      deleteStmt.run(existing.id);
+      if (existing.quantity > 1) {
+        const updateStmt = this.db.prepare('UPDATE player_items SET quantity = quantity - 1 WHERE id = ?');
+        updateStmt.run(existing.id);
+      } else {
+        const deleteStmt = this.db.prepare('DELETE FROM player_items WHERE id = ?');
+        deleteStmt.run(existing.id);
+      }
+      return true;
+    } catch (e) {
+      console.error('[DB ERROR] Failed to remove player item:', e);
+      return false;
     }
-    return true;
   }
 
   public getPlayerItems(username: string): { itemKey: string; category: string; quantity: number; durability: number }[] {
-    const selectStmt = this.db.prepare('SELECT item_key as itemKey, category, quantity, durability FROM player_items WHERE player_username = ?');
-    return selectStmt.all(username) as any[];
+    try {
+      const selectStmt = this.db.prepare('SELECT item_key as itemKey, category, quantity, durability FROM player_items WHERE player_username = ?');
+      return selectStmt.all(username) as any[];
+    } catch (e) {
+      console.error('[DB ERROR] Failed to get player items:', e);
+      return [];
+    }
   }
 
   public saveMemoryRegister(address: string, hexDump: string, desc: string): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
-      VALUES (?, ?, ?, ?)
-    `);
-    stmt.run(Date.now(), address, hexDump, desc);
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO system_memory_registers (timestamp, register_address, hex_dump, description)
+        VALUES (?, ?, ?, ?)
+      `);
+      stmt.run(Date.now(), address, hexDump, desc);
+    } catch (e) {
+      console.error('[DB ERROR] Failed to save memory register:', e);
+    }
   }
 
   public getMemoryRegisters(): { id: number; timestamp: number; register_address: string; hex_dump: string; description: string }[] {
-    const stmt = this.db.prepare('SELECT * FROM system_memory_registers ORDER BY id DESC');
-    return stmt.all() as any[];
+    try {
+      const stmt = this.db.prepare('SELECT * FROM system_memory_registers ORDER BY id DESC');
+      return stmt.all() as any[];
+    } catch (e) {
+      console.error('[DB ERROR] Failed to get memory registers:', e);
+      return [];
+    }
   }
 
   public getAllPlayers(): any[] {
-    const stmt = this.db.prepare('SELECT * FROM players ORDER BY created_at DESC');
-    return stmt.all();
+    try {
+      const stmt = this.db.prepare('SELECT * FROM players ORDER BY created_at DESC');
+      return stmt.all();
+    } catch (e) {
+      console.error('[DB ERROR] Failed to get all players:', e);
+      return [];
+    }
   }
 
   public lockRegister(username: string, address: string, buffType: string, buffValue: number): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO locked_system_registers (id, player_username, register_address, buff_type, buff_value)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    const id = `lock_${Date.now()}`;
-    stmt.run(id, username, address, buffType, buffValue);
+    try {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO locked_system_registers (id, player_username, register_address, buff_type, buff_value)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      const id = `lock_${Date.now()}`;
+      stmt.run(id, username, address, buffType, buffValue);
+    } catch (e) {
+      console.error('[DB ERROR] Failed to lock register:', e);
+    }
   }
 
   public getLockedRegisters(username: string): { register_address: string; buff_type: string; buff_value: number }[] {
-    const stmt = this.db.prepare(`
-      SELECT register_address, buff_type, buff_value 
-      FROM locked_system_registers 
-      WHERE player_username = ?
-    `);
-    return stmt.all(username) as any[];
+    try {
+      const stmt = this.db.prepare(`
+        SELECT register_address, buff_type, buff_value 
+        FROM locked_system_registers 
+        WHERE player_username = ?
+      `);
+      return stmt.all(username) as any[];
+    } catch (e) {
+      console.error('[DB ERROR] Failed to get locked registers:', e);
+      return [];
+    }
   }
 }

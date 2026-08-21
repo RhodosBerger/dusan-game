@@ -574,12 +574,18 @@ export default function ThreadMiniature({ thread, gridData }) {
                 {/* Base pedestal */}
                 <mesh castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
                     <cylinderGeometry args={[0.5, 0.55, 0.1, 16]} />
-                    <meshStandardMaterial
+                    <meshPhysicalMaterial
                         color={isNPC ? "#2a0005" : "#1a1a1a"}
-                        roughness={0.9}
-                        metalness={0.1}
+                        roughness={0.8}
+                        metalness={0.2}
+                        clearcoat={0.3}
                     />
                 </mesh>
+
+                {/* Faction-colored ground glow */}
+                {!isNPC && (
+                    <FactionGroundGlow faction={faction} />
+                )}
 
                 {/* Low-HP pulse ring on base */}
                 {isLowHp && (
@@ -641,5 +647,79 @@ function LowHpBaseRing({ faction }) {
                 depthWrite={false}
             />
         </mesh>
+    );
+}
+
+// ─── FactionGroundGlow ──────────────────────────────────────────────────────────
+// Subtle faction-colored glow on the ground beneath the hero
+function FactionGroundGlow({ faction }) {
+    const glowRef = useRef();
+    const ringRef = useRef();
+    const timeRef = useRef(Math.random() * Math.PI * 2);
+
+    const factionColors = {
+        crystal: { primary: '#00eeff', secondary: '#688dab' },
+        toxic:   { primary: '#39ff14', secondary: '#acf227' },
+        druid:   { primary: '#ffcc00', secondary: '#c46884' },
+        void:    { primary: '#aa00ff', secondary: '#7700cc' },
+    };
+
+    const colors = factionColors[faction] || factionColors.crystal;
+
+    useFrame((state, delta) => {
+        timeRef.current += delta;
+        const t = timeRef.current;
+
+        if (glowRef.current) {
+            // Subtle breathing pulse
+            const pulse = 0.6 + Math.sin(t * 1.5) * 0.15;
+            glowRef.current.scale.setScalar(pulse);
+            glowRef.current.material.opacity = 0.25 + Math.sin(t * 2) * 0.1;
+        }
+
+        if (ringRef.current) {
+            // Slow rotation
+            ringRef.current.rotation.z = t * 0.3;
+            ringRef.current.material.opacity = 0.4 + Math.sin(t * 2.5) * 0.15;
+        }
+    });
+
+    return (
+        <group position={[0, 0.08, 0]}>
+            {/* Soft ground glow disc */}
+            <mesh ref={glowRef} rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[0.7, 32]} />
+                <meshBasicMaterial
+                    color={colors.primary}
+                    transparent
+                    opacity={0.3}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                />
+            </mesh>
+
+            {/* Rotating accent ring */}
+            <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.55, 0.62, 32]} />
+                <meshBasicMaterial
+                    color={colors.primary}
+                    transparent
+                    opacity={0.5}
+                    depthWrite={false}
+                />
+            </mesh>
+
+            {/* Inner subtle glow */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+                <circleGeometry args={[0.45, 32]} />
+                <meshBasicMaterial
+                    color={colors.secondary}
+                    transparent
+                    opacity={0.15}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                />
+            </mesh>
+        </group>
     );
 }

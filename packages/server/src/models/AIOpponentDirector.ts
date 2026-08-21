@@ -1,22 +1,9 @@
 import { ActionNode } from './ActionNode';
 import { SovereignEngine } from './SovereignEngine';
 import { Thread } from './Thread';
-import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE } from '@dusan-game/shared';
+import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, META_COORDS, metaDistance } from '@dusan-game/shared';
 
 const ALL_BASES = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
-
-// Rovnaká mriežka metapozícií 3x3 ako v server.ts (playCard / move_character)
-const META_COORDS = [
-  { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 },
-  { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 },
-  { x: 0, y: 2 }, { x: 1, y: 2 }, { x: 2, y: 2 }
-];
-
-const metaDistance = (metaA: number, metaB: number): number => {
-  const a = META_COORDS[metaA] || { x: 0, y: 0 };
-  const b = META_COORDS[metaB] || { x: 0, y: 0 };
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-};
 
 /**
  * Základný AI protivník pre tréningový režim.
@@ -30,6 +17,7 @@ const metaDistance = (metaA: number, metaB: number): number => {
  */
 export class AIOpponentDirector {
   private attackedOnTurn = -1;
+  private static helperCounter = 0;
 
   constructor(private engine: SovereignEngine, private aiThreadId: string) {}
 
@@ -72,9 +60,11 @@ export class AIOpponentDirector {
     // Ruka bez zahrateľnej útočnej karty by sa nikdy neobmenila (dober dopĺňa len
     // do limitu) — odhodenie jednej karty umožní balíčku cyklovať.
     if (this.attackedOnTurn !== sm.turnNumber && ai.currentBuffer.length > 0) {
-      const discarded = ai.currentBuffer.shift()!;
-      ai.discardPile.push(discarded);
-      console.log(`[AI_DIRECTOR] ${this.aiThreadId} nemá použiteľný útok, odhadzuje kartu ${discarded.id}.`);
+      const discarded = ai.currentBuffer.shift();
+      if (discarded) {
+        ai.discardPile.push(discarded);
+        console.log(`[AI_DIRECTOR] ${this.aiThreadId} nemá použiteľný útok, odhadzuje kartu ${discarded.id}.`);
+      }
     }
 
     console.log(`[AI_DIRECTOR] ${this.aiThreadId} ukončuje ťah ${sm.turnNumber}.`);
@@ -116,7 +106,7 @@ export class AIOpponentDirector {
           console.log(`[AI_DIRECTOR] ${this.aiThreadId} položil pascu ${card.id} na M${opponent.position.meta}_S${opponent.position.hex}.`);
         }
       } else {
-        const helperThread = new Thread(`helper_${Date.now()}_${card.id}`, 'HELPER', this.aiThreadId);
+        const helperThread = new Thread(`helper_${Date.now()}_${++AIOpponentDirector.helperCounter}_${card.id}`, 'HELPER', this.aiThreadId);
         helperThread.name = card.name;
         helperThread.health = card.isUltimate ? 8 : 4;
         const chunk = this.engine.map.chunks.find(c => c.id === ai.position.meta);
@@ -130,7 +120,7 @@ export class AIOpponentDirector {
       }
     }
 
-    const nodeId = `node_ai_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const nodeId = `node_ai_${Date.now()}_${++AIOpponentDirector.helperCounter}`;
     const actionNode = new ActionNode(nodeId, card, this.aiThreadId, opponent.id);
     console.log(`[AI_DIRECTOR] ${this.aiThreadId} útočí kartou ${card.id} na ${opponent.id} (vzdialenosť ${dist}, dosah ${reach}).`);
     this.engine.turnStateMachine.registerAction(actionNode);
@@ -146,12 +136,13 @@ export class AIOpponentDirector {
     if (currentDist === 0) return false; // sme na mieste, pohyb nič nezlepší
 
     // Kandidátne metapozície: susedné (vzdialenosť 1) a bližšie k súperovi
-    const candidateMetas = META_COORDS
-      .map((_, metaId) => metaId)
-      .filter(metaId =>
-        metaDistance(ai.position.meta!, metaId) === 1 &&
-        metaDistance(metaId, opponent.position.meta!) < currentDist
-      );
+    const candidateMetas: number[] = [];
+    for (let metaId = 0; metaId < META_COORDS.length; metaId++) {
+      if (metaDistance(ai.position.meta!, metaId) === 1 &&
+          metaDistance(metaId, opponent.position.meta!) < currentDist) {
+        candidateMetas.push(metaId);
+      }
+    }
 
     for (const metaId of candidateMetas) {
       const chunk = this.engine.map.chunks.find(c => c.id === metaId);

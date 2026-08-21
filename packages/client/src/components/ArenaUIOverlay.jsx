@@ -2,6 +2,9 @@ import React from 'react';
 import skCards from '../../../shared/src/translations/sk/cards.json';
 import { CRYSTAL_CARDS_BASE, TOXIC_CARDS_BASE, DRUID_CARDS_BASE, VOID_CARDS_BASE, AlgebraicActionTensor, getPhysicsSpecs, ITEMS_CATALOG } from '../../../shared/src/index';
 import GameplayCompositorTemplate from './GameplayCompositorTemplate';
+import GameCard from './game/GameCard';
+import PlayerPortrait from './game/PlayerPortrait';
+import TurnBanner from './game/TurnBanner';
 
 const allBases = [...CRYSTAL_CARDS_BASE, ...TOXIC_CARDS_BASE, ...DRUID_CARDS_BASE, ...VOID_CARDS_BASE];
 
@@ -575,23 +578,23 @@ export default function ArenaUIOverlay({
                 const strokeDashoffset = circumference - (timerVal / 3) * circumference;
 
                 return (
-                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-slate-950/90 border border-red-500/40 text-white px-6 py-3 rounded-2xl flex flex-col md:flex-row items-center gap-4 shadow-[0_0_30px_rgba(239,68,68,0.3)] backdrop-blur-xl z-40 pointer-events-auto min-w-[320px] md:min-w-[480px]">
+                    <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/85 border border-red-500/40 text-white px-6 py-3 rounded-2xl flex flex-col md:flex-row items-center gap-4 shadow-[0_0_30px_rgba(239,68,68,0.3)] backdrop-blur-xl z-40 pointer-events-auto min-w-[320px] md:min-w-[480px]">
                         {/* Countdown ring */}
                         <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center">
                             <svg className="absolute inset-0 w-full h-full -rotate-90">
-                                <circle 
-                                    cx="24" 
-                                    cy="24" 
-                                    r="16" 
-                                    className="stroke-red-950/30 fill-transparent" 
-                                    strokeWidth="3.5" 
+                                <circle
+                                    cx="24"
+                                    cy="24"
+                                    r="16"
+                                    className="stroke-red-950/30 fill-transparent"
+                                    strokeWidth="3.5"
                                 />
-                                <circle 
-                                    cx="24" 
-                                    cy="24" 
-                                    r="16" 
-                                    className="stroke-red-500 fill-transparent transition-all duration-300 ease-linear" 
-                                    strokeWidth="3.5" 
+                                <circle
+                                    cx="24"
+                                    cy="24"
+                                    r="16"
+                                    className="stroke-red-500 fill-transparent transition-all duration-300 ease-linear"
+                                    strokeWidth="3.5"
                                     strokeDasharray={circumference}
                                     strokeDashoffset={strokeDashoffset}
                                     strokeLinecap="round"
@@ -603,13 +606,13 @@ export default function ArenaUIOverlay({
                         {/* Threat detail */}
                         <div className="flex-1 flex flex-col text-center md:text-left">
                             <span className="text-[10px] md:text-[11px] font-mono text-red-500 uppercase tracking-widest font-bold">
-                                ⚠️ PRICHÁDZAJÚCI ÚTOK (INTERRUPT)
+                                ⚠ INCOMING ATTACK — INTERRUPT
                             </span>
                             <div className="text-xs md:text-sm font-bold text-slate-200 mt-0.5">
-                                <span className="text-[color:var(--accent-magic)]">{attackerName}</span> použil <span className="text-purple-400">{cardMeta?.name || currentAction?.instruction?.name || 'Útok'}</span>
+                                <span className="text-[color:var(--accent-magic)]">{attackerName}</span> cast <span className="text-purple-400">{cardMeta?.name || currentAction?.instruction?.name || 'Attack'}</span>
                             </div>
                             <div className="text-[9px] md:text-[10px] text-slate-400 mt-0.5">
-                                Hrozba: <span className="text-red-400 font-bold">-{currentAction?.instruction?.damage || 1} HP</span> | Vyžaduje sa reakčná karta na obranu!
+                                Threat: <span className="text-red-400 font-bold">-{currentAction?.instruction?.damage || 1} HP</span> | Reactive card required to defend!
                             </div>
                         </div>
 
@@ -617,30 +620,58 @@ export default function ArenaUIOverlay({
                         <button
                             onClick={() => onPassReaction && onPassReaction()}
                             className="bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-400 hover:text-red-200 text-[10px] md:text-xs font-mono font-bold px-3 py-1.5 rounded-lg shadow-lg cursor-pointer transition-all hover:scale-95 uppercase tracking-wide flex-shrink-0"
-                            title="Preskočiť okno reakcie a okamžite vyhodnotiť boj"
+                            title="Skip reaction window and immediately resolve combat"
                         >
-                            Preskočiť ⏭️
+                            SKIP ⏭
                         </button>
                     </div>
                 );
             })()}
-            {/* Mobile/Tablet Compact Top Bar */}
-            <div className="w-full flex lg:hidden justify-between items-center bg-[#0e0e16]/90 border border-slate-800/80 p-3 rounded-2xl backdrop-blur-xl shadow-xl pointer-events-auto gap-3 text-white font-mono text-[10px] md:text-xs">
-                <div className="flex items-center gap-2">
-                    <span className="text-[color:var(--accent-magic)] font-bold">💎 {crystalPlayer ? crystalPlayer.health : 0} HP</span>
-                    <span className="text-slate-600">|</span>
-                    <span className="text-purple-400 font-bold">🧪 {toxicPlayer ? toxicPlayer.health : 0} HP</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-[color:var(--accent-loot)] font-bold">⚡ {(gameState?.systemEnergy || 0).toFixed(0)}%</span>
-                    <span className="text-slate-600">|</span>
-                    <span className={entropy > 0.7 ? "text-red-400 animate-pulse font-bold" : "text-green-400 font-bold"}>🌀 {(entropy * 100).toFixed(0)}%</span>
-                </div>
-                <button 
+            {/* ═══ UNIFIED TOP BAR — Turn banner + Player portraits ═══ */}
+            <div className="w-full flex justify-between items-start gap-3 pointer-events-auto">
+                {/* Left: Crystal player portrait */}
+                {crystalPlayer && (
+                    <PlayerPortrait
+                        player={crystalPlayer}
+                        faction="crystal"
+                        isActive={gameState?.activePlayerId === crystalPlayer.id}
+                        side="left"
+                        compact={window.innerWidth < 1024}
+                    />
+                )}
+
+                {/* Center: Turn banner */}
+                <TurnBanner
+                    activePlayerName={activePlayer?.name || 'Unknown'}
+                    activePlayerFaction={
+                        gameState?.activePlayerId === 'thread_king_ai' ? 'crystal' :
+                        gameState?.activePlayerId === 'thread_hacker_root' ? 'toxic' : 'crystal'
+                    }
+                    phase={gameState?.turnStateMachine?.currentPhase || 'ACTION'}
+                    turnCount={gameState?.turnsElapsed || 1}
+                    systemEnergy={gameState?.systemEnergy || 0}
+                    entropy={entropy}
+                    onEndTurn={onEndTurn}
+                    isMyTurn={true}
+                />
+
+                {/* Right: Toxic player portrait */}
+                {toxicPlayer && (
+                    <PlayerPortrait
+                        player={toxicPlayer}
+                        faction="toxic"
+                        isActive={gameState?.activePlayerId === toxicPlayer.id}
+                        side="right"
+                        compact={window.innerWidth < 1024}
+                    />
+                )}
+
+                {/* Mobile dashboard button */}
+                <button
                     onClick={() => setIsMobileDrawerOpen(true)}
-                    className="bg-purple-950/70 hover:bg-purple-900 border border-purple-500/40 text-purple-300 font-bold px-3 py-1 rounded-xl transition-all uppercase tracking-wide cursor-pointer"
+                    className="lg:hidden bg-purple-950/70 hover:bg-purple-900 border border-purple-500/40 text-purple-300 font-bold px-3 py-2 rounded-xl transition-all uppercase tracking-wide cursor-pointer flex-shrink-0"
                 >
-                    📊 Dashboard
+                    📊
                 </button>
             </div>
 
@@ -687,237 +718,195 @@ export default function ArenaUIOverlay({
                 </div>
             )}
 
-            {/* Stredné HUD - Výber, Pohyb a Spustenie akcie */}
+            {/* ═══ CENTER HUD — Action prompt + physics spectrometer ═══ */}
             <div className="self-center flex flex-col items-center gap-2 pointer-events-auto">
                 {selectedCard && (
                     <div className="flex flex-col gap-2">
-                        <div className="bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1 min-w-[280px]">
+                        <div className="bg-black/70 border border-[color:var(--accent-magic)] text-white px-4 py-2.5 rounded-xl shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1 min-w-[280px]">
                             <div>
-                                Vybratá inštrukcia: <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
+                                <span className="text-slate-500">CARD:</span> <span className="text-[color:var(--accent-magic)] font-bold">{getCardMetadata(selectedCard.id).name}</span>
                             </div>
                             {selectedNode ? (
-                                <div>
-                                    Cieľový hexagón: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
-                                    <button 
+                                <div className="flex items-center justify-center gap-3">
+                                    <span><span className="text-slate-500">TARGET:</span> <span className="text-yellow-400 font-bold">{selectedNode.id}</span></span>
+                                    <button
                                         onClick={handleExecuteClick}
-                                        className="ml-3 bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-0.5 rounded font-bold transition-colors cursor-pointer"
+                                        className="bg-[color:var(--accent-magic)] hover:brightness-110 text-[color:var(--panel-bg)] px-4 py-1 rounded-lg font-bold transition-all cursor-pointer text-[11px] uppercase tracking-wide"
                                     >
-                                        Spustiť [Space] (V={selectedCard.isUltimate ? 6 : 3})
+                                        CAST [Space] V={selectedCard.isUltimate ? 6 : 3}
                                     </button>
                                 </div>
                             ) : (
-                                <div className="text-slate-400 italic">
-                                    Kliknutím na 3D arénu vyberte cieľový hexagón
+                                <div className="text-slate-400 italic text-[10px]">
+                                    Click a hex tile in the arena to select target
                                 </div>
                             )}
                         </div>
 
                         {/* TACTICAL PHYSICS SPECTROMETER */}
-                        <div className="bg-[#0e0e16]/90 border border-purple-500/40 text-slate-300 p-3 rounded-lg shadow-lg backdrop-blur-md text-[10px] font-mono flex flex-col gap-2 min-w-[280px]">
+                        <div className="bg-black/70 border border-purple-500/30 text-slate-300 p-3 rounded-xl shadow-lg backdrop-blur-md text-[10px] font-mono flex flex-col gap-2 min-w-[280px]">
                             <div className="text-[#a855f7] font-bold uppercase tracking-wider text-center border-b border-purple-500/20 pb-1">
-                                📊 Taktický Fyzikálny Spektrometer
+                                PHYSICS SPECTROMETER
                             </div>
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-left">
-                                 <div>Napätie (V): <span className="text-[color:var(--accent-magic)] font-bold"><AnimatedNumber value={currentV} suffix=" V" /></span></div>
-                                 <div>Odpor (R): <span className="text-[color:var(--accent-loot)] font-bold"><AnimatedNumber value={currentR} suffix=" Ω" /></span></div>
-                                 <div className={currentI >= 1.0 
-                                     ? "text-green-400 font-bold drop-shadow-[0_0_8px_rgba(57,255,20,0.6)] animate-pulse" 
-                                     : "text-red-400 font-bold animate-pulse border border-red-500/30 px-1 rounded bg-red-950/20"
-                                 }>
-                                     Prúd (I = V/R): <span><AnimatedNumber value={currentI} suffix=" A" /></span>
-                                 </div>
-                                 <div>Ohmic Load (P = V*I): <span className="text-purple-400 font-bold"><AnimatedNumber value={currentP} suffix=" W" /></span></div>
-                             </div>
-
-                            {selectedNode && (
-                                <div className="mt-1.5 pt-1.5 border-t border-purple-500/20 text-left flex flex-col gap-1">
-                                    <div className="text-yellow-400 font-bold uppercase tracking-widest text-[8px] text-center mb-1">
-                                        Predikcia Kvantového Stavu
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Poškodenie (DMG):</span>
-                                        <span className="text-red-400 font-bold">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).damageApplied} HP
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Systémové preťaženie:</span>
-                                        <span className="text-orange-400 font-bold">
-                                            +{AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).energyDelta.toFixed(0)} J
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Kinetické vytesnenie:</span>
-                                        <span className="text-[color:var(--accent-magic)] font-bold uppercase">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType === 'none' ? 'Bez posunu' : 
-                                             `${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementType} ${AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).displacementDistance} hex`}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Udelený stav:</span>
-                                        <span className="text-[color:var(--accent-loot)] font-bold uppercase">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).statusApplied}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Šanca na zásah:</span>
-                                        <span className="text-green-400 font-bold">
-                                            {AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode).successProbability.toFixed(0)}%
-                                        </span>
-                                    </div>
+                                <div>Voltage (V): <span className="text-[color:var(--accent-magic)] font-bold"><AnimatedNumber value={currentV} suffix=" V" /></span></div>
+                                <div>Resistance (R): <span className="text-[color:var(--accent-loot)] font-bold"><AnimatedNumber value={currentR} suffix=" Ω" /></span></div>
+                                <div className={currentI >= 1.0
+                                    ? "text-green-400 font-bold drop-shadow-[0_0_8px_rgba(57,255,20,0.6)] animate-pulse"
+                                    : "text-red-400 font-bold animate-pulse border border-red-500/30 px-1 rounded bg-red-950/20"
+                                }>
+                                    Current (I=V/R): <span><AnimatedNumber value={currentI} suffix=" A" /></span>
                                 </div>
-                            )}
+                                <div>Power (P=V*I): <span className="text-purple-400 font-bold"><AnimatedNumber value={currentP} suffix=" W" /></span></div>
+                            </div>
+
+                            {selectedNode && (() => {
+                                const prediction = AlgebraicActionTensor.evaluate(activePlayer, selectedCard.id, selectedNode);
+                                return (
+                                    <div className="mt-1.5 pt-1.5 border-t border-purple-500/20 text-left flex flex-col gap-1">
+                                        <div className="text-yellow-400 font-bold uppercase tracking-widest text-[8px] text-center mb-1">
+                                            OUTCOME PREDICTION
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Damage:</span>
+                                            <span className="text-red-400 font-bold">{prediction.damageApplied} HP</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>System Load:</span>
+                                            <span className="text-orange-400 font-bold">+{prediction.energyDelta.toFixed(0)} J</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Displacement:</span>
+                                            <span className="text-[color:var(--accent-magic)] font-bold uppercase">
+                                                {prediction.displacementType === 'none' ? 'None' :
+                                                 `${prediction.displacementType} ${prediction.displacementDistance} hex`}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Status:</span>
+                                            <span className="text-[color:var(--accent-loot)] font-bold uppercase">{prediction.statusApplied}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Hit Chance:</span>
+                                            <span className="text-green-400 font-bold">{prediction.successProbability.toFixed(0)}%</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 )}
 
                 {!selectedCard && selectedNode && (
-                    <div className="bg-[color:var(--panel-bg)] border border-slate-700/50 text-white px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1.5 min-w-[250px]">
+                    <div className="bg-black/70 border border-slate-700/50 text-white px-4 py-2.5 rounded-xl shadow-xl backdrop-blur-md text-xs font-mono text-center flex flex-col gap-1.5 min-w-[250px]">
                         <div>
-                            Vybrané políčko: <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
+                            <span className="text-slate-500">HEX:</span> <span className="text-yellow-400 font-bold">{selectedNode.id}</span>
                         </div>
                         <div className="text-[10px] text-slate-400">
-                            Koord: Q={selectedNode.q}, R={selectedNode.r}
+                            Q={selectedNode.q}, R={selectedNode.r}
                         </div>
-                        <button 
+                        <button
                             onClick={() => onMoveHero(selectedNode)}
-                            className="bg-[color:var(--panel-bg)] hover:brightness-125 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] px-3 py-1 rounded font-bold transition-colors cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5"
+                            className="bg-[color:var(--accent-magic)] hover:brightness-110 text-[color:var(--panel-bg)] px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer w-full mt-1 flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wide"
                         >
-                            🚶 Presunúť hrdinu sem
+                            → MOVE HERO HERE
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* Spodná ruka kariet (Spodný HUD z bodu 2 checklistu) */}
-            <div className="w-full flex flex-col items-center gap-2 pointer-events-auto pb-4">
-                <div className="text-[10px] md:text-xs font-mono text-slate-400 bg-black/60 px-3 py-1 rounded-full border border-slate-800">
-                    Aktívny klan: <span className="text-slate-200 font-bold uppercase">{gameState?.activePlayerId === 'thread_king_ai' ? 'Crystal (King AI)' : 'Toxic (Hacker Root)'}</span>
-                </div>
+            {/* ═══ BOTTOM HUD — Card hand + stat chips + action buttons ═══ */}
+            <div className="w-full flex flex-col items-center gap-2 pointer-events-auto pb-2">
+                {/* Compact stat chips */}
                 {activePlayer && (
-                    <div className="flex flex-wrap gap-3 md:gap-4 text-[10px] md:text-xs font-mono text-slate-300 bg-black/80 px-4 py-2 rounded-xl border border-slate-800 shadow-lg justify-center items-center">
-                        <span className="text-[color:var(--accent-magic)] font-bold">❤️ HP: {activePlayer.health}/{activePlayer.maxHealth || 15}</span>
-                        <span className="text-[color:var(--accent-loot)]">⚔️ Dosah Útoku: {activePlayer.attackReach}</span>
-                        <span className="text-purple-400">🔮 Dosah Kúzla: {activePlayer.spellReach}</span>
-                        <span className="text-green-400">👟 Pohyb: {activePlayer.movementBase}</span>
-                        <span className="text-blue-400">🎴 Limit ruky: {activePlayer.handLimit} (Vlajky: {activePlayer.axiomaticFlags})</span>
-                        <span className="text-emerald-400">📥 Balíček: {activePlayer.drawPileCount}</span>
-                        <span className="text-rose-400">📤 Odhadzovacie: {activePlayer.discardPileCount}</span>
-                        <span className="text-slate-400 font-bold">{activePlayer.freeMovementUsed ? "🚫 Ťah využitý" : "🚶 Voľný pohyb"}</span>
+                    <div className="flex flex-wrap gap-2 text-[9px] md:text-[10px] font-mono text-slate-400 justify-center items-center">
+                        <span className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-slate-800/80">
+                            <span style={{color: 'var(--accent-magic)'}}>⚔</span>
+                            <span className="text-slate-300 font-bold">{activePlayer.attackReach}</span>
+                            <span className="text-slate-600">ATK</span>
+                        </span>
+                        <span className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-slate-800/80">
+                            <span style={{color: '#a855f7'}}>✦</span>
+                            <span className="text-slate-300 font-bold">{activePlayer.spellReach}</span>
+                            <span className="text-slate-600">SP</span>
+                        </span>
+                        <span className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-slate-800/80">
+                            <span style={{color: '#4ade80'}}>→</span>
+                            <span className="text-slate-300 font-bold">{activePlayer.movementBase}</span>
+                            <span className="text-slate-600">MOV</span>
+                        </span>
+                        <span className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-slate-800/80">
+                            <span style={{color: '#60a5fa'}}>♣</span>
+                            <span className="text-slate-300 font-bold">{cards.length}/{activePlayer.handLimit}</span>
+                            <span className="text-slate-600">HAND</span>
+                        </span>
+                        <span className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-slate-800/80">
+                            <span style={{color: '#34d399'}}>▼</span>
+                            <span className="text-slate-300 font-bold">{activePlayer.drawPileCount}</span>
+                            <span className="text-slate-600">DECK</span>
+                        </span>
+                        <span className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-slate-800/80">
+                            <span style={{color: '#fb7185'}}>▲</span>
+                            <span className="text-slate-300 font-bold">{activePlayer.discardPileCount}</span>
+                            <span className="text-slate-600">DISC</span>
+                        </span>
+                        <span className={`flex items-center gap-1 px-2 py-1 rounded-lg border ${
+                            activePlayer.freeMovementUsed
+                                ? 'bg-red-950/40 border-red-500/30 text-red-400'
+                                : 'bg-green-950/40 border-green-500/30 text-green-400'
+                        }`}>
+                            {activePlayer.freeMovementUsed ? '✗ USED' : '✓ FREE'}
+                        </span>
                     </div>
                 )}
-                <div className="bg-[color:var(--panel-bg)] border border-slate-700/50 p-3 md:p-4 rounded-2xl flex gap-2.5 md:gap-3 backdrop-blur-xl shadow-2xl max-w-full overflow-x-auto custom-scrollbar">
+                {/* Card hand container */}
+                <div className="flex items-end gap-2 md:gap-3 max-w-full overflow-x-auto custom-scrollbar pb-2" style={{ scrollbarWidth: 'thin' }}>
                     {cards.length === 0 ? (
-                        <div className="text-slate-500 text-xs font-mono self-center py-6 px-12">Ruka je prázdna (dobite si na konci tahu)</div>
+                        <div className="text-slate-500 text-xs font-mono self-center py-8 px-16 bg-black/40 rounded-xl border border-dashed border-slate-800">
+                            ♻ Hand is empty — draw cards at end of turn
+                        </div>
                     ) : (
                         cards.map((card, idx) => {
                             const meta = getCardMetadata(card.id);
                             const isSelected = selectedCard === card;
                             const isCasting = castingCard === card;
-                            const hoverClass = getFactionHoverClass(card.id);
-                            const isUlt = card.isUltimate;
-                            const isReactive = gameState?.turnStateMachine?.currentPhase === 'INTERRUPT_WINDOW' && 
+                            const isReactive = gameState?.turnStateMachine?.currentPhase === 'INTERRUPT_WINDOW' &&
                                 (card.id.includes('magic') || card.id.includes('shield') || card.id.includes('pulse'));
-                            
-                            const isHovered = hoveredCardIndex === idx;
-                            let inlineStyle = {};
-                            if (isHovered) {
-                                if (isUlt) {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 35px rgba(172, 242, 39, 0.9), inset 0 0 15px rgba(172, 242, 39, 0.3)',
-                                        borderColor: 'var(--accent-loot)',
-                                        transform: 'translateY(-20px) scale(1.05)',
-                                    };
-                                } else if (card.id.includes('crystal') || card.id.includes('laser') || card.id.includes('shield') || card.id.includes('pulse')) {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 25px rgba(0, 238, 255, 0.75), inset 0 0 10px rgba(0, 238, 255, 0.2)',
-                                        borderColor: '#00eeff',
-                                        transform: 'translateY(-16px)',
-                                    };
-                                } else if (card.id.includes('toxic') || card.id.includes('snake') || card.id.includes('acid') || card.id.includes('hook') || card.id.includes('mud')) {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 30px rgba(57, 255, 20, 0.8), inset 0 0 12px rgba(57, 255, 20, 0.2)',
-                                        borderColor: '#39ff14',
-                                        transform: 'translateY(-16px)',
-                                    };
-                                } else if (card.id.includes('bear') || card.id.includes('forest') || card.id.includes('wind') || card.id.includes('nature')) {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 25px rgba(255, 204, 0, 0.8), inset 0 0 10px rgba(255, 204, 0, 0.2)',
-                                        borderColor: '#ffcc00',
-                                        transform: 'translateY(-16px)',
-                                    };
-                                } else {
-                                    inlineStyle = {
-                                        boxShadow: '0 0 25px rgba(170, 0, 255, 0.8), inset 0 0 10px rgba(170, 0, 255, 0.2)',
-                                        borderColor: '#aa00ff',
-                                        transform: 'translateY(-16px)',
-                                    };
-                                }
-                            } else if (isSelected) {
-                                inlineStyle = {
-                                    transform: 'translateY(-16px)',
-                                    borderColor: '#22d3ee',
-                                    boxShadow: '0 0 15px rgba(34, 211, 238, 0.4)'
-                                };
-                            }
 
                             return (
-                                <div 
+                                <GameCard
                                     key={`${card.id}_${idx}`}
-                                    onClick={() => setSelectedCard(isSelected ? null : card)}
-                                    onMouseEnter={() => setHoveredCardIndex(idx)}
-                                    onMouseLeave={() => setHoveredCardIndex(null)}
-                                    style={inlineStyle}
-                                    className={`w-24 h-36 md:w-32 md:h-44 flex-shrink-0 bg-gradient-to-b from-[#181824] to-[#0b0b11] border rounded-xl p-2 md:p-2.5 flex flex-col justify-between text-white cursor-pointer transition-all duration-200 relative ${
-                                        isUlt ? 'card-ultimate' : ''
-                                    } ${isReactive ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''} ${isCasting ? 'card-cast-lift' : ''}`}
-                                >
-                                    {/* Hotkey Indicator Badge */}
-                                    <div className="absolute -top-1.5 -left-1.5 bg-[#14141e]/95 border border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] text-[8px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-lg pointer-events-none z-20">
-                                        {idx + 1}
-                                    </div>
-                                    {isReactive && (
-                                        <div className="absolute -top-2 -right-1 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_6px_#ef4444] animate-pulse font-mono tracking-wide z-10">
-                                            ⚡ REACT
-                                        </div>
-                                    )}
-                                    <div className="text-[7px] md:text-[8px] font-mono text-[color:var(--accent-magic)] uppercase tracking-wider">{meta.type}</div>
-                                    <div className="text-[10px] md:text-xs font-bold text-center mt-1 text-slate-200 truncate">{meta.name}</div>
-                                    <div className="text-[8px] md:text-[9px] text-slate-400 text-center font-mono leading-tight line-clamp-3">{meta.desc}</div>
-                                    <div className="bg-[color:var(--panel-bg)] text-[7px] md:text-[8px] text-center font-mono text-[color:var(--accent-magic)] py-0.5 md:py-1 rounded border border-[color:var(--accent-magic)]">
-                                        {card.isUltimate ? 'Ultimate' : 'Normal'}
-                                    </div>
-                                </div>
+                                    card={card}
+                                    index={idx}
+                                    metadata={meta}
+                                    isSelected={isSelected}
+                                    isCasting={isCasting}
+                                    isReactive={isReactive}
+                                    onSelect={setSelectedCard}
+                                />
                             );
                         })
                     )}
                     
-                    {/* Tlačidlo Ukončiť Kolo z bodu 2 checklistu */}
+                    {/* Action side buttons */}
                     {isPlayerInTown && (
-                        <button 
+                        <button
                             onClick={() => setIsShopOpen(true)}
-                            className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] hover:brightness-125 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all text-[color:var(--accent-magic)] rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
+                            className="h-36 md:h-44 w-14 md:w-16 flex-shrink-0 bg-[color:var(--panel-bg)] border border-[color:var(--accent-magic)] hover:brightness-125 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all text-[color:var(--accent-magic)] rounded-xl flex items-center justify-center font-mono text-[10px] font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
                         >
-                            🏬 Town Shop
+                            ◈ SHOP
                         </button>
                     )}
-                    
-                    <button 
+
+                    <button
                         onClick={onToggleStealth}
-                        className={`h-36 md:h-44 w-12 md:w-16 flex-shrink-0 border transition-all rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer ${
-                            isStealthed 
-                                ? 'bg-[color:var(--panel-border)] border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] shadow-[0_0_15px_rgba(0,229,255,0.45)] font-extrabold' 
-                                : 'bg-slate-950/40 border-slate-700/60 text-slate-400 hover:bg-slate-900/60 hover:text-slate-350'
+                        className={`h-36 md:h-44 w-14 md:w-16 flex-shrink-0 border transition-all rounded-xl flex items-center justify-center font-mono text-[10px] font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer ${
+                            isStealthed
+                                ? 'bg-[color:var(--panel-border)] border-[color:var(--accent-magic)] text-[color:var(--accent-magic)] shadow-[0_0_15px_rgba(0,229,255,0.45)] font-extrabold'
+                                : 'bg-slate-950/40 border-slate-700/60 text-slate-400 hover:bg-slate-900/60 hover:text-slate-300'
                         }`}
                     >
-                        {isStealthed ? 'Stealth ON' : 'Stealth OFF'}
-                    </button>
-                    
-                    <button 
-                        onClick={onEndTurn}
-                        className="h-36 md:h-44 w-12 md:w-16 flex-shrink-0 bg-red-950/40 border border-red-500/40 hover:bg-red-900/60 transition-colors text-red-400 rounded-xl flex items-center justify-center font-mono text-[10px] md:text-xs font-bold [writing-mode:vertical-lr] uppercase tracking-widest cursor-pointer"
-                    >
-                        End Turn [E]
+                        {isStealthed ? 'STEALTH ON' : 'STEALTH'}
                     </button>
                 </div>
             </div>

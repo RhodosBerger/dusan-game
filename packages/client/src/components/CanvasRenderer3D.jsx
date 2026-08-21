@@ -13,11 +13,9 @@ import ArenaAmbientParticles from './ArenaAmbientParticles';
 import HeroAura from './HeroAura';
 import { AdrenalineDirector } from '../../../shared/src/index';
 import AestheticCompositor from './AestheticCompositor';
-import VolumetricFog3D from './VolumetricFog3D';
+import DramaticEnvironment from './DramaticEnvironment';
+import EnergyShieldDome from './EnergyShieldDome';
 import { PALETTE, LIGHTING, WORLD } from '../design/worldDesign';
-import StarfieldBackground from './world/StarfieldBackground';
-import FloatingShards3D from './world/FloatingShards3D';
-import PortalVortex3D from './world/PortalVortex3D';
 import { PORTAL_NODE_ID, computePropPlacements } from '../design/propPlacement';
 import CrystalSpire3D from './world/CrystalSpire3D';
 import BlossomTree3D from './world/BlossomTree3D';
@@ -100,16 +98,55 @@ function UltimateOrbVFX({ active }) {
     );
 }
 
+// ─── Sun Sphere for GodRays ────────────────────────────────────────────────────
+function SunSphere({ sunRef }) {
+    const meshRef = useRef();
+    
+    useFrame((state) => {
+        const time = state.clock.elapsedTime;
+        // Slowly orbit the sun
+        const angle = time * 0.02;
+        const x = Math.cos(angle) * 35;
+        const y = 25 + Math.sin(time * 0.1) * 2;
+        const z = Math.sin(angle) * 35;
+        
+        if (meshRef.current) {
+            meshRef.current.position.set(x, y, z);
+        }
+        if (sunRef) {
+            sunRef.current = meshRef.current;
+        }
+    });
+    
+    return (
+        <mesh ref={meshRef}>
+            <sphereGeometry args={[2.5, 32, 32]} />
+            <meshBasicMaterial
+                color="#fff4e0"
+                transparent
+                opacity={0.9}
+                fog={false}
+            />
+            {/* Inner glow */}
+            <pointLight
+                position={[0, 0, 0]}
+                intensity={2.0}
+                color="#fff4e0"
+                distance={80}
+                decay={1.5}
+            />
+        </mesh>
+    );
+}
+
 function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntensity, isUltimate }) {
     const { camera, controls } = useThree();
     const desiredTarget = useRef(new THREE.Vector3(0, 0, 0));
 
-    // Vyhľadanie aktívneho hrdinu
     const activePlayer = useMemo(() => {
         return threads.find(t => t.type === 'PLAYER' && t.health > 0) || null;
     }, [threads]);
 
-    // Zistenie aktívneho biomu pre efekty kamery
     const activeBiome = useMemo(() => {
         if (!map || map.length === 0) return 'LUSH_FOREST';
         const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
@@ -125,7 +162,6 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
         if (gameMode === 'SANDBOX') {
             desiredTarget.current.set(0, 0, 0);
         } else {
-            // Sledovanie aktívneho hráča alebo NPC na ťahu
             const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
             if (targetThread && targetThread.position) {
                 const node = gridData.find(
@@ -141,19 +177,17 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     }, [gameMode, threads, gridData, activePlayer]);
 
     useFrame((state, delta) => {
-        // 1. Plynulý LERP stredu záujmu
         if (controls) {
             controls.target.lerp(desiredTarget.current, delta * 3.5);
             controls.update();
         }
 
-        // 2. Úprava FOV (zorného uhla) pre detailný zoom a taktický prehľad
         let targetFov = isUltimate ? 34 : (gameMode === 'SANDBOX' ? 45 : 38);
         if (gameMode !== 'SANDBOX' && !isUltimate) {
             if (activeBiome === 'TOXIC_SWAMP') {
-                targetFov = 34; // Zoomed-in
+                targetFov = 34;
             } else if (activeBiome === 'GLACIER') {
-                targetFov = 48; // Wide-angle
+                targetFov = 48;
             }
         }
 
@@ -162,14 +196,12 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
             camera.updateProjectionMatrix();
         }
 
-        // 3. Dynamické trasenie kamery (Camera Shake) s vysokou responzivitou
         if (shakeIntensity > 0) {
             camera.position.x += (Math.random() - 0.5) * shakeIntensity * 0.15;
             camera.position.y += (Math.random() - 0.5) * shakeIntensity * 0.15;
             camera.position.z += (Math.random() - 0.5) * shakeIntensity * 0.15;
         }
 
-        // 4. Pomalý automatický oblet v Sandbox móde pre udržanie dynamiky scény
         if (gameMode === 'SANDBOX' && !isUltimate) {
             const time = state.clock.getElapsedTime();
             desiredTarget.current.set(Math.sin(time * 0.25) * 1.5, 0, Math.cos(time * 0.25) * 1.5);
@@ -182,13 +214,11 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
 export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeClick, threads = [], shakeIntensity = 0, turnsElapsed = 1, map = [], terrainTelemetry = null, ultimateFlash = false, gameMode = 'SANDBOX' }) {
     const gridData = useMemo(() => generate3DGrid(), []);
     
-    // Calculate which node IDs are collapsing this turn
     const collapsingNodeIds = useMemo(() => {
         return AdrenalineDirector.getCollapsingNodes(turnsElapsed, gridData);
     }, [turnsElapsed, gridData]);
 
     const [hoveredNode, setHoveredNode] = useState(null);
-
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -199,7 +229,6 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Zoskupenie uzlov podľa metapozícií kvôli efektívnemu vykresleniu hraníc
     const metapositions = useMemo(() => {
         const groups = Array.from({ length: 9 }, () => []);
         gridData.forEach(node => groups[node.macroIndex].push(node));
@@ -207,13 +236,11 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     }, [gridData]);
 
     const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
-
     const propPlacements = useMemo(() => computePropPlacements(gridData), [gridData]);
 
     const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
     const cameraFov = isMobile ? 55 : 45;
 
-    // Calculate current average hazard index based on the active threads' locations
     const currentHazardIndex = useMemo(() => {
         if (!map || map.length === 0) return 0.4;
         const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
@@ -224,29 +251,45 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
             if (block?.biome === 'DESERT') return 0.6;
             if (block?.biome === 'GLACIER') return 0.4;
             if (block?.biome === 'BARRENS') return 0.5;
-            return 0.3; // LUSH_FOREST
+            return 0.3;
         }
         return 0.4;
     }, [map, threads]);
 
+    // Sun ref for GodRays post-processing
+    const sunRef = useRef(null);
+    // Ref for AestheticCompositor to access sun
+    const compositorRef = useRef(null);
+
     return (
         <div className="w-full h-full relative bg-[color:var(--space-bg)]">
-            <Canvas shadows>
+            <Canvas 
+                shadows
+                gl={{ 
+                    antialias: false,
+                    alpha: false,
+                    powerPreference: 'high-performance',
+                    toneMapping: THREE.NoToneMapping,
+                    toneMappingExposure: 1.0,
+                }}
+                dpr={[1, 2]}
+            >
+                {/* ═══ Layer 1: Deep Space Background ═══ */}
                 <color attach="background" args={[PALETTE.space.background]} />
                 <fog attach="fog" args={[WORLD.fog.color, WORLD.fog.near, WORLD.fog.far]} />
-                <StarfieldBackground />
-                <FloatingShards3D />
-
-                {/* Kamera dynamicky prispôsobená pre mobilné zariadenia */}
+                
+                {/* ═══ Layer 2: Dramatic Atmospheric Environment ═══ */}
+                <DramaticEnvironment entropy={entropy} />
+                
+                {/* ═══ Layer 3: Camera + Controls ═══ */}
                 <PerspectiveCamera makeDefault position={cameraPosition} fov={cameraFov} near={0.1} far={1000} />
                 <OrbitControls 
                     enableDamping 
-                    maxPolarAngle={Math.PI / 2.5} // Zamedzí pohľadu z podlahy
+                    maxPolarAngle={Math.PI / 2.5}
                     minDistance={2} 
-                    maxDistance={150} 
+                    maxDistance={150}
                 />
 
-                {/* Dynamické riadenie kamery na základe herného režimu */}
                 <DynamicCameraController 
                     gameMode={gameMode} 
                     threads={threads} 
@@ -256,22 +299,58 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     isUltimate={ultimateFlash} 
                 />
 
-                {/* Painted Realm osvetlenie: teplé slnko + studený fill (worldDesign.LIGHTING) */}
-                <ambientLight intensity={LIGHTING.ambient.intensity} color={LIGHTING.ambient.color} />
+                {/* ═══ Layer 4: Dramatic HDR Lighting ═══ */}
+                <ambientLight intensity={LIGHTING.ambient.intensity * 0.8} color={LIGHTING.ambient.color} />
+                
+                {/* Key Light — warm directional sun */}
                 <directionalLight
                     castShadow
                     position={LIGHTING.key.position}
-                    intensity={LIGHTING.key.intensity}
+                    intensity={LIGHTING.key.intensity * 1.2}
                     color={LIGHTING.key.color}
-                    shadow-mapSize={[2048, 2048]}
+                    shadow-mapSize={[4096, 4096]}
+                    shadow-camera-near={0.5}
+                    shadow-camera-far={100}
+                    shadow-camera-left={-40}
+                    shadow-camera-right={40}
+                    shadow-camera-top={40}
+                    shadow-camera-bottom={-40}
+                    shadow-bias={-0.0005}
+                    shadow-normalBias={0.02}
                 />
+                
+                {/* Fill Light — cool blue */}
                 <directionalLight
                     position={LIGHTING.fill.position}
-                    intensity={LIGHTING.fill.intensity}
+                    intensity={LIGHTING.fill.intensity * 1.3}
                     color={LIGHTING.fill.color}
                 />
+                
+                {/* Rim Light — cyan backlight */}
+                <directionalLight
+                    position={LIGHTING.rim?.position || [0, 8, -15]}
+                    intensity={(LIGHTING.rim?.intensity || 0.6) * 1.5}
+                    color={LIGHTING.rim?.color || '#2dd3f1'}
+                />
+                
+                {/* Portal accent — central glow */}
+                <pointLight
+                    position={[0, 2, 0]}
+                    intensity={LIGHTING.portal.intensity * 0.8}
+                    color={LIGHTING.portal.color}
+                    distance={LIGHTING.portal.distance * 2}
+                    decay={2}
+                />
+                
+                {/* Faction accent lights — colored fills from edges */}
+                <pointLight position={[-15, 5, -15]} intensity={0.5} color="#00eeff" distance={25} decay={2} />
+                <pointLight position={[15, 5, 15]} intensity={0.5} color="#39ff14" distance={25} decay={2} />
+                <pointLight position={[15, 5, -15]} intensity={0.3} color="#ffcc00" distance={20} decay={2} />
 
-                {/* 3D Scéna - Vykreslenie 63 Hexov */}
+                {/* ═══ Layer 5: Sun Sphere for GodRays ═══ */}
+                <SunSphere sunRef={sunRef} />
+
+                {/* ═══ Layer 6: 3D Scene — Hex Tiles + Props + Characters ═══ */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>
                     {gridData.map((node) => {
                         const isCollapsing = collapsingNodeIds.includes(node.id);
@@ -296,8 +375,6 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         );
                     })}
 
-                    {/* Rekvizity biómov — deterministicky na "jadre" každého biómu.
-                        Kolabujúce dlaždice vyfiltruj — rekvizita nesmie visieť nad prázdnom. */}
                     {gridData.filter(n => propPlacements.has(n.id) && !collapsingNodeIds.includes(n.id)).map(n => {
                         const PropComponent = PROP_COMPONENTS[propPlacements.get(n.id)];
                         if (!PropComponent) return null;
@@ -308,20 +385,18 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         );
                     })}
 
-                    {/* Floating mana particles across the whole arena */}
                     <ArenaAmbientParticles 
                         entropy={entropy} 
                         hazardIndex={currentHazardIndex}
                     />
 
-                    {/* Centrálny magický vír — srdce ostrova */}
                     {portalNode && (
                         <PortalVortex3D position={[portalNode.position[0], 0.55, portalNode.position[2]]} />
                     )}
 
-                    {/* Volumetric Fog Layer disabled for sharp visual focus */}
+                    {/* ═══ Energy Shield Dome over arena ═══ */}
+                    <EnergyShieldDome />
 
-                    {/* Hero Aura rings + ground glow — mounted per thread, LERP-tracked */}
                     {threads.map((thread) => (
                         <HeroAura
                             key={`aura_${thread.id}`}
@@ -330,7 +405,6 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         />
                     ))}
 
-                    {/* Vykreslenie plynule Lerp-ovaných figúrok postáv */}
                     {threads.map((thread) => (
                         <ThreadMiniature 
                             key={thread.id}
@@ -339,7 +413,6 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         />
                     ))}
 
-                    {/* Hero hit VFX — mounted per thread */}
                     {threads.map((thread) => (
                         <HeroImpactVFX
                             key={`vfx_${thread.id}`}
@@ -348,13 +421,9 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         />
                     ))}
 
-                    {/* Vykreslenie projektilov kúziel */}
                     <SpellProjectile3D threads={threads} gridData={gridData} />
-
-                    {/* expanding 3D golden sphere mesh for Ultimate actions */}
                     <UltimateOrbVFX active={ultimateFlash} />
 
-                    {/* Vykreslenie neónových ohraničení pre všetkých 9 Metapozícií */}
                     {metapositions.map((nodes, idx) => (
                         <MetapositionBorder3D 
                             key={`border_${idx}`} 
@@ -364,9 +433,14 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     ))}
                 </ArenaGroup>
 
-                {/* Kognitívna Termodynamika - Dynamický Post-processing podľa Entropy */}
-                <EffectComposer disableNormalPass>
-                    <AestheticCompositor entropy={entropy} />
+                {/* ═══ Layer 7: Dramatic Post-Processing Pipeline ═══ */}
+                <EffectComposer disableNormalPass multisampling={0}>
+                    <AestheticCompositor 
+                        ref={compositorRef}
+                        entropy={entropy} 
+                        sunRef={sunRef}
+                        intensity={1.2}
+                    />
                 </EffectComposer>
             </Canvas>
         </div>

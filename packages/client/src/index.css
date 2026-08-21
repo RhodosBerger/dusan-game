@@ -1,127 +1,568 @@
-/* Tailwind v4: jediný import nahrádza staré @tailwind direktívy (v3 syntax
-   generovala len zlomok utilít — chýbali napr. inset-0 a lg:hidden). */
+/* Tailwind v4: jediný import nahrádza staré @tailwind direktívy */
 @import "tailwindcss";
 
+/* Google Fonts: JetBrains Mono + Inter + Orbitron */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
 :root {
-  /* Painted Realm — tokeny zrkadlia packages/client/src/design/worldDesign.js */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     PAINTED REALM — Design Tokens (mirrors theme.ts)
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Space / Background */
   --space-bg: #08090e;
-  --panel-bg: rgba(17, 21, 33, 0.85);      /* rock.underside + alpha */
-  --panel-border: rgba(45, 211, 241, 0.25); /* accent.magic + alpha */
+  --space-bg-deep: #050508;
+  --space-surface: #111521;
+  --space-surface-light: #1a1f2e;
+
+  /* Primary Accent (Magic Cyan) */
+  --primary-50: #e6fafe;
+  --primary-100: #b3f0fb;
+  --primary-200: #80e6f8;
+  --primary-300: #4ddcf5;
+  --primary-400: #2dd3f1;
+  --primary-500: #1ab8d4;
+  --primary-600: #139bb5;
+  --primary-700: #0d7e94;
+  --primary-800: #086173;
+  --primary-900: #044452;
+
+  /* Accent Magic (legacy) */
   --accent-magic: #2dd3f1;
   --accent-enemy: #c46884;
-  --accent-danger: #7b2e8d;
+  --accent-danger: #ff3366;
   --accent-loot: #acf227;
+  --accent-mana: #cc00ff;
 
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Faction: Crystal */
+  --faction-crystal: #00eeff;
+  --faction-crystal-secondary: #688dab;
+  --faction-crystal-glow: rgba(0, 238, 255, 0.4);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Faction: Toxic */
+  --faction-toxic: #39ff14;
+  --faction-toxic-secondary: #acf227;
+  --faction-toxic-glow: rgba(57, 255, 20, 0.4);
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  /* Faction: Druid */
+  --faction-druid: #ffcc00;
+  --faction-druid-secondary: #c46884;
+  --faction-druid-glow: rgba(255, 204, 0, 0.4);
+
+  /* Semantic Colors */
+  --semantic-success: #39ff14;
+  --semantic-warning: #ffcc00;
+  --semantic-danger: #ff3366;
+  --semantic-info: #2dd3f1;
+
+  /* Portal */
+  --portal-core: #a7f4fa;
+  --portal-mid: #2dd3f1;
+  --portal-outer: #099bcb;
+  --portal-glow: rgba(45, 211, 241, 0.3);
+
+  /* Text */
+  --text-primary: #e8e6f0;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --text-disabled: #4b5563;
+
+  /* Legacy text vars */
+  --text: #9ca3af;
+  --text-h: #e8e6f0;
+
+  /* Panel / Glass */
+  --panel-bg: rgba(17, 21, 33, 0.85);
+  --panel-bg-light: rgba(26, 31, 46, 0.75);
+  --panel-border: rgba(45, 211, 241, 0.25);
+  --panel-border-hover: rgba(45, 211, 241, 0.5);
+  --card-bg: rgba(20, 24, 38, 0.9);
+  --card-border: rgba(45, 211, 241, 0.3);
+  --card-border-hover: rgba(45, 211, 241, 0.6);
+  --overlay-bg: rgba(8, 9, 14, 0.7);
+
+  /* Backgrounds (legacy) */
+  --bg: #08090e;
+  --border: rgba(45, 211, 241, 0.2);
+  --code-bg: rgba(17, 21, 33, 0.6);
+  --accent: #2dd3f1;
+  --accent-bg: rgba(45, 211, 241, 0.1);
+  --accent-border: rgba(45, 211, 241, 0.4);
+  --social-bg: rgba(17, 21, 33, 0.5);
+  --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TYPOGRAPHY
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Orbitron', 'Rajdhani', var(--font-sans);
+
+  /* Legacy font vars */
+  --sans: var(--font-sans);
+  --heading: var(--font-display);
+  --mono: var(--font-mono);
+
+  /* Font Sizes */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 40px;
+  --text-4xl: 56px;
+
+  /* Font Weights */
+  --font-light: 300;
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SPACING (4px base)
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BORDER RADIUS
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SHADOWS
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
+  --shadow-glow-primary: 0 0 20px rgba(45, 211, 241, 0.4);
+  --shadow-glow-crystal: 0 0 20px rgba(0, 238, 255, 0.4);
+  --shadow-glow-toxic: 0 0 20px rgba(57, 255, 20, 0.4);
+  --shadow-glow-druid: 0 0 20px rgba(255, 204, 0, 0.4);
+  --shadow-glow-danger: 0 0 20px rgba(255, 51, 102, 0.4);
+  --shadow-inner-glow: inset 0 0 20px rgba(45, 211, 241, 0.15);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     MOTION / ANIMATION
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --duration-instant: 50ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+  --duration-slowest: 1000ms;
+
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Z-INDEX
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --z-base: 0;
+  --z-panels: 10;
+  --z-dropdown: 20;
+  --z-sticky: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BASE STYLES
+     ═══════════════════════════════════════════════════════════════════════════ */
+  font: var(--text-base)/1.5 var(--font-sans);
+  letter-spacing: 0.01em;
+  color-scheme: dark;
+  color: var(--text-primary);
+  background: var(--space-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
   @media (max-width: 1024px) {
-    font-size: 16px;
+    font-size: 14px;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  padding: 0;
+  background: var(--space-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow: hidden;
 }
 
 #root {
-  /* 100vw zahŕňa aj šírku scrollbaru — pri jeho zobrazení vznikal horizontálny
-     posun a biely pás na pravej strane. 100% sa drží skutočnej šírky okna. */
   width: 100%;
   height: 100vh;
   margin: 0;
   padding: 0;
-  text-align: center;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
   overflow: hidden;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
+  font-size: var(--text-4xl);
+  letter-spacing: 0.05em;
+  margin: var(--space-8) 0;
+  background: linear-gradient(135deg, var(--primary-300) 0%, var(--primary-500) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  
   @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+    font-size: var(--text-2xl);
+    margin: var(--space-5) 0;
   }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
+h2 {
+  font-size: var(--text-2xl);
+  line-height: 1.2;
+  margin: 0 0 var(--space-2);
+  
+  @media (max-width: 1024px) {
+    font-size: var(--text-xl);
+  }
+}
+
+h3 {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-2);
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+code, .counter {
+  font-family: var(--font-mono);
   display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+  border-radius: var(--radius-sm);
+  color: var(--primary-300);
 }
 
 code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  padding: var(--space-1) var(--space-2);
   background: var(--code-bg);
+  border: 1px solid var(--panel-border);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLASSMORPHISM UTILITIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+}
+
+.glass-panel-light {
+  background: var(--panel-bg-light);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+}
+
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.glass-card:hover {
+  border-color: var(--card-border-hover);
+  box-shadow: var(--shadow-glow-primary);
+}
+
+.glass-overlay {
+  background: var(--overlay-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FACTION UTILITIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.faction-crystal {
+  --faction-color: var(--faction-crystal);
+  --faction-glow: var(--faction-crystal-glow);
+  color: var(--faction-crystal);
+}
+
+.faction-toxic {
+  --faction-color: var(--faction-toxic);
+  --faction-glow: var(--faction-toxic-glow);
+  color: var(--faction-toxic);
+}
+
+.faction-druid {
+  --faction-color: var(--faction-druid);
+  --faction-glow: var(--faction-druid-glow);
+  color: var(--faction-druid);
+}
+
+.faction-glow {
+  box-shadow: 0 0 20px var(--faction-glow), inset 0 0 15px var(--faction-glow);
+}
+
+.faction-border {
+  border: 2px solid var(--faction-color);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--primary-400), 0 0 20px rgba(45, 211, 241, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--primary-400), 0 0 40px rgba(45, 211, 241, 0.5);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes gradient-rotate {
+  0% {
+    --angle: 0deg;
+  }
+  100% {
+    --angle: 360deg;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-left {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s var(--ease-in-out) infinite;
+}
+
+.animate-float {
+  animation: float 3s var(--ease-in-out) infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in var(--duration-slow) var(--ease-out) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in var(--duration-normal) var(--ease-spring) forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up var(--duration-slow) var(--ease-out) forwards;
+}
+
+.animate-slide-left {
+  animation: slide-left var(--duration-slow) var(--ease-out) forwards;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(45, 211, 241, 0.3);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 211, 241, 0.6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELECTION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+::selection {
+  background: rgba(45, 211, 241, 0.3);
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FOCUS VISIBLE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:focus-visible {
+  outline: 2px solid var(--primary-400);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUTTONS (base reset)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INPUTS (base reset)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+input, textarea, select {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--space-surface);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  transition: all var(--duration-fast);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--primary-400);
+  box-shadow: 0 0 0 3px rgba(45, 211, 241, 0.2);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
 }

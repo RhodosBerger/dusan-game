@@ -42,9 +42,12 @@ const server = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 
+// Environment-configurable CORS: use CORS_ORIGIN env var in production
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+
 const io = new Server(server, {
   cors: {
-    origin: "*", 
+    origin: CORS_ORIGIN, 
     methods: ["GET", "POST"]
   }
 });
@@ -68,7 +71,46 @@ const activeMatches = new Map<string, { engine: SovereignEngine; players: string
 
 import { DatabaseSyncManager } from './models/DatabaseSyncManager';
 
-const dbSync = new DatabaseSyncManager('./database.db');
+// Singleton DB instance — avoids repeated schema creation and connection leaks
+const dbSync = DatabaseSyncManager.getInstance('./database.db');
+
+/**
+ * Loads player profile, items, and locked registers from DB into a Thread.
+ * Extracts the 80-line block that was previously duplicated 3× in PvP and AI match setup.
+ */
+const loadPlayerIntoThread = (thread: Thread, playerName: string, heroType: 'crystal' | 'toxic') => {
+  thread.name = playerName;
+  const profile = dbSync.getOrCreatePlayer(playerName, heroType);
+  thread.loadProfile({
+    level: profile.level,
+    xp: profile.xp,
+    maxHealth: profile.maxHealth,
+    armor: profile.armor,
+    luck: profile.luck,
+    materials: JSON.parse(profile.materials),
+    quests: JSON.parse(profile.quests)
+  });
+
+  const dbItems = dbSync.getPlayerItems(playerName);
+  thread.items = dbItems;
+  dbItems.forEach(item => {
+    const catalogItem = ITEMS_CATALOG[item.itemKey];
+    if (catalogItem?.category === 'WEAPON' && catalogItem.statBonus?.damage) {
+      thread.baseDamage += catalogItem.statBonus.damage * item.quantity;
+    }
+  });
+
+  const lockedRegisters = dbSync.getLockedRegisters(playerName);
+  lockedRegisters.forEach(r => {
+    if (r.buff_type === 'DAMAGE_BUFF') {
+      thread.baseDamage += r.buff_value;
+    } else if (r.buff_type === 'ARMOR_BUFF') {
+      thread.armor += r.buff_value;
+    } else if (r.buff_type === 'LUCK_BUFF') {
+      thread.luck += r.buff_value;
+    }
+  });
+};
 
 const getEngineContext = (sock: any) => {
   const matchId = sock.data.matchId;
@@ -157,68 +199,12 @@ io.on('connection', (socket) => {
 
       const t1 = matchEngine.threads.find(t => t.id === 'thread_king_ai');
       if (t1) {
-        t1.name = p1.name;
-        const profile1 = dbSync.getOrCreatePlayer(p1.name, 'crystal');
-        t1.loadProfile({
-          level: profile1.level,
-          xp: profile1.xp,
-          maxHealth: profile1.maxHealth,
-          armor: profile1.armor,
-          luck: profile1.luck,
-          materials: JSON.parse(profile1.materials),
-          quests: JSON.parse(profile1.quests)
-        });
-        const dbItems1 = dbSync.getPlayerItems(p1.name);
-        t1.items = dbItems1;
-        dbItems1.forEach(item => {
-          const catalogItem = ITEMS_CATALOG[item.itemKey];
-          if (catalogItem?.category === 'WEAPON' && catalogItem.statBonus?.damage) {
-            t1.baseDamage += catalogItem.statBonus.damage * item.quantity;
-          }
-        });
-        const lockedRegisters1 = dbSync.getLockedRegisters(p1.name);
-        lockedRegisters1.forEach(r => {
-          if (r.buff_type === 'DAMAGE_BUFF') {
-            t1.baseDamage += r.buff_value;
-          } else if (r.buff_type === 'ARMOR_BUFF') {
-            t1.armor += r.buff_value;
-          } else if (r.buff_type === 'LUCK_BUFF') {
-            t1.luck += r.buff_value;
-          }
-        });
+        loadPlayerIntoThread(t1, p1.name, 'crystal');
         matchEngine.playerIds.push('thread_king_ai');
       }
       const t2 = matchEngine.threads.find(t => t.id === 'thread_hacker_root');
       if (t2) {
-        t2.name = p2.name;
-        const profile2 = dbSync.getOrCreatePlayer(p2.name, 'toxic');
-        t2.loadProfile({
-          level: profile2.level,
-          xp: profile2.xp,
-          maxHealth: profile2.maxHealth,
-          armor: profile2.armor,
-          luck: profile2.luck,
-          materials: JSON.parse(profile2.materials),
-          quests: JSON.parse(profile2.quests)
-        });
-        const dbItems2 = dbSync.getPlayerItems(p2.name);
-        t2.items = dbItems2;
-        dbItems2.forEach(item => {
-          const catalogItem = ITEMS_CATALOG[item.itemKey];
-          if (catalogItem?.category === 'WEAPON' && catalogItem.statBonus?.damage) {
-            t2.baseDamage += catalogItem.statBonus.damage * item.quantity;
-          }
-        });
-        const lockedRegisters2 = dbSync.getLockedRegisters(p2.name);
-        lockedRegisters2.forEach(r => {
-          if (r.buff_type === 'DAMAGE_BUFF') {
-            t2.baseDamage += r.buff_value;
-          } else if (r.buff_type === 'ARMOR_BUFF') {
-            t2.armor += r.buff_value;
-          } else if (r.buff_type === 'LUCK_BUFF') {
-            t2.luck += r.buff_value;
-          }
-        });
+        loadPlayerIntoThread(t2, p2.name, 'toxic');
         matchEngine.playerIds.push('thread_hacker_root');
       }
 
@@ -265,35 +251,8 @@ io.on('connection', (socket) => {
 
     const pThread = matchEngine.threads.find(t => t.id === chosenHero);
     if (pThread) {
-      pThread.name = payload.name;
-      const profile = dbSync.getOrCreatePlayer(payload.name, chosenHero === 'thread_king_ai' ? 'crystal' : 'toxic');
-      pThread.loadProfile({
-        level: profile.level,
-        xp: profile.xp,
-        maxHealth: profile.maxHealth,
-        armor: profile.armor,
-        luck: profile.luck,
-        materials: JSON.parse(profile.materials),
-        quests: JSON.parse(profile.quests)
-      });
-      const dbItemsAI = dbSync.getPlayerItems(payload.name);
-      pThread.items = dbItemsAI;
-      dbItemsAI.forEach(item => {
-        const catalogItem = ITEMS_CATALOG[item.itemKey];
-        if (catalogItem?.category === 'WEAPON' && catalogItem.statBonus?.damage) {
-          pThread.baseDamage += catalogItem.statBonus.damage * item.quantity;
-        }
-      });
-      const lockedRegistersAI = dbSync.getLockedRegisters(payload.name);
-      lockedRegistersAI.forEach(r => {
-        if (r.buff_type === 'DAMAGE_BUFF') {
-          pThread.baseDamage += r.buff_value;
-        } else if (r.buff_type === 'ARMOR_BUFF') {
-          pThread.armor += r.buff_value;
-        } else if (r.buff_type === 'LUCK_BUFF') {
-          pThread.luck += r.buff_value;
-        }
-      });
+      const heroType = chosenHero === 'thread_king_ai' ? 'crystal' : 'toxic';
+      loadPlayerIntoThread(pThread, payload.name, heroType as 'crystal' | 'toxic');
       // Engine porovnáva activePlayerId s ID hrdinov, preto sem patrí thread ID (nie socket ID)
       matchEngine.playerIds.push(chosenHero);
     }
@@ -348,13 +307,34 @@ io.on('connection', (socket) => {
       matchmakingQueue.splice(qIndex, 1);
     }
     
-    // Vyčistenie inštancie pri odpojení všetkých hráčov
+    // Vyčistenie zápasu: notify remaining player, cleanup only when all gone
     const matchId = socket.data.matchId;
     if (matchId && activeMatches.has(matchId)) {
       const match = activeMatches.get(matchId)!;
-      clearInterval(match.interval);
-      activeMatches.delete(matchId);
-      console.log(`[LOBBY] Zápas ${matchId} vyčistený po odpojení hráča.`);
+      const remainingPlayers = match.players.filter(p => p !== socket.id);
+
+      if (remainingPlayers.length === 0) {
+        // All players gone — full cleanup
+        clearInterval(match.interval);
+        activeMatches.delete(matchId);
+        console.log(`[LOBBY] Zápas ${matchId} vyčistený — všetci hráči odpojení.`);
+      } else {
+        // Other player(s) still connected — notify them
+        match.players = remainingPlayers;
+        io.to(`room_${matchId}`).emit('opponent_disconnected', {
+          message: 'Súper sa odpojil. Zápas bude ukončený.',
+          disconnectedPlayerId: socket.id
+        });
+        // Save final state and clean up after a grace period
+        saveEngineState(match.engine, matchId);
+        setTimeout(() => {
+          if (activeMatches.has(matchId)) {
+            clearInterval(match.interval);
+            activeMatches.delete(matchId);
+            console.log(`[LOBBY] Zápas ${matchId} vyčistený po odpojení súpera.`);
+          }
+        }, 10000); // 10s grace period for potential reconnection
+      }
     }
   });
 

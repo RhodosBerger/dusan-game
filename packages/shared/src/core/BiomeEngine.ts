@@ -10,11 +10,18 @@ export interface BiomeDetails {
   };
 }
 
+/** Maximum entries in the biome cache before oldest entries are evicted. */
+const BIOME_CACHE_MAX = 512;
+
 /**
  * Biome Engine
  * Počíta teplotu a vlhkosť pre jednotlivé hexagonálne koordináty a určuje ich biómy.
+ * Results are cached to avoid redundant sin/cos recalculations in hot paths.
  */
 export class BiomeEngine {
+  /** LRU-style cache: "q:r" → BiomeDetails */
+  private static biomeCache = new Map<string, BiomeDetails>();
+
   /**
    * Získa axiálne súradnice (q, r) pre danú makro-pozíciu a sub-hexagon
    */
@@ -41,9 +48,20 @@ export class BiomeEngine {
   }
 
   /**
-   * Určí bióm na základe teploto-vlhkostnej sigmoidnej/goniometrickej mapy (Minecraft štýl)
+   * Určí bióm na základe teploto-vlhkostnej sigmoidnej/goniometrickej mapy (Minecraft štýl).
+   * Results are cached by coordinate key for performance.
    */
   public static getBiomeForCoords(q: number, r: number): BiomeDetails {
+    // Check cache first
+    const cacheKey = `${q}:${r}`;
+    const cached = this.biomeCache.get(cacheKey);
+    if (cached) {
+      // Move to end (most recently used) by re-inserting
+      this.biomeCache.delete(cacheKey);
+      this.biomeCache.set(cacheKey, cached);
+      return cached;
+    }
+
     // Fourier-sine-cosine šumový simulátor pre teplotu a vlhkosť
     const temperature = Math.sin(q * 0.5) * Math.cos(r * 0.5) * 0.5 + 0.5;
     const humidity = Math.cos(q * 0.4 + 1.0) * Math.sin(r * 0.4 - 0.5) * 0.5 + 0.5;
@@ -74,7 +92,18 @@ export class BiomeEngine {
       }
     }
 
-    return { biome, temperature, humidity, color, physics };
+    const result: BiomeDetails = { biome, temperature, humidity, color, physics };
+
+    // Evict oldest entries if cache is full
+    if (this.biomeCache.size >= BIOME_CACHE_MAX) {
+      const oldestKey = this.biomeCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.biomeCache.delete(oldestKey);
+      }
+    }
+    this.biomeCache.set(cacheKey, result);
+
+    return result;
   }
 
   /**
@@ -83,5 +112,12 @@ export class BiomeEngine {
   public static getBiomeForHex(metaId: number, hexId: number): BiomeDetails {
     const coords = this.getHexCoordinates(metaId, hexId);
     return this.getBiomeForCoords(coords.q, coords.r);
+  }
+
+  /**
+   * Clears the biome cache (useful when biome parameters change at runtime).
+   */
+  public static clearCache(): void {
+    this.biomeCache.clear();
   }
 }
