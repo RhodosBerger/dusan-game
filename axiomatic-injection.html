@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axiomatic Injection: Quadratic Spectrum</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg: #050510;
+            --panel: rgba(10, 10, 25, 0.85);
+            --text: #e0e0ff;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: var(--font-mono);
+            color: var(--text);
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            outline: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-panel {
+            background: var(--panel);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 4px;
+            pointer-events: auto;
+            max-width: 350px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--primary);
+            margin: 0 0 15px 0;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            background: transparent;
+            -webkit-appearance: none;
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            margin-top: -6px;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .data-readout {
+            font-size: 11px;
+            color: var(--secondary);
+            margin-top: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-console {
+            height: 150px;
+            overflow-y: auto;
+            font-size: 10px;
+            color: #888;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 15px;
+            padding-top: 10px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-entry span {
+            color: var(--primary);
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 16px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .spectrum-visualizer {
+            height: 40px;
+            background: linear-gradient(90deg, 
+                rgba(0,0,0,0) 0%, 
+                rgba(188, 19, 254, 0.2) 25%, 
+                rgba(0, 243, 255, 0.5) 50%, 
+                rgba(188, 19, 254, 0.2) 75%, 
+                rgba(0,0,0,0) 100%);
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .spectrum-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #fff;
+            box-shadow: 0 0 10px #fff;
+            animation: scan 2s infinite linear;
+        }
+
+        @keyframes scan {
+            0% { left: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud-panel">
+            <h1>Axiomatic Injection Core</h1>
+            
+            <div class="spectrum-visualizer">
+                <div class="spectrum-line"></div>
+            </div>
+
+            <div class="control-group">
+                <label>Quadratic Coefficient (A)</label>
+                <input type="range" id="param-a" min="-2" max="2" step="0.01" value="0.5">
+                <div class="data-readout"><span>Value:</span> <span id="val-a">0.50</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>Linear Coefficient (B)</label>
+                <input type="range" id="param-b" min="-5" max="5" step="0.1" value="1.0">
+                <div class="data-readout"><span>Value:</span> <span id="val-b">1.00</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>Constant Offset (C)</label>
+                <input type="range" id="param-c" min="-5" max="5" step="0.1" value="0.0">
+                <div class="data-readout"><span>Value:</span> <span id="val-c">0.00</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>Vertex Density</label>
+                <input type="range" id="param-density" min="10" max="100" step="1" value="40">
+                <div class="data-readout"><span>Count:</span> <span id="val-density">40</span></div>
+            </div>
+
+            <button id="btn-inject">Inject Axiom</button>
+            <button id="btn-reset">Reset Spectrum</button>
+
+            <div class="log-console" id="console-log">
+                <div class="log-entry">> System initialized...</div>
+                <div class="log-entry">> Waiting for axiomatic input...</div>
+            </div>
+        </div>
+        
+        <div class="hud-panel" style="align-self: flex-end;">
+            <h1>Solid Vertex Metrics</h1>
+            <div class="data-readout" style="margin-bottom: 5px;"><span>Active Vertices:</span> <span id="metric-verts">0</span></div>
+            <div class="data-readout" style="margin-bottom: 5px;"><span>Mesh Complexity:</span> <span id="metric-complex">Low</span></div>
+            <div class="data-readout"><span>Render Time:</span> <span id="metric-fps">60 FPS</span></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        
+        // State Management
+        const state = {
+            a: 0.5,
+            b: 1.0,
+            c: 0.0,
+            density: 40,
+            time: 0,
+            injecting: false
+        };
+
+        const logConsole = document.getElementById('console-log');
+
+        function log(msg) {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            div.innerHTML = `<span>[${time}]</span> ${msg}`;
+            logConsole.appendChild(div);
+            logConsole.scrollTop = logConsole.scrollHeight;
+        }
+
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.06, 1);
+            scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+            scene.fogDensity = 0.02;
+            scene.fogColor = new BABYLON.Color3(0.02, 0.02, 0.06);
+
+            // Camera
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 15, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 5;
+            camera.upperRadiusLimit = 30;
+
+            // Lighting
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.6;
+            light.groundColor = new BABYLON.Color3(0.1, 0.1, 0.2);
+
+            const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
+            dirLight.position = new BABYLON.Vector3(20, 40, 20);
+            dirLight.intensity = 0.8;
+
+            // Materials
+            const wireframeMat = new BABYLON.StandardMaterial("wireframe", scene);
+            wireframeMat.wireframe = true;
+            wireframeMat.emissiveColor = new BABYLON.Color3(0, 0.95, 1);
+            wireframeMat.disableLighting = true;
+
+            const solidMat = new BABYLON.StandardMaterial("solid", scene);
+            solidMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.2);
+            solidMat.specularColor = new BABYLON.Color3(0.7, 0.7, 0.7);
+            solidMat.emissiveColor = new BABYLON.Color3(0.05, 0.05, 0.1);
+            solidMat.alpha = 0.9;
+
+            // Axiomatic Grid Generator
+            let groundMesh;
+            
+            const generateAxiomaticGrid = () => {
+                if (groundMesh) groundMesh.dispose();
+
+                const size = 20;
+                const subdivisions = parseInt(state.density);
+                
+                // Create custom mesh for vertex manipulation
+                groundMesh = BABYLON.MeshBuilder.CreateGround("axiomGround", {width: size, height: size, subdivisions: subdivisions}, scene);
+                
+                const positions = groundMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                const normals = groundMesh.getVerticesData(BABYLON.VertexBuffer.NormalKind);
+                const colors = [];
+                
+                // Store original positions for calculation reference
+                const originalPositions = [...positions];
+
+                groundMesh.material = solidMat;
+                
+                // Add wireframe overlay
+                const wireframe = BABYLON.MeshBuilder.CreateGround("wireframeOverlay", {width: size, height: size, subdivisions: subdivisions}, scene);
+                wireframe.position.y = 0.05;
+                wireframe.material = wireframeMat;
+                
+                // Link wireframe to main mesh for updates
+                groundMesh.wireframeRef = wireframe;
+
+                log(`Axiom injected: Density ${subdivisions}x${subdivisions}`);
+                updateMetrics();
+            };
+
+            // Animation Loop Logic
+            scene.registerBeforeRender(() => {
+                state.time += 0.01;
+                
+                if (!groundMesh) return;
+
+                const positions = groundMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                const newPositions = [];
+                const colors = [];
+                
+                const vertexCount = positions.length / 3;
+                
+                // Quadratic Spectrum Function: f(x,z,t) = A*x² + B*z² + C*sin(t)
+                // Injecting noise based on axioms
+                
+                for (let i = 0; i < vertexCount; i++) {
+                    const x = positions[i * 3];
+                    const z = positions[i * 3 + 2];
+                    
+                    // Axiomatic Calculation
+                    // Q = A(x²) + B(z²) + C(sin(time))
+                    // We modify Y based on this quadratic spectrum
+                    
+                    const dist = Math.sqrt(x*x + z*z);
+                    const wave = Math.sin(dist * 2 - state.time) * Math.cos(dist * 3 + state.time);
+                    
+                    const quadraticTerm = (state.a * x * x) + (state.b * z * z);
+                    const injection = quadraticTerm * 0.1 + (state.c * wave);
+                    
+                    // Clamp to prevent extreme distortion
+                    const y = Math.max(-2, Math.min(5, injection));
+
+                    newPositions.push(x, y, z);
+
+                    // Dynamic Coloring based on height (Spectrum)
+                    const intensity = (y + 2) / 7; // Normalize 0-1 approx
+                    const r = Math.max(0, intensity * 0.2);
+                    const g = Math.max(0, 0.5 + intensity * 0.5);
+                    const b = Math.max(0, 0.8 + intensity * 0.2);
+                    
+                    colors.push(r, g, b, 1);
+                }
+
+                groundMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, newPositions);
+                groundMesh.setVerticesData(BABYLON.VertexBuffer.ColorKind, colors);
+                groundMesh.normals = []; // Reset normals to force recalculation
+                groundMesh.updateNormals();
+
+                // Sync wireframe
+                if (groundMesh.wireframeRef) {
+                    groundMesh.wireframeRef.setVerticesData(BABYLON.VertexBuffer.PositionKind, newPositions);
+                }
+            });
+
+            // Initial Generation
+            generateAxiomaticGrid();
+
+            return scene;
+        };
+
+        const scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+            document.getElementById('metric-fps').innerText = Math.round(engine.getFps()) + " FPS";
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+
+        // UI Bindings
+        const bindSlider = (id, key, displayId) => {
+            const el = document.getElementById(id);
+            const disp = document.getElementById(displayId);
+            el.addEventListener('input', (e) => {
+                state[key] = parseFloat(e.target.value);
+                disp.innerText = state[key].toFixed(2);
+                if(key === 'density') {
+                    // Debounce density change slightly or just log
+                    if(!window.densityTimeout) {
+                        window.densityTimeout = setTimeout(() => {
+                            scene.meshes.forEach(m => {
+                                if(m.name.includes("axiom") || m.name.includes("wireframe")) m.dispose();
+                            });
+                            // Re-create scene logic simplified for demo
+                            // In full app, we'd just regenerate the mesh
+                            const positions = scene.meshes[0]?.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                            if(positions) {
+                                 // Trigger regen via button or auto
+                                 log(`Parameter ${key} updated. Mesh regeneration pending.`);
+                            }
+                            window.densityTimeout = null;
+                        }, 500);
+                    }
+                }
+            });
+        };
+
+        bindSlider('param-a', 'a', 'val-a');
+        bindSlider('param-b', 'b', 'val-b');
+        bindSlider('param-c', 'c', 'val-c');
+        
+        const densitySlider = document.getElementById('param-density');
+        const densityDisplay = document.getElementById('val-density');
+        densitySlider.addEventListener('change', (e) => {
+            state.density = parseInt(e.target.value);
+            densityDisplay.innerText = state.density;
+            // Regenerate mesh
+            scene.meshes.forEach(m => {
+                if(m.name.includes("axiom") || m.name.includes("wireframe")) m.dispose();
+            });
+            // Access local function via closure hack or re-init
+            // For this single file, we call the generator logic directly if exposed or recreate
+            // Re-using the logic from createScene by extracting it:
+            
+            // Simple re-generation logic inline:
+            const size = 20;
+            const subdivisions = state.density;
+            const groundMesh = BABYLON.MeshBuilder.CreateGround("axiomGround", {width: size, height: size, subdivisions: subdivisions}, scene);
+            groundMesh.material = scene.getMaterialByName("solid");
+             const wireframe = BABYLON.MeshBuilder.CreateGround("wireframeOverlay", {width: size, height: size, subdivisions: subdivisions}, scene);
+            wireframe.position.y = 0.05;
+            wireframe.material = scene.getMaterialByName("wireframe");
+            groundMesh.wireframeRef = wireframe;
+            log(`Geometry regenerated: ${subdivisions} segments`);
+            updateMetrics();
+        });
+
+        document.getElementById('btn-inject').addEventListener('click', () => {
+            state.injecting = true;
+            log("Axiomatic Injection Sequence Started...");
+            setTimeout(() => {
+                state.a = (Math.random() * 2 - 1).toFixed(2);
+                state.b = (Math.random() * 2 - 1).toFixed(2);
+                state.c = (Math.random() * 4 - 2).toFixed(2);
+                
+                document.getElementById('param-a').value = state.a;
+                document.getElementById('val-a').innerText = state.a;
+                document.getElementById('param-b').value = state.b;
+                document.getElementById('val-b').innerText = state.b;
+                document.getElementById('param-c').value = state.c;
+                document.getElementById('val-c').innerText = state.c;
+                
+                log("New coefficients applied: A=" + state.a + ", B=" + state.b + ", C=" + state.c);
+                state.injecting = false;
+            }, 800);
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            state.a = 0.5; state.b = 1.0; state.c = 0.0; state.density = 40;
+            document.getElementById('param-a').value = 0.5; document.getElementById('val-a').innerText = "0.50";
+            document.getElementById('param-b').value = 1.0; document.getElementById('val-b').innerText = "1.00";
+            document.getElementById('param-c').value = 0.0; document.getElementById('val-c').innerText = "0.00";
+            document.getElementById('param-density').value = 40; document.getElementById('val-density').innerText = "40";
+            
+            scene.meshes.forEach(m => {
+                if(m.name.includes("axiom") || m.name.includes("wireframe")) m.dispose();
+            });
+             const size = 20;
+            const subdivisions = 40;
+            const groundMesh = BABYLON.MeshBuilder.CreateGround("axiomGround", {width: size, height: size, subdivisions: subdivisions}, scene);
+            groundMesh.material = scene.getMaterialByName("solid");
+             const wireframe = BABYLON.MeshBuilder.CreateGround("wireframeOverlay", {width: size, height: size, subdivisions: subdivisions}, scene);
+            wireframe.position.y = 0.05;
+            wireframe.material = scene.getMaterialByName("wireframe");
+            groundMesh.wireframeRef = wireframe;
+            log("System reset to default axioms.");
+            updateMetrics();
+        });
+
+        function updateMetrics() {
+            // Find the ground mesh to count vertices
+            const mesh = scene.getMeshByName("axiomGround");
+            if(mesh) {
+                const count = mesh.getTotalVertices();
+                document.getElementById('metric-verts').innerText = count.toLocaleString();
+                document.getElementById('metric-complex').innerText = count > 2000 ? "High" : (count > 800 ? "Medium" : "Low");
+            }
+        }
+
+    </script>
+</body>
+</html>
