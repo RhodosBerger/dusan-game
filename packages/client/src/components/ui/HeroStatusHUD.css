@@ -1,0 +1,442 @@
+/* HeroStatusHUD.css - Hearthstone x Dota 2 Inspired Hero HUD Styles */
+
+.hero-status-hud {
+  position: relative;
+  display: inline-block;
+}
+
+/* Portrait Container */
+.portrait-container {
+  position: relative;
+  width: 180px;
+  padding-bottom: 220px;
+}
+
+/* Rank Gems */
+.rank-gems {
+  position: absolute;
+  font-size: 20px;
+  z-index: 10;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.rank-gems.top-left {
+  top: -10px;
+  left: -10px;
+  color: #ffd700;
+}
+
+.rank-gems.top-right {
+  top: -10px;
+  right: -10px;
+  color: #ffd700;
+}
+
+/* Portrait Frame */
+.portrait-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 180px;
+  height: 180px;
+  border: 4px solid;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 100%);
+  box-shadow: 
+    0 0 20px rgba(0, 0, 0, 0.5),
+    inset 0 0 30px rgba(0, 0, 0, 0.3),
+    0 0 40px currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.3s ease;
+}
+
+.portrait-image {
+  font-size: 100px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+  animation: portraitBreath 3s infinite ease-in-out;
+}
+
+@keyframes portraitBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Level Badge */
+.level-badge {
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: #000;
+  text-shadow: none;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+  z-index: 5;
+}
+
+/* Ultimate Orb */
+.ultimate-orb {
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffaa00 0%, #ff6600 100%);
+  border: 3px solid #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 0 20px rgba(255, 170, 0, 0.6);
+  transition: all 0.2s ease;
+  z-index: 15;
+}
+
+.ultimate-orb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 30px rgba(255, 170, 0, 0.9);
+}
+
+.ultimate-orb.pulsing {
+  animation: ultimatePulse 0.8s infinite;
+}
+
+@keyframes ultimatePulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 170, 0, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 170, 0, 1);
+    transform: scale(1.08);
+  }
+}
+
+/* Bar Containers */
+.bar-container {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.health-bar-container {
+  bottom: 80px;
+}
+
+.mana-bar-container {
+  bottom: 45px;
+}
+
+.bar-fill {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.4s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.health-fill {
+  background: linear-gradient(90deg, #ff3333 0%, #ff6666 100%);
+  box-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
+}
+
+.health-fill.low {
+  background: linear-gradient(90deg, #ff0000 0%, #ff3333 100%);
+  animation: healthLow 1s infinite;
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+}
+
+@keyframes healthLow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.mana-fill {
+  background: linear-gradient(90deg, #3366ff 0%, #6699ff 100%);
+  box-shadow: 0 0 10px rgba(51, 102, 255, 0.5);
+}
+
+.bar-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.bar-icon {
+  position: absolute;
+  right: 8px;
+  font-size: 16px;
+  z-index: 2;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+}
+
+/* XP Bar */
+.xp-bar-container {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff00 0%, #66ff66 100%);
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.4);
+  transition: width 0.5s ease-out;
+}
+
+.xp-text {
+  position: absolute;
+  bottom: -18px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+/* Status Effects Carousel */
+.status-effects-carousel {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.status-effect-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  position: relative;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.status-effect-icon:hover {
+  transform: scale(1.15);
+  border-color: #fff;
+}
+
+.status-effect-icon.buff {
+  border-color: #00ff00;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.status-effect-icon.debuff {
+  border-color: #ff0000;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+}
+
+.status-effect-icon.control {
+  border-color: #ff00ff;
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+}
+
+.stack-count {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Duration Ring */
+.duration-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 8px;
+  border: 3px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.8);
+  animation: durationSpin calc(var(--duration) / var(--maxDuration) * 1s) linear forwards;
+  pointer-events: none;
+}
+
+@keyframes durationSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Floating Combat Text */
+.floating-text {
+  position: absolute;
+  font-size: 28px;
+  font-weight: 900;
+  pointer-events: none;
+  animation: floatUp 1.2s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  z-index: 100;
+}
+
+.floating-text.damage {
+  color: #ff3333;
+  animation-name: floatUpDamage;
+}
+
+.floating-text.crit {
+  color: #ffaa00;
+  font-size: 42px;
+  animation-name: floatUpCrit;
+}
+
+.floating-text.heal {
+  color: #00ff00;
+  animation-name: floatUpHeal;
+}
+
+.floating-text.mana {
+  color: #3366ff;
+  font-size: 22px;
+  animation-name: floatUpMana;
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-80px) scale(0.8);
+  }
+}
+
+@keyframes floatUpDamage {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(1);
+  }
+}
+
+@keyframes floatUpCrit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1.5) rotate(-10deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100px) scale(1.2) rotate(10deg);
+  }
+}
+
+@keyframes floatUpHeal {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70px) scale(1.1);
+  }
+}
+
+@keyframes floatUpMana {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+}
+
+/* Responsive Scaling */
+@media (max-width: 768px) {
+  .portrait-container {
+    width: 120px;
+    padding-bottom: 150px;
+  }
+  
+  .portrait-frame {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .portrait-image {
+    font-size: 70px;
+  }
+  
+  .level-badge {
+    width: 35px;
+    height: 35px;
+    font-size: 16px;
+    bottom: -10px;
+  }
+  
+  .bar-container {
+    height: 22px;
+  }
+  
+  .bar-text {
+    font-size: 9px;
+  }
+  
+  .status-effects-carousel {
+    left: 60%;
+    max-height: 150px;
+  }
+  
+  .status-effect-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+}
