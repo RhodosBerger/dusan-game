@@ -1,0 +1,90 @@
+// packages/server/prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ── Player Account & Core Stats ──────────────────────────────────────────────
+model Player {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  level        Int      @default(1)
+  xp           Int      @default(0)
+  mmr          Int      @default(1000)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  inventory    Inventory[]
+  cardDeck     PlayerCard[]
+  quests       PlayerQuest[]
+  items        PlayerItem[]
+}
+
+// ── Inventory Surovin (Materials obtained from chests) ────────────────────────
+model Inventory {
+  id          String   @id @default(uuid())
+  playerId    String
+  materialKey String   // e.g. "CrystalShard", "ToxicSpore", "Essence"
+  amount      Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, materialKey])
+  @@index([playerId])
+}
+
+// ── Cards & Cosmetics Unlocked ───────────────────────────────────────────────
+model PlayerCard {
+  id               String   @id @default(uuid())
+  playerId         String
+  cardDefinitionId String // References CARD_DEFINITIONS base catalog
+  customVoltage    Float?   // Crafting modified Voltage (V)
+  customResistance Float? // Crafting modified Resistance (R)
+  isShiny          Boolean  @default(false)
+  unlockedAt       DateTime @default(now())
+
+  player           Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+}
+
+// ── Daily Quests (Progress and roll status) ──────────────────────────────────
+model PlayerQuest {
+  id           String      @id @default(uuid())
+  playerId     String
+  questKey     String      // e.g. "WIN_MATCH_CRYSTAL", "COLLECT_CHESTS"
+  progress     Int         @default(0)
+  targetValue  Int
+  completed    Boolean     @default(false)
+  xpReward     Int
+  rolledAt     DateTime    @default(now())
+
+  player       Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, questKey])
+  @@index([playerId])
+}
+
+// ── Player Purchased Items (Weapons, Tools, Harvest Equipment) ───────────────
+model PlayerItem {
+  id         String   @id @default(uuid())
+  playerId   String
+  itemKey    String   // e.g. "AETHER_SABER", "GRAVITY_HARVESTER"
+  category   String   // "WEAPON", "TOOL", "HARVEST"
+  quantity   Int      @default(1)
+  durability Int      @default(100)
+  unlockedAt DateTime @default(now())
+
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+}

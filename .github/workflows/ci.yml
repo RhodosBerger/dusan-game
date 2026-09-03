@@ -1,0 +1,208 @@
+name: The Last Tribe — CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+  GO_VERSION:   '1.22'
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Build shared TypeScript library
+  # ─────────────────────────────────────────────────────────────────────────
+  build-shared:
+    name: 📦 Build Shared Library
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w packages/shared
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-dist
+          path: packages/shared/dist
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Server unit tests (testEngine.ts — all 16 suites)
+  # ─────────────────────────────────────────────────────────────────────────
+  test-server:
+    name: 🧪 Server Tests (TypeScript)
+    needs: build-shared
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: shared-dist
+          path: packages/shared/dist
+      - run: npm ci
+      - name: Run 16-suite Engine Test
+        run: npx ts-node packages/server/src/testEngine.ts
+      - name: TypeScript type-check
+        run: npx tsc -p packages/server/tsconfig.json --noEmit
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 3: Go Core build + go vet
+  # ─────────────────────────────────────────────────────────────────────────
+  test-go-core:
+    name: 🐹 Go Core Build & Vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: packages/go-core/go.sum
+      - name: Build
+        run: go build ./...
+        working-directory: packages/go-core
+      - name: Vet
+        run: go vet ./...
+        working-directory: packages/go-core
+      - name: Test
+        run: go test ./... -v -timeout 30s
+        working-directory: packages/go-core
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 4: Client Vite production build
+  # ─────────────────────────────────────────────────────────────────────────
+  build-client:
+    name: ⚡ Vite Client Build
+    needs: build-shared
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: shared-dist
+          path: packages/shared/dist
+      - run: npm ci
+      - run: npm run build -w packages/client
+        env:
+          VITE_CDN_URL: ${{ vars.VITE_CDN_URL || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: packages/client/dist
+          retention-days: 3
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 5: Playwright E2E tests (main branch + PRs to main only)
+  # ─────────────────────────────────────────────────────────────────────────
+  e2e-tests:
+    name: 🎭 Playwright E2E Tests
+    needs: [test-server, test-go-core, build-client]
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: client-dist
+          path: packages/client/dist
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Start Go Core microservice
+        run: go run packages/go-core/main.go &
+        env:
+          PORT: 8081
+
+      - name: Start Node.js Sovereign Server
+        run: npx ts-node packages/server/src/server.ts &
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret-do-not-use-in-prod
+          PORT: 3001
+
+      - name: Serve Vite client build
+        run: npx serve packages/client/dist -l 5173 &
+
+      - name: Wait for all services to be ready
+        run: |
+          npx wait-on http://localhost:8081/health http://localhost:3001/health http://localhost:5173 --timeout 20000
+
+      - name: Run Playwright E2E Suite
+        run: npx playwright test --reporter=html
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 6: Docker build + push (main branch only)
+  # ─────────────────────────────────────────────────────────────────────────
+  docker-publish:
+    name: 🐳 Docker Build & Push
+    needs: e2e-tests
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: dusangame/server
+          tags: |
+            type=sha,prefix=git-
+            type=raw,value=latest
+
+      - name: Build & push server image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.server
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Build & push Go Core image
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/go-core
+          file: packages/go-core/Dockerfile
+          push: true
+          tags: dusangame/go-core:latest,dusangame/go-core:git-${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max

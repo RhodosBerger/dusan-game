@@ -1,0 +1,31 @@
+FROM node:22-alpine
+
+# Install Python 3, virtual environment tools, and build dependencies for native modules
+RUN apk add --no-cache python3 py3-virtualenv build-base
+
+WORKDIR /app
+
+# Copy package config and lockfile
+COPY package.json package-lock.json ./
+COPY packages/shared ./packages/shared
+COPY packages/server ./packages/server
+
+# Install dependencies via yarn
+RUN yarn install
+
+# Setup Python virtual environment for ML spawner
+RUN python3 -m venv /app/packages/server/.venv
+
+# Build shared library and compile TypeScript
+RUN npx prisma generate --schema=packages/server/prisma/schema.prisma
+RUN yarn workspace @dusan-game/shared build
+RUN yarn workspace @dusan-game/server build
+
+EXPOSE 3001
+ENV PORT=3001
+ENV GO_CORE_URL=http://go-core:8081
+ENV REDIS_URL=redis://redis:6379
+ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/dusan-game?schema=public
+
+# Push Prisma schema and launch the Node Express server
+CMD ["sh", "-c", "npx prisma db push --schema=packages/server/prisma/schema.prisma && yarn workspace @dusan-game/server dev"]

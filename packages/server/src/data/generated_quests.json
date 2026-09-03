@@ -1,0 +1,20 @@
+[
+  {
+    "quest_id": "q_crystal_forge",
+    "title": "Aetheric Refinement",
+    "prompt": "Solar Forge Master: The core heater is running low. Bring us 16 Crystal Shards to forge a new Behemoth chestplate. Current balance: 5 shards. Missing: 11.",
+    "target_material": "CrystalShard",
+    "required_amount": 16,
+    "current_amount": 5,
+    "remaining_amount": 11
+  },
+  {
+    "quest_id": "q_toxic_cleanse",
+    "title": "Swamp Decontamination",
+    "prompt": "Alchemist Helix: Toxic levels in the swamp sector are rising. Gathering 11 Spores will allow us to synthesize a biome filter. Your inventory shows 2 Spores. Harvest 9 more.",
+    "target_material": "Spores",
+    "required_amount": 11,
+    "current_amount": 2,
+    "remaining_amount": 9
+  }
+]
