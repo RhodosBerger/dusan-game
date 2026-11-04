@@ -1,91 +1,97 @@
-# Dušan Game · The Last Tribe
+# Dušan Game: The Last Tribe
 
-**Taktická hra na hexovej aréne, kde sa herné rozhodnutia stretávajú s Ohmovým zákonom, procedurálnym svetom a 3D efektmi.**
+Dušan Game is an experimental open-source tactical game project focused on hex-based arena combat, card-driven decisions, procedural world generation, and a 3D client. The repository combines a React/Three.js frontend, TypeScript game/server packages, and a Go HTTP service for simulation and telemetry experiments.
 
-Dušan Game je verejný experimentálny projekt aj otvorená učebňa pre ľudí, ktorí chcú skúmať, ako sa prepájajú herný klient, real-time komunikácia, simulácia a backendové služby.
+> Status: active prototype and research project. This project is not currently production-ready. The repository contains working experiments, but its CI, dependency locks, and runtime setup still need to be stabilized before a release candidate can be claimed.
 
-[Preskúmať zdrojový kód](https://github.com/RhodosBerger/dusan-game) · [Otvoriť Issues](https://github.com/RhodosBerger/dusan-game/issues) · [Pozrieť roadmapu](NEW_INTEGRATION_GOALS.md)
+[View source](https://github.com/RhodosBerger/dusan-game) · [Report issue](https://github.com/RhodosBerger/dusan-game/issues) · [Pull requests](https://github.com/RhodosBerger/dusan-game/pulls) · [Rules](RULES.md)
 
-> **Transparentne o stave:** Projekt sa aktívne vyvíja. Časť dokumentácie je vízia alebo plán, nie hotová funkcia. Repozitár neprezentuje škálovanie, AI ani monetizáciu ako produkčne overené. Nižšie rozlišujeme medzi tým, čo je viditeľné v kóde, a tým, čo komunita môže pomôcť vybudovať.
+## Overview
 
-## Čo môže zaujať komunitu
+The Last Tribe explores a tactical arena game where movement, card play, combat, and procedural world logic interact. It is intended both as a playable prototype and as a learning project for developers interested in:
 
-- **Herný nápad s jasným háčikom:** karty a akcie sú tematicky postavené na napätí, odpore a prúde; pozri pravidlá a dátový model kariet.
-- **Hexový svet na experimentovanie:** procedurálne generovanie, súradnice hexov a geometrické operácie vytvárajú priestor pre nové mapy a biomy.
-- **Lokálny sandbox:** klient obsahuje fallback simuláciu, takže sieťové experimenty možno porovnať s lokálnym režimom.
-- **Prístupná cesta do projektu:** React/TypeScript klient, Node/TypeScript serverové balíky, Go služba a samostatná Laravel aplikácia poskytujú viac backendových tém na štúdium.
-- **Príležitosť ovplyvniť smer:** testovanie, dokumentácia, prístupnosť, stabilizácia vývojového prostredia aj herný dizajn sú konkrétne spôsoby, ako prispieť.
+- React + Vite game frontends
+- Three.js and 3D rendering
+- Socket.IO real-time communication
+- TypeScript game logic and shared modules
+- Go-based compute services and telemetry processing
 
-## Ďalšia generácia: princípy, nie marketingové sľuby
+This repository is a public experimentation space. Some roadmap and blueprint documents describe future ideas or architectural directions, but they should not be mistaken for fully implemented production features.
 
-Vízia projektu je zaujímavá vtedy, keď sa dá overiť. Tieto princípy pomáhajú meniť ambiciózne blueprinty na udržateľný softvér:
+## What is in the codebase
 
-1. **Deterministický svet, ktorý možno zopakovať.** Seedované generovanie umožňuje vytvoriť a zdieľať rovnaký experiment. Základ generovania nájdete v `packages/shared/src/core/BooleanHexCore.ts`; ďalší krok je stabilný formát seedu a reprodukovateľné testovacie scenáre.
-2. **Offline-first a odolnosť voči výpadkom.** `ConnectionEngine` ukazuje prepnutie do lokálneho sandboxu pri probléme so spojením. Budúce zmeny by mali jasne odlišovať lokálny tréning od online zápasu a nikdy potichu nevydávať neautorizovaný lokálny stav za serverový.
-3. **Malé, vymeniteľné hranice služieb.** Klient, Socket.IO komunikácia a Go HTTP služba sú vhodné na učenie sa kontraktov medzi komponentmi. Službu pridávajme len vtedy, keď rieši konkrétnu potrebu; nie preto, že architektúra znie modernejšie.
-4. **Dáta a AI pod ľudskou kontrolou.** Telemetria a automatické návrhy na balans môžu podporiť vývoj, ale nemajú bez kontroly meniť kompetitívne pravidlá. Najprv treba definovať účel, minimalizovať údaje, zdokumentovať ich životný cyklus a návrhy testovať.
-5. **Výkon meraný na reálnych zariadeniach.** LOD, streamovanie assetov a adaptívna kvalita sú dobré ciele; tvrdenia o FPS alebo latencii treba podložiť reprodukovateľnými benchmarkmi na pomenovaných zariadeniach.
-6. **Prístupnosť ako súčasť herného dizajnu.** Klávesnica, čitateľnosť, farebne nezávislé signály, titulky, znížený pohyb a nastaviteľné otrasy kamery patria do návrhu od začiatku.
-7. **Rozšíriteľnosť cez obsah a stabilné kontrakty.** Komunitné mapy, scenáre a kozmetický obsah potrebujú validáciu, verziovanie, pravidlá atribúcie a bezpečný import—nie iba sľub marketplace.
-8. **Férová ekonomika a dôvera hráčov.** Ak sa niekedy zavedie monetizácia, prednosť majú jasne ocenené kozmetické alebo podporné položky. Žiadne pay-to-win, platené náhodné odmeny ani zavádzajúci tlak na nákup.
+- Client: `packages/client/` — React/Vite client, 3D scene, game UI, and Socket.IO interaction.
+- Shared modules: `packages/shared/` — reusable TypeScript logic for game systems and procedural generation.
+- Server: `packages/server/` — Express/Socket.IO server and game logic.
+- Go core: `packages/go-core/` — Go HTTP service for computation and telemetry experiments.
+- Laravel app: `laravel_app/` — separate Laravel/Vite implementation.
+- E2E tests: `e2e/` — Playwright-based end-to-end tests.
 
-## Čo je v kóde a čo je vízia
+## Current project status
 
-| Téma | Viditeľné v repozitári | Ďalší cieľ / otvorená práca |
-| --- | --- | --- |
-| Klient a aréna | React klient s 3D komponentmi, lobby a Socket.IO klientom | Overiť celý čistý vývojový a produkčný build; zlepšiť mobilné a prístupné ovládanie |
-| Hexový svet | `BooleanHexCore` s rasterizáciou tvarov, boolean operáciami a seedovaným generovaním | Opraviť a otestovať okrajové prípady; vytvoriť zdieľateľné mapové scenáre |
-| Offline režim | `ConnectionEngine` má sandbox fallback a lokálne ukážkové dáta | Jasné UI režimu, korektná synchronizácia a bezpečný návrat do online hry |
-| Go core | HTTP endpointy pre syntézu, výpočty a telemetriu; telemetria je v pamäti procesu | Validácia vstupov, limity, testy, autentifikácia podľa potreby, trvalé a súkromie rešpektujúce úložisko |
-| Data/ML blueprinty | Dokumentácia opisuje analytiku a automatické vyvažovanie | Najprv overiť dátový pipeline a kvalitu dát; ML nech iba navrhuje zmeny na review |
-| Matchmaking a škálovanie | Roadmapy spomínajú Redis a viac režimov | Zmerať súčasnú kapacitu, definovať ciele a až potom navrhnúť škálovanie |
-| Ekonomika | Kód a dokumenty obsahujú experimenty s inventárom/obchodom | Zjednotiť stav dokumentácie; nepredávať hernú výhodu a zatiaľ nespracúvať reálne platby |
+The repository was reviewed on 2026-11-04. The latest inspected workflow run failed during `npm ci`, which means the dependency lockfile and package manifests are not currently consistent. That makes the current CI and deployment pipeline not yet validated.
 
-**Poznámka k dôkazom:** napríklad Go core počíta geolokačné súradnice z ukážkového vzorca a ukladá telemetriu do pamäťového poľa procesu. Nie je to GPS hráčov ani trvalý analytický sklad. Architektonické dokumenty môžu popisovať komponenty, ktoré v aktuálnom zdrojovom strome chýbajú.
+### Known blockers
 
-## Technologický prehľad
+- `package.json` and `package-lock.json` are out of sync.
+- CI config pins Go 1.22 while `packages/go-core/go.mod` targets Go 1.26.4.
+- Dockerfiles and Compose configuration mix npm and yarn usage and include development credentials.
+- The database setup is inconsistent: the server logic refers to local SQLite usage while Prisma and Compose declare PostgreSQL.
+- The project includes a separate Laravel app and Go service, but their integration with the main game stack is not yet operationally proven.
 
-- **Klient:** React, JavaScript/TypeScript, Vite, Three.js, React Three Fiber, Socket.IO Client
-- **Herná logika a zdieľané moduly:** TypeScript
-- **Serverové komponenty:** Node.js/TypeScript a samostatný Go HTTP proces
-- **Dáta a lokálne služby:** konfigurácia Compose deklaruje PostgreSQL a Redis; serverový balík uvádza Prisma
-- **Ďalší experiment:** samostatná Laravel aplikácia v `laravel_app/`
-- **Testy:** v repozitári sú Vitest a Playwright konfigurácie/testy; skutočný stav testov treba overiť spustením
+These issues are evidence-based and should be resolved before any production claim is made.
 
-## Lokálne spustenie
+## Tech stack
 
-Požiadavky root `package.json`: Node.js 18+ a npm 9+. Na lokálne preskúmanie deklarovaných Compose služieb:
+- Frontend: React, TypeScript, Vite, Three.js, React Three Fiber
+- Game server: Node.js, TypeScript, Express, Socket.IO
+- Shared logic: TypeScript
+- Compute layer: Go
+- Additional service: Laravel/Vite app in `laravel_app/`
+- Test tooling: Vitest and Playwright
+
+## Repository structure
+
+| Path | Purpose |
+| --- | --- |
+| `packages/client/` | Game client and UI |
+| `packages/shared/` | Shared game and procedural modules |
+| `packages/server/` | Server-side game logic and network layer |
+| `packages/go-core/` | Go microservice for calculations and telemetry |
+| `laravel_app/` | Separate Laravel app |
+| `e2e/` | End-to-end test suite |
+| `docs/` and root design files | Architecture, roadmap, and game blueprints |
+
+## Local setup notes
+
+Before running the project locally, confirm the toolchain versions and dependency state. The repository currently has mismatches in package manifests, Go versioning, and container setup, so a clean install cannot yet be assumed to work.
 
 ```bash
-docker compose up --build
+# After lockfile and package manifests are reconciled
+npm ci
+
+# Then build the shared module and client as needed
+npm run build --workspace=@dusan-game/shared
+npm run build --workspace=client
 ```
 
-Compose obsahuje vývojové prihlasovacie údaje a publikuje porty databázy a Redis. Používaj ho iba lokálne, neotváraj tieto porty do internetu a pred nasadením nahraď všetky predvolené credentials a konfiguráciu. Predpoklady Dockerfile-ov, workspace skriptov a spúšťacích príkazov sa môžu líšiť od aktuálneho zdrojového stromu—skontroluj príslušné manifesty a logy. Root skripty odkazujú aj na `apps/*` workspaces, ktoré nemusia byť v tomto repozitári aktuálne prítomné.
+## Documentation
 
-## Dokumentácia a orientácia
+- [RULES.md](RULES.md) — game rules and mechanics
+- [NEW_INTEGRATION_GOALS.md](NEW_INTEGRATION_GOALS.md) — roadmap and integration goals
+- [TARGET_VISION_BLUEPRINT.md](TARGET_VISION_BLUEPRINT.md) — target architecture and product vision
+- [GAME_STATUS.md](GAME_STATUS.md) — historical project status notes
+- [PRODUCTION_READY.md](PRODUCTION_READY.md) — current readiness assessment and release gates
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines
 
-- [`RULES.md`](RULES.md) — pravidlá hry
-- [`NEW_INTEGRATION_GOALS.md`](NEW_INTEGRATION_GOALS.md) — vízia a roadmapa integrácií; stav položiek treba porovnať s kódom
-- [`TARGET_VISION_BLUEPRINT.md`](TARGET_VISION_BLUEPRINT.md) — návrh cieľovej architektúry
-- [`ENGINE_CONSTITUTION.md`](ENGINE_CONSTITUTION.md) — princípy a koncepty enginu
-- [`BACKEND_RESEARCH_STUDY.md`](BACKEND_RESEARCH_STUDY.md) — porovnanie backend prístupov
-- [`DATABASE_AND_SYNCHRONIZATION_STUDY.md`](DATABASE_AND_SYNCHRONIZATION_STUDY.md) — databázy a synchronizácia
-- [`OPEN_SOURCE_ARCHITECTURE.md`](OPEN_SOURCE_ARCHITECTURE.md) — modulárna architektúra (návrh)
-- [`GAME_STATUS.md`](GAME_STATUS.md) — historické poznámky o stave; over aktuálnosť
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — prispievanie do projektu
+## Contributing
 
-## Ako môžeš pomôcť
+Contributions are welcome in the form of reproducible bug reports, tests, accessibility improvements, documentation updates, and small feature experiments. If you file a bug report, include your environment, exact steps to reproduce, expected behavior, actual behavior, and relevant logs without exposing secrets or credentials.
 
-Vyber si jednu malú, overiteľnú úlohu a otvor issue alebo pull request:
+## Licensing
 
-- **Hráč/hráčka:** vyskúšaj sandbox alebo lobby a nahlás reprodukovateľný bug s krokmi a očakávaným výsledkom.
-- **Frontend vývojár:** navrhni klávesnicové ovládanie, reduced-motion nastavenie alebo čitateľnejšie vysvetlenie hry.
-- **Backend vývojár:** pridaj testy a validáciu hraníc medzi klientom, serverom a Go službou.
-- **Game designer:** navrhni mapu, biome alebo pravidlo s jasnými príkladmi a dopadom na balans.
-- **Dokumentátor:** porovnaj roadmapu so zdrojovým kódom a označ tvrdenia ako *hotové, čiastočné, plánované* alebo *neaktuálne*.
+Before redistributing or using this project commercially, confirm the licensing of the repo, all included assets, and all third-party dependencies. The package metadata references MIT, but the root license file should be verified and kept in sync with project distribution requirements.
 
-Pri bug reporte uveď prostredie, kroky na reprodukciu, očakávané a skutočné správanie a relevantné logy bez tajných údajov. Pri väčšom návrhu najprv otvor [diskusiu cez issue](https://github.com/RhodosBerger/dusan-game/issues).
+---
 
-## Licencia
-
-V metadátach balíka je uvedená MIT licencia, no koreňový repozitár nemusí mať kompletný licenčný súbor. Pred redistribúciou alebo komerčným použitím over skutočnú licenciu kódu, assetov a všetkých závislostí. Nevyvodzuj licenčné práva len z roadmapy alebo návrhového dokumentu.
+This README is intentionally written in English to keep the public-facing project description consistent across the repository and easier for contributors to understand.
