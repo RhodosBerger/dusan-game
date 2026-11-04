@@ -1,16 +1,29 @@
-# React + Vite
+# Dušan Game Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This package contains the browser client for Dušan Game. It is the front-end layer for the tactical hex-based game, built with React, Vite, and Three.js.
 
-Currently, two official plugins are available:
+## Purpose
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The client renders the game scene, handles the user interface, connects to the server via Socket.IO, and provides the presentation layer for the gameplay loop.
 
-## React Compiler
+## Tech stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React
+- Vite
+- TypeScript
+- Three.js
+- @react-three/fiber
+- Socket.IO client
 
-## Expanding the Oxlint configuration
+## Scripts
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```bash
+npm run dev
+npm run build
+npm run preview
+npm test
+```
+
+## Notes
+
+This package is part of the overall Dušan Game monorepo. It is currently an active experimental frontend and should be treated as a prototype until the project-wide CI, dependency, and deployment setup are stabilized.

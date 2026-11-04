@@ -1,89 +1,97 @@
-# Dušan Game: The Last Tribe — experimentálna taktická hexová hra
+# Dušan Game: The Last Tribe
 
-**Dušan Game (The Last Tribe)** je experimentálna open-source hra a vývojový projekt zameraný na taktické súboje na hexovej aréne, karty, procedurálne generovanie sveta a 3D herné rozhranie. Repozitár obsahuje React/Three.js klienta, TypeScript herné a serverové balíky a samostatnú Go HTTP službu.
+Dušan Game is an experimental open-source tactical game project focused on hex-based arena combat, card-driven decisions, procedural world generation, and a 3D client. The repository combines a React/Three.js frontend, TypeScript game/server packages, and a Go HTTP service for simulation and telemetry experiments.
 
-> **Stav:** aktívny prototyp a učebný projekt — nie je pripravený na produkčné nasadenie. Čistá inštalácia a aktuálny CI workflow majú známe problémy. Funkcie, ktoré sú v kóde, nemusia byť plne otestované ani dokončené.
+> Status: active prototype and research project. This project is not currently production-ready. The repository contains working experiments, but its CI, dependency locks, and runtime setup still need to be stabilized before a release candidate can be claimed.
 
-[Preskúmať zdrojový kód](https://github.com/RhodosBerger/dusan-game) · [Nahlásiť problém](https://github.com/RhodosBerger/dusan-game/issues) · [Pull requests](https://github.com/RhodosBerger/dusan-game/pulls) · [Pravidlá hry](RULES.md)
+[View source](https://github.com/RhodosBerger/dusan-game) · [Report issue](https://github.com/RhodosBerger/dusan-game/issues) · [Pull requests](https://github.com/RhodosBerger/dusan-game/pulls) · [Rules](RULES.md)
 
-## O hre
+## Overview
 
-The Last Tribe skúma taktickú hru na hexovej mape, v ktorej sa stretávajú karty, pohyb, súboje a procedurálne herné systémy. Projekt je určený hráčom, ktorí chcú preskúmať prototyp, a vývojárom, ktorí sa zaujímajú o vývoj hier v Reacte a TypeScripte, 3D vykresľovanie cez Three.js, real-time komunikáciu cez Socket.IO alebo hranice medzi Node.js a Go službou.
+The Last Tribe explores a tactical arena game where movement, card play, combat, and procedural world logic interact. It is intended both as a playable prototype and as a learning project for developers interested in:
 
-Repozitár je verejný priestor na experimentovanie a prispievanie. Roadmapy a blueprinty opisujú aj budúce nápady; nepovažujte ich automaticky za hotové funkcie.
+- React + Vite game frontends
+- Three.js and 3D rendering
+- Socket.IO real-time communication
+- TypeScript game logic and shared modules
+- Go-based compute services and telemetry processing
 
-## Funkcie a oblasti experimentovania
+This repository is a public experimentation space. Some roadmap and blueprint documents describe future ideas or architectural directions, but they should not be mistaken for fully implemented production features.
 
-- **Taktická hexová aréna:** herné jednotky, pohyb, karty a súboje v serverovej hernej logike.
-- **3D herný klient:** React, Vite, Three.js a React Three Fiber.
-- **Procedurálny svet:** zdieľané moduly v TypeScripte vrátane nástrojov na prácu s hexovou geometriou a generovaním terénu.
-- **Real-time komunikácia:** Express/Socket.IO server a Socket.IO klient.
-- **Go Core prototyp:** HTTP endpointy pre výpočty a syntézu; telemetria sa momentálne ukladá v pamäti procesu.
-- **Lokálny sandbox:** klient obsahuje fallbackové herné správanie; úplný online/offline priechod treba overiť.
+## What is in the codebase
 
-Tieto body opisujú kód a experimenty v repozitári, nie garanciu produkčnej kvality, dostupnosti, bezpečnosti ani úplnosti hry.
+- Client: `packages/client/` — React/Vite client, 3D scene, game UI, and Socket.IO interaction.
+- Shared modules: `packages/shared/` — reusable TypeScript logic for game systems and procedural generation.
+- Server: `packages/server/` — Express/Socket.IO server and game logic.
+- Go core: `packages/go-core/` — Go HTTP service for computation and telemetry experiments.
+- Laravel app: `laravel_app/` — separate Laravel/Vite implementation.
+- E2E tests: `e2e/` — Playwright-based end-to-end tests.
 
-## Technológie
+## Current project status
 
-- **Klient a 3D:** React, TypeScript/JavaScript, Vite, Three.js, React Three Fiber
-- **Herný server:** Node.js, TypeScript, Express, Socket.IO
-- **Zdieľané moduly:** TypeScript
-- **Výpočtová služba:** Go, HTTP
-- **Ďalší samostatný experiment:** Laravel aplikácia v `laravel_app/`
-- **Testovacie nástroje:** Vitest a Playwright konfigurácie/testy; aktuálny stav testov si overte spustením CI
+The repository was reviewed on 2026-11-04. The latest inspected workflow run failed during `npm ci`, which means the dependency lockfile and package manifests are not currently consistent. That makes the current CI and deployment pipeline not yet validated.
 
-## Štruktúra repozitára
+### Known blockers
 
-| Cesta | Obsah |
+- `package.json` and `package-lock.json` are out of sync.
+- CI config pins Go 1.22 while `packages/go-core/go.mod` targets Go 1.26.4.
+- Dockerfiles and Compose configuration mix npm and yarn usage and include development credentials.
+- The database setup is inconsistent: the server logic refers to local SQLite usage while Prisma and Compose declare PostgreSQL.
+- The project includes a separate Laravel app and Go service, but their integration with the main game stack is not yet operationally proven.
+
+These issues are evidence-based and should be resolved before any production claim is made.
+
+## Tech stack
+
+- Frontend: React, TypeScript, Vite, Three.js, React Three Fiber
+- Game server: Node.js, TypeScript, Express, Socket.IO
+- Shared logic: TypeScript
+- Compute layer: Go
+- Additional service: Laravel/Vite app in `laravel_app/`
+- Test tooling: Vitest and Playwright
+
+## Repository structure
+
+| Path | Purpose |
 | --- | --- |
-| `packages/client/` | React/Vite 3D herný klient |
-| `packages/shared/` | Zdieľané herné a procedurálne moduly |
-| `packages/server/` | Node.js herný server a Socket.IO komunikácia |
-| `packages/go-core/` | Go HTTP služba pre výpočty a telemetriu |
-| `laravel_app/` | Samostatná Laravel/Vite aplikácia |
-| `e2e/` | End-to-end testy |
+| `packages/client/` | Game client and UI |
+| `packages/shared/` | Shared game and procedural modules |
+| `packages/server/` | Server-side game logic and network layer |
+| `packages/go-core/` | Go microservice for calculations and telemetry |
+| `laravel_app/` | Separate Laravel app |
+| `e2e/` | End-to-end test suite |
+| `docs/` and root design files | Architecture, roadmap, and game blueprints |
 
-## Stav vývoja a známe obmedzenia
+## Local setup notes
 
-Kontrola verejného repozitára z 4. novembra 2026 ukázala, že posledný kontrolovaný CI beh zlyhal pri `npm ci`: manifesty závislostí a `package-lock.json` nie sú zosúladené. Zlyhanie nastalo ešte pred tým, ako CI potvrdilo následné buildy a testy.
-
-Pred nasadením treba okrem iného:
-
-1. Zosúladiť `package.json` a `package-lock.json` a overiť čistú inštaláciu.
-2. Zjednotiť verziu Go požadovanú v `packages/go-core/go.mod` s CI a Docker konfiguráciou.
-3. Zosúladiť npm/Yarn príkazy a cesty v Docker buildoch.
-4. Zjednotiť skutočne používané úložisko; serverový kód používa lokálnu SQLite databázu, zatiaľ čo Prisma schéma deklaruje PostgreSQL.
-5. Odstrániť predvolené vývojové heslá z Compose, obmedziť verejný prístup k službám a vykonať bezpečnostnú kontrolu.
-6. Spustiť unit, integration a E2E testy na čistej inštalácii a otestovať nasadenie v staging prostredí.
-
-`docker-compose.yml` je určený na lokálne experimentovanie a obsahuje vývojové prihlasovacie údaje. Nepoužívajte ho nezmenený ako verejné produkčné nasadenie. Viac informácií: [`PRODUCTION_READY.md`](PRODUCTION_READY.md).
-
-## Lokálne skúmanie
-
-Projekt obsahuje viac balíkov a nezhodné závislostné manifesty, preto zatiaľ nemožno zaručiť, že nasledujúce kroky uspejú na čistej inštalácii. Po oprave lockfile si overte deklarované workspace názvy a skripty v príslušných `package.json` súboroch.
+Before running the project locally, confirm the toolchain versions and dependency state. The repository currently has mismatches in package manifests, Go versioning, and container setup, so a clean install cannot yet be assumed to work.
 
 ```bash
-# Po zosúladení package.json a package-lock.json
+# After lockfile and package manifests are reconciled
 npm ci
 
-# Build zdieľaného modulu a klienta
+# Then build the shared module and client as needed
 npm run build --workspace=@dusan-game/shared
 npm run build --workspace=client
 ```
 
-## Dokumentácia
+## Documentation
 
-- [`RULES.md`](RULES.md) — pravidlá a herné mechaniky.
-- [`NEW_INTEGRATION_GOALS.md`](NEW_INTEGRATION_GOALS.md) — roadmapa a integračné ciele.
-- [`TARGET_VISION_BLUEPRINT.md`](TARGET_VISION_BLUEPRINT.md) — cieľová vízia; nie je potvrdením implementácie.
-- [`GAME_STATUS.md`](GAME_STATUS.md) — historické poznámky o stave projektu.
-- [`PRODUCTION_READY.md`](PRODUCTION_READY.md) — aktuálne posúdenie produkčnej pripravenosti a release gates.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — pokyny na prispievanie.
+- [RULES.md](RULES.md) — game rules and mechanics
+- [NEW_INTEGRATION_GOALS.md](NEW_INTEGRATION_GOALS.md) — roadmap and integration goals
+- [TARGET_VISION_BLUEPRINT.md](TARGET_VISION_BLUEPRINT.md) — target architecture and product vision
+- [GAME_STATUS.md](GAME_STATUS.md) — historical project status notes
+- [PRODUCTION_READY.md](PRODUCTION_READY.md) — current readiness assessment and release gates
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines
 
-## Prispievanie
+## Contributing
 
-Uvítame reprodukovateľné bug reporty, testy, zlepšenia prístupnosti, dokumentáciu a malé, overiteľné herné zmeny. Pri nahlásení chyby uveďte prostredie, kroky na reprodukciu a očakávané aj skutočné správanie. Do issue ani logov nevkladajte heslá, tokeny ani iné tajné údaje.
+Contributions are welcome in the form of reproducible bug reports, tests, accessibility improvements, documentation updates, and small feature experiments. If you file a bug report, include your environment, exact steps to reproduce, expected behavior, actual behavior, and relevant logs without exposing secrets or credentials.
 
-## Licencia
+## Licensing
 
-Pred redistribúciou alebo komerčným použitím overte licenciu projektu, zdrojových súborov a závislostí. Balíkový manifest uvádza MIT, no koreňový licenčný súbor treba skontrolovať.
+Before redistributing or using this project commercially, confirm the licensing of the repo, all included assets, and all third-party dependencies. The package metadata references MIT, but the root license file should be verified and kept in sync with project distribution requirements.
+
+---
+
+This README is intentionally written in English to keep the public-facing project description consistent across the repository and easier for contributors to understand.
