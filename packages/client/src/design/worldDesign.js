@@ -1,128 +1,122 @@
-// Painted Realm — dizajn systém hexagonálneho sveta.
-// Jediný zdroj pravdy pre farby, materiály a svetlo 3D sveta aj UI.
-// Hodnoty vzorkované z worldImage.png (koreň repa) — pozri spec
-// docs/superpowers/specs/2026-07-09-hex-world-design-system-design.md.
-// CSS premenné v index.css musia zostať hodnotovo 1:1 s týmto súborom.
+// Painted Realm — Dota 2 Dark-Fantasy MOBA Tactical Board Design System.
+// Vyvážené matné kamenisté a prírodné materiály (Radiant Moss, Dire Obsidian, River Slate).
 
 export const PALETTE = {
   space: {
-    background: '#06070d',   // Hlbšie vesmírne pozadie pre dramatický kontrast
-    starlight: '#ffffff',
-    nebulaPurple: '#1a0a2e', // Pridané pre dramatický sky gradient
-    nebulaCyan: '#0a1a3a',
+    background: '#090c12',
+    starlight: '#dce6f2',
+    nebulaPurple: '#151224',
+    nebulaCyan: '#0e1d2b',
   },
   rock: {
-    underside: '#111521',
-    undersideDeep: '#0a0c14', // Hlbšie tiene pre dramatickejší dojem
+    underside: '#1e222b',
+    undersideDeep: '#12151c',
   },
   portal: {
-    core: '#a7f4fa',
-    mid: '#2dd3f1',
-    outer: '#099bcb',
+    core: '#64dfdf',
+    mid: '#2ec4b6',
+    outer: '#155e63',
   },
   accent: {
-    magic: '#2dd3f1',
+    magic: '#2ec4b6',
   },
   path: {
-    dirt: '#586162',
+    dirt: '#5c5549',
   },
 };
 
-// Kľúče zodpovedajú BiomeDetails['biome'] z packages/shared/src/core/BiomeEngine.ts.
 export const BIOME_SPECS = {
   GLACIER: {
-    base: '#ecf4f7',
+    base: '#4a6274',
     light: '#688dab',
-    accent: '#24abc4',
-    particleColor: '#ffffff',
+    accent: '#48cae4',
+    particleColor: '#caf0f8',
     prop: 'CRYSTAL_SPIRE',
-    // Dramatic material settings
-    roughness: 0.15,        // Very glossy ice
-    metalness: 0.4,          // Metallic sheen
-    clearcoat: 0.9,         // High clearcoat for ice reflection
-    clearcoatRoughness: 0.05,
-    emissiveIntensity: 0.15,
-    transmission: 0.3,      // Slight transparency for ice
-    ior: 1.31,              // Ice-like refraction
+    roughness: 0.76,
+    metalness: 0.14,
+    clearcoat: 0,
+    clearcoatRoughness: 0.8,
+    emissiveIntensity: 0.04,
+    transmission: 0,
+    ior: 1.0,
   },
   BARRENS: {
-    base: '#7f4d4f',
-    light: '#6a5557',
-    accent: '#382124',
-    particleColor: '#a1837a',
+    base: '#3b2d30',
+    light: '#594246',
+    accent: '#c85a32',
+    particleColor: '#9e7b66',
     prop: 'ROCK_SPIKES',
-    roughness: 0.95,
-    metalness: 0.05,
-    clearcoat: 0.1,
-    clearcoatRoughness: 0.8,
+    roughness: 0.92,
+    metalness: 0.08,
+    clearcoat: 0,
+    clearcoatRoughness: 0.9,
     emissiveIntensity: 0.02,
     transmission: 0,
     ior: 1.0,
   },
   LUSH_FOREST: {
-    base: '#466237',
-    light: '#86872e',
-    accent: '#c46884',
-    particleColor: '#ffffaa',
+    base: '#385233',
+    light: '#587246',
+    accent: '#8cb369',
+    particleColor: '#d9ed92',
     prop: 'BLOSSOM_TREE',
-    roughness: 0.7,
-    metalness: 0.1,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.5,
-    emissiveIntensity: 0.05,
+    roughness: 0.86,
+    metalness: 0.05,
+    clearcoat: 0,
+    clearcoatRoughness: 0.85,
+    emissiveIntensity: 0.02,
     transmission: 0,
     ior: 1.0,
   },
   TOXIC_SWAMP: {
-    base: '#122027',
-    light: '#51603f',
-    accent: '#acf227',
+    base: '#1f2d2a',
+    light: '#394f49',
+    accent: '#70e000',
     accentFlower: '#7b2e8d',
-    particleColor: '#acf227',
+    particleColor: '#9ef01a',
     prop: 'ACID_POOL',
-    roughness: 0.2,         // Wet, swampy surface
-    metalness: 0.3,         // Slight metallic sheen for wet look
-    clearcoat: 0.7,         // Wet glossy surface
-    clearcoatRoughness: 0.1,
-    emissiveIntensity: 0.25, // Toxic glow
-    transmission: 0.15,     // Slight translucency for acid
-    ior: 1.33,             // Water-like refraction
+    roughness: 0.78,
+    metalness: 0.12,
+    clearcoat: 0,
+    clearcoatRoughness: 0.75,
+    emissiveIntensity: 0.06,
+    transmission: 0,
+    ior: 1.0,
   },
   DESERT: {
-    base: '#988653',
-    light: '#67523c',
-    accent: '#bfa37a',
-    particleColor: '#bfa37a',
+    base: '#6c584c',
+    light: '#8a7161',
+    accent: '#c89b3c',
+    particleColor: '#ddbea9',
     prop: 'DESERT_STONES',
-    roughness: 0.85,
-    metalness: 0.05,
-    clearcoat: 0.15,
-    clearcoatRoughness: 0.7,
-    emissiveIntensity: 0.03,
+    roughness: 0.88,
+    metalness: 0.06,
+    clearcoat: 0,
+    clearcoatRoughness: 0.85,
+    emissiveIntensity: 0.02,
     transmission: 0,
     ior: 1.0,
   },
 };
 
 export const LIGHTING = {
-  key:  { color: '#fff4e0', intensity: 1.5, position: [12, 20, 8] },
-  fill: { color: '#688dab', intensity: 0.5, position: [-14, 10, -8] },
-  ambient: { color: '#7a86a8', intensity: 0.3 },
-  rim: { color: '#2dd3f1', intensity: 0.9, position: [0, 8, -15] },
-  portalLight: { color: '#2dd3f1', intensity: 1.5, distance: 15 },
-  // Faction accent lights
-  factionCrystal: { color: '#00eeff', intensity: 0.6, position: [-15, 5, -15] },
-  factionToxic: { color: '#39ff14', intensity: 0.6, position: [15, 5, 15] },
-  factionDruid: { color: '#ffcc00', intensity: 0.4, position: [15, 5, -15] },
+  key:  { color: '#f2dfbe', intensity: 1.05, position: [14, 24, 12] },
+  fill: { color: '#546e87', intensity: 0.48, position: [-16, 14, -10] },
+  ambient: { color: '#6b7c96', intensity: 0.42 },
+  rim: { color: '#2ec4b6', intensity: 0.45, position: [0, 10, -18] },
+  portalLight: { color: '#2ec4b6', intensity: 0.55, distance: 10 },
+  factionCrystal: { color: '#2ec4b6', intensity: 0.35, position: [-15, 6, -15] },
+  factionToxic: { color: '#70e000', intensity: 0.35, position: [15, 6, 15] },
+  factionDruid: { color: '#c89b3c', intensity: 0.28, position: [15, 6, -15] },
 };
 
 export const WORLD = {
-  fog: { color: '#06070d', near: 30, far: 120 },  // Closer fog for more dramatic depth
-  starCount: 300,       // More stars
-  shardCount: 50,       // More floating shards
-  tileRoughness: 0.6,  // Base roughness (biome-specific overrides)
-  tileMetalness: 0.2,  // Base metalness
-  tileClearcoat: 0.4,  // Base clearcoat
-  tileClearcoatRoughness: 0.3,
-  tileEnvMapIntensity: 1.5, // Stronger environment reflections
+  fog: { color: '#090c12', near: 36, far: 135 },
+  starCount: 600,
+  shardCount: 28,
+  tileRoughness: 0.84,
+  tileMetalness: 0.08,
+  tileClearcoat: 0.0,
+  tileClearcoatRoughness: 0.85,
+  tileEnvMapIntensity: 0.65,
 };
