@@ -231,10 +231,10 @@ function DomeParticles() {
 export default function EnergyShieldDome() {
     return (
         <>
-            <EnergyDome />
-            <WireframeDome />
+            {false && <EnergyDome />}
+            {false && <WireframeDome />}
             <BaseEnergyRings />
-            <DomeParticles />
+            {false && <DomeParticles />}
         </>
     );
 }

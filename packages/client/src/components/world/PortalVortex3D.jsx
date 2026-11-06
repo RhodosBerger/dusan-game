@@ -72,9 +72,9 @@ export default function PortalVortex3D({ position }) {
                 color={LIGHTING.portalLight.color}
                 intensity={LIGHTING.portalLight.intensity * 0.4}
                 distance={LIGHTING.portalLight.distance}
-                position={[0, 1, 0]}
+                position={[0, 14, 0]}
             />
-            <PortalSwirl />
+            {false && <PortalSwirl />}
         </group>
     );
 }

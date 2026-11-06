@@ -240,7 +240,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     }, [gridData]);
 
     const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
-    const townNode = useMemo(() => gridData.find(n => n.id === 'M0_S0'), [gridData]);
+    const townNode = useMemo(() => gridData.find(n => n.id.toLowerCase() === 'm0_s0'), [gridData]);
+    const direNode = useMemo(() => gridData.find(n => n.id.toLowerCase() === 'm8_s0'), [gridData]);
     const propPlacements = useMemo(() => computePropPlacements(gridData), [gridData]);
 
     const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
@@ -311,7 +312,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 {/* Key Light — warm directional sun */}
                 <directionalLight
                     castShadow
-                    position={LIGHTING.key.position}
+                    position={[6, 42, 8]}
                     intensity={LIGHTING.key.intensity * 0.65}
                     color={LIGHTING.key.color}
                     shadow-mapSize={[1024, 1024]}
@@ -341,7 +342,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 
                 {/* Portal accent — central glow */}
                 <pointLight
-                    position={[0, 2, 0]}
+                    position={[0, 32, 0]}
                     intensity={LIGHTING.portalLight.intensity * 0.35}
                     color={LIGHTING.portalLight.color}
                     distance={LIGHTING.portalLight.distance * 2}
@@ -354,7 +355,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 <pointLight position={[15, 5, -15]} intensity={0.3} color="#ffcc00" distance={20} decay={2} />
 
                 {/* ═══ Layer 5: Sun Sphere for GodRays ═══ */}
-                <SunSphere sunRef={sunRef} />
+                {false && <SunSphere sunRef={sunRef} />}
+                <hemisphereLight args={['#dce8f7', '#1a1d24', 0.65]} position={[0, 50, 0]} />
 
                 {/* ═══ Layer 6: 3D Scene — Hex Tiles + Props + Characters ═══ */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>
@@ -385,7 +387,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         const PropComponent = PROP_COMPONENTS[propPlacements.get(n.id)];
                         if (!PropComponent) return null;
                         return (
-                            <group key={`prop_${n.id}`} position={[n.position[0], 0.45, n.position[2]]}>
+                            <group key={`prop_${n.id}`} position={[n.position[0], n.position[1] + 0.45, n.position[2]]}>
                                 <PropComponent seed={n.macroIndex * 7 + n.subIndex + 1} />
                             </group>
                         );
@@ -397,12 +399,13 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     />
 
                     {portalNode && (
-                        <PortalVortex3D position={[portalNode.position[0], 0.55, portalNode.position[2]]} />
+                        <PortalVortex3D position={[portalNode.position[0], portalNode.position[1] + 0.45, portalNode.position[2]]} />
                     )}
 
                     {/* ═══ Energy Shield Dome over arena ═══ */}
                     <EnergyShieldDome />
-                    {townNode && <TownSanctuaryMonument3D position={[townNode.position[0], 0.45, townNode.position[2]]} />}
+                    {townNode && <TownSanctuaryMonument3D position={[townNode.position[0], townNode.position[1] + 0.42, townNode.position[2]]} />}
+                    {direNode && <TownSanctuaryMonument3D position={[direNode.position[0], direNode.position[1] + 0.42, direNode.position[2]]} />}
                     {selectedNode && <DirectionalCompassRose3D position={selectedNode.position} />}
 
                     {threads.map((thread) => (

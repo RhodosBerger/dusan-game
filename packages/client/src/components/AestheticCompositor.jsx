@@ -34,7 +34,7 @@ const AestheticCompositor = forwardRef(({
             />
 
             {/* GodRays — lightweight volumetric shafts */}
-            {sunRef?.current && (
+            {false && sunRef?.current && (
                 <GodRays
                     sun={sunRef.current}
                     samples={20}

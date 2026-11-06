@@ -321,7 +321,8 @@ export default function DramaticEnvironment({ entropy = 0.4 }) {
             <AuroraWaves />
             
             {/* Layer 3: Volumetric Light Shafts */}
-            <LightShafts />
+            {/* Layer 3: Volumetric Light Shafts disabled to keep center clear */}
+            {false && <LightShafts />}
             
             {/* Layer 4: Horizon Glow Ring */}
             <HorizonGlowRing />

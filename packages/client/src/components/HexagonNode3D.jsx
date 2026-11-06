@@ -7,6 +7,7 @@ import {
     SnowParticles, SwampVapors, DesertHeatParticles,
     BarrensDustDevil, ForestFireflies, VoidCollapseParticles,
 } from './world/BiomeParticles';
+import { DotaTerrainObstacle3D } from './world/ProceduralAssetTemplates3D';
 
 // Načítanie textúr terénu raz globálne
 const textureLoader = new THREE.TextureLoader();
@@ -396,7 +397,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             return new THREE.Color('#ffffff').lerp(new THREE.Color(biomeAccentColor), 0.35);
         }
         const spec = BIOME_SPECS[biomeInfo.biome];
-        const base = new THREE.Color('#ffffff').lerp(new THREE.Color(spec.base), 0.45);
+        const base = new THREE.Color('#d8d2c5').lerp(new THREE.Color(spec.base), 0.72);
         if (mlInfo.colorSaturation < 0.5) {
             base.lerp(new THREE.Color('#888888'), 0.5 - mlInfo.colorSaturation);
         }
@@ -496,7 +497,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
                 {/* Main hex tile with physical material */}
                 <mesh castShadow receiveShadow frustumCulled={false}>
                     <extrudeGeometry args={[hexShape, extrudeSettings]} />
-                    <meshPhysicalMaterial {...materialProps} />
+                    <meshStandardMaterial roughness={materialProps.roughness} metalness={materialProps.metalness} map={materialProps.map} color={materialProps.color} emissive="#000000" emissiveIntensity={0} />
                 </mesh>
                 
                 {/* Edge outline with animated opacity */}
@@ -524,7 +525,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
 
                 {/* Skalná podsada — 6-boký zužujúci sa "stalaktit" pod dlaždicou */}
                 <mesh position={[0, 0, -undersideDepth / 2 + 0.02]} rotation={[Math.PI / 2, 0, 0]}>
-                    <cylinderGeometry args={[radius * 0.92, 0.18, undersideDepth, 6, 1, false, Math.PI / 6]} />
+                    <cylinderGeometry args={[radius * 0.96, (node.elevationTier || 0) >= 1 ? radius * 0.82 : 0.28, undersideDepth + Math.max(0, (node.position[1] || 0) * 1.3), 6, 1, false, Math.PI / 6]} />
                     <meshStandardMaterial
                         color={PALETTE.rock.underside}
                         roughness={1}
@@ -574,6 +575,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             {hasChest && !isCollapsing && <LootChest3D />}
             {node.isTown && !isCollapsing && <TownBuilding3D />}
             {hasTrap && !isCollapsing && <Trap3D type={hasTrap} />}
+            {node.terrainFeature && !isCollapsing && <DotaTerrainObstacle3D feature={node.terrainFeature} tier={node.elevationTier} />}
 
             {/* Status hologram nad vybraným políčkom */}
             {isSelected && (
