@@ -23,6 +23,7 @@ function App() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [gameMode, setGameMode] = useState('SANDBOX');
   const [matchId, setMatchId] = useState(null);
+  const [localPlayerId, setLocalPlayerId] = useState('thread_king_ai');
   const [isSearching, setIsSearching] = useState(false);
   const [shakeIntensity, setShakeIntensity] = useState(0);
   
@@ -135,13 +136,24 @@ function App() {
           e.preventDefault();
           handleExecuteAction();
         }
-      } else if (e.code === 'KeyE') {
+      } else if (e.code === 'KeyE') { handleEndTurn();
+        e.preventDefault();
+      } else if (e.code === 'KeyE') { handleEndTurn();
         e.preventDefault();
         handleEndTurn();
+      } else if (e.code === 'KeyR') {
+        e.preventDefault();
+        const cur = connectionEngine.getGameState();
+        if (cur) {
+          const next = JSON.parse(JSON.stringify(cur));
+          const activeId = next.activePlayerId || localPlayerId;
+          next.threads = (next.threads || []).map(t => t.id === activeId ? { ...t, preferred8Direction: ((t.preferred8Direction ?? 0) + 1) % 8 } : t);
+          connectionEngine.setLocalGameState(next);
+        }
       } else if (e.code.startsWith('Digit')) {
         const digit = parseInt(e.code.replace('Digit', ''), 10);
         if (digit >= 1 && digit <= 9) {
-          const localThread = gameState?.threads?.find(t => t.id === 'thread_king_ai');
+          const localThread = gameState?.threads?.find(t => t.id === localPlayerId);
           const hand = localThread?.currentBuffer || [];
           const cardIndex = digit - 1;
           if (hand[cardIndex]) {
@@ -158,7 +170,7 @@ function App() {
 
   // Načítanie semantických sektorov a telemetrie prostredia
   useEffect(() => {
-    if (!gameState) return;
+    if (!gameState || isSandbox) return;
     const activePlayerId = gameState.activePlayerId || 'thread_king_ai';
 
     const fetchTelemetry = () => {
@@ -182,7 +194,7 @@ function App() {
 
   // Watch game state changes for audio feedback (Turns, Draws, Warnings, Game Over)
   useEffect(() => {
-    if (!gameState) return;
+    if (!gameState || isSandbox) return;
 
     // 1. Turn Start Chime
     if (gameState.activePlayerId && gameState.activePlayerId !== lastActivePlayerId) {
@@ -192,7 +204,7 @@ function App() {
     }
 
     // 2. Card Draw Sound
-    const localThread = gameState.threads?.find(t => t.id === 'thread_king_ai');
+    const localThread = gameState.threads?.find(t => t.id === localPlayerId);
     const localHandCount = localThread?.currentBuffer?.length || 0;
     if (localHandCount > lastHandCount) {
       arenaAudio.playCardDraw();
@@ -322,9 +334,10 @@ function App() {
 
   // Presun hrdinu
   const handleMoveHero = (targetNode) => {
-    if (!gameState) return;
+    if (!gameState || isSandbox) return;
     const activePlayerId = gameState.activePlayerId || 'thread_king_ai';
     console.log('Sending move_character command:', activePlayerId, targetNode);
+    if (isSandbox || !connectionEngine.socket.connected) { connectionEngine.moveCharacter(activePlayerId, targetNode.macroIndex, targetNode.subIndex); setSelectedNode(null); return; }
     connectionEngine.socket.emit('move_character', {
       playerId: activePlayerId,
       targetHex: {
@@ -351,7 +364,7 @@ function App() {
   };
 
   const handleBuyItem = (itemKey) => {
-    if (!gameState) return;
+    if (!gameState || isSandbox) return;
     const activePlayerId = gameState.activePlayerId || 'thread_king_ai';
     console.log('Sending buy_item command:', activePlayerId, itemKey);
     connectionEngine.socket.emit('buy_item', {
@@ -361,7 +374,7 @@ function App() {
   };
 
   const handleSellItem = (itemKey) => {
-    if (!gameState) return;
+    if (!gameState || isSandbox) return;
     const activePlayerId = gameState.activePlayerId || 'thread_king_ai';
     console.log('Sending sell_item command:', activePlayerId, itemKey);
     connectionEngine.socket.emit('sell_item', {
@@ -371,7 +384,7 @@ function App() {
   };
 
   const handlePassReaction = () => {
-    if (!gameState) return;
+    if (!gameState || isSandbox) return;
     const activePlayerId = gameState.activePlayerId || 'thread_king_ai';
     console.log('Sending action_pass command:', activePlayerId);
     connectionEngine.socket.emit('action_pass', {
@@ -380,7 +393,7 @@ function App() {
   };
 
   const handleToggleStealth = () => {
-    if (!gameState) return;
+    if (!gameState || isSandbox) return;
     const activePlayerId = gameState.activePlayerId || 'thread_king_ai';
     console.log('Sending toggle_stealth command:', activePlayerId);
     connectionEngine.socket.emit('toggle_stealth', {
@@ -389,6 +402,7 @@ function App() {
   };
 
   const handleSearchMatch = ({ name, hero, theme }) => {
+    setLocalPlayerId(hero || 'thread_king_ai');
     setIsSearching(true);
     setIsSandbox(false);
     socket.connect();
@@ -398,10 +412,12 @@ function App() {
   };
 
   const handleStartGame = ({ name, hero, theme }) => {
+    setLocalPlayerId(hero || 'thread_king_ai');
     setIsSandbox(false);
     socket.connect();
     setTimeout(() => {
       socket.emit('join_ai_match', { name, hero, theme });
+      setTimeout(() => { if (!socket.connected) { setIsSandbox(true); setMatchId('sandbox_local'); } }, 800);
     }, 500);
   };
 
@@ -458,7 +474,7 @@ function App() {
       {/* Adrenaline vignette overlay — purely CSS, no 3D cost */}
       <AdrenalineVignette
         gameState={gameState}
-        localPlayerId={socket.id || gameState?.threads?.[0]?.id}
+        localPlayerId={localPlayerId}
       />
       {/* Fullscreen white flash overlay for Ultimate actions */}
       {ultimateFlash && (

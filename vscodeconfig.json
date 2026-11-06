@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "nabytok47": {
+      "type": "http",
+      "url": "https://nabytok47.sk/experimental/wp-json/mcp/mcp-adapter-default-server"
+    }
+  }
+}

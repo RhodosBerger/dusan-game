@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BiomeEngine, AethericDiceEngine } from '../../../shared/src/index';
 import { KeyframeAnimationExtension } from '../utils/KeyframeAnimationExtension';
+import { ProceduralHeroArmor3D } from './world/ProceduralAssetTemplates3D';
 
 const textureLoader = new THREE.TextureLoader();
 
@@ -444,7 +445,11 @@ export default function ThreadMiniature({ thread, gridData }) {
             }
         } else {
             if (groupRef.current) {
+            if (groupRef.current) {
                 groupRef.current.position.lerp(targetPos, 0.1);
+                const targetYaw = (thread.preferred8Direction ?? 0) * (Math.PI / 4);
+                groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetYaw, 0.15);
+            }
             }
             setDecoyTrail([]);
         }
@@ -613,6 +618,7 @@ export default function ThreadMiniature({ thread, gridData }) {
 
                         {/* Equipped weapons & harvesting tools purchased at Town Shop */}
                         <FloatingEquippedWeapon3D items={thread.items} />
+                        <ProceduralHeroArmor3D faction={faction} lowHp={isLowHp} />
                     </>
                 )}
             </group>

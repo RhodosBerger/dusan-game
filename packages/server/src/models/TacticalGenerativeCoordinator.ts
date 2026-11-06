@@ -4,7 +4,8 @@ import { Thread } from './Thread';
 declare var require: any;
 declare var process: any;
 declare var __dirname: string;
-const { exec, execSync } = require('child_process');
+const { execFile } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 export interface TacticalSpawnPayload {
@@ -26,7 +27,6 @@ export class TacticalGenerativeCoordinator {
   ): Promise<TacticalSpawnPayload> {
     const thread = engine.threads.find(t => t.id === threadId);
     
-    // Default values if thread is missing
     const playerLvl = thread ? thread.level : 1;
     const playerHp = thread ? thread.health : 15;
     const pos = thread ? thread.position : { meta: 0, hex: 1 };
@@ -35,12 +35,14 @@ export class TacticalGenerativeCoordinator {
     const block = chunk?.blocks.find(b => b.id === pos.hex);
     const biome = block ? block.biome : 'LUSH_FOREST';
 
-    const venvPython = path.join(__dirname, '../../.venv/bin/python3');
+    const venvUnix = path.join(__dirname, '../../.venv/bin/python3');
+    const venvWin = path.join(__dirname, '../../.venv/Scripts/python.exe');
+    const venvPython = fs.existsSync(venvWin) ? venvWin : (fs.existsSync(venvUnix) ? venvUnix : 'python');
     const spawnerScript = path.join(__dirname, '../ml/tactical_spawner.py');
 
-    const runSpawnerAsync = (command: string): Promise<any> => {
+    const runSpawnerAsync = (args: string[]): Promise<any> => {
       return new Promise((resolve, reject) => {
-        exec(command, (error: any, stdout: string) => {
+        execFile(venvPython, [spawnerScript, ...args], (error: any, stdout: string) => {
           if (error) {
             reject(error);
             return;
@@ -62,7 +64,7 @@ export class TacticalGenerativeCoordinator {
     };
 
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('TIMEOUT')), 250);
+      setTimeout(() => reject(new Error('TIMEOUT')), 2500);
     });
 
     try {
@@ -73,19 +75,17 @@ export class TacticalGenerativeCoordinator {
         biome: biome
       });
 
-      const cmd = `"${venvPython}" "${spawnerScript}" '${payload}'`;
       const output = await Promise.race([
-        runSpawnerAsync(cmd),
+        runSpawnerAsync([payload]),
         timeoutPromise
       ]);
 
       if (output.status === 'SUCCESS') {
-        // Register the spawned object in the actual engine game board map!
         if (thread) {
           const spawnChunk = engine.map.chunks.find(c => c.id === output.coordinates.meta);
           const spawnBlock = spawnChunk?.blocks.find(b => b.id === output.coordinates.hex);
           if (spawnBlock) {
-            spawnBlock.hasChest = true; // Mark as containing a generated chest/trap item
+            spawnBlock.hasChest = true;
           }
         }
 
@@ -101,7 +101,6 @@ export class TacticalGenerativeCoordinator {
       console.warn('[GENERATOR_WARN] Failed running tactical spawner script:', e);
     }
 
-    // Fallback safe tactical spawn
     return {
       actionType: 'spawn_decoy',
       coordinates: { meta: 0, hex: 3 },

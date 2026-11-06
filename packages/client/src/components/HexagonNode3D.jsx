@@ -420,7 +420,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             clearcoatRoughness: spec?.clearcoatRoughness ?? WORLD.tileClearcoatRoughness,
             envMapIntensity: WORLD.tileEnvMapIntensity ?? 1.5,
             // Transparency for ice/water biomes
-            transmission: spec?.transmission || 0,
+            transmission: 0,
             ior: spec?.ior || 1.0,
             thickness: spec?.transmission ? 0.5 : 0,
         };
@@ -448,7 +448,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
                 color: baseTint.clone().lerp(new THREE.Color(BIOME_SPECS.GLACIER.accent), 0.35 * vibrancy),
                 clearcoat: 1.0,
                 clearcoatRoughness: 0.03,
-                transmission: 0.4,
+                transmission: 0,
                 ior: 1.31,
                 emissiveIntensity: 0.25,
             };
@@ -565,10 +565,10 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
             )}
 
             {/* Časticové efekty biómov */}
-            {biomeInfo.biome === 'GLACIER' && !isCollapsing && <SnowParticles />}
-            {biomeInfo.biome === 'TOXIC_SWAMP' && !isCollapsing && <SwampVapors />}
-            {biomeInfo.biome === 'DESERT' && !isCollapsing && <DesertHeatParticles />}
-            {biomeInfo.biome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
+            {node.subIndex === 0 && biomeInfo.biome === 'GLACIER' && !isCollapsing && <SnowParticles />}
+            {node.subIndex === 0 && biomeInfo.biome === 'TOXIC_SWAMP' && !isCollapsing && <SwampVapors />}
+            {node.subIndex === 0 && biomeInfo.biome === 'DESERT' && !isCollapsing && <DesertHeatParticles />}
+            {node.subIndex === 0 && biomeInfo.biome === 'BARRENS' && !isCollapsing && <BarrensDustDevil />}
             {biomeInfo.biome === 'LUSH_FOREST' && !isCollapsing && entropy > 0.5 && <ForestFireflies />}
             {isCollapsing && <VoidCollapseParticles />}
             {hasChest && !isCollapsing && <LootChest3D />}

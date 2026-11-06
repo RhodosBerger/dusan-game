@@ -99,6 +99,7 @@ export default function ArenaUIOverlay({
     const [hoveredCardIndex, setHoveredCardIndex] = React.useState(null);
 
     React.useEffect(() => {
+        if (isSandbox) return;
         const fetchTelemetry = () => {
             fetch('http://localhost:8081/api/telemetry/analytics')
                 .then(res => res.json())
@@ -628,7 +629,7 @@ export default function ArenaUIOverlay({
                 );
             })()}
             {/* ═══ UNIFIED TOP BAR — Turn banner + Player portraits ═══ */}
-            <div className="w-full flex justify-between items-start gap-3 pointer-events-auto">
+            <div className="w-full flex justify-between items-start gap-3 pointer-events-none [&>*]:pointer-events-auto">
                 {/* Left: Crystal player portrait */}
                 {crystalPlayer && (
                     <PlayerPortrait
@@ -652,7 +653,7 @@ export default function ArenaUIOverlay({
                     systemEnergy={gameState?.systemEnergy || 0}
                     entropy={entropy}
                     onEndTurn={onEndTurn}
-                    isMyTurn={true}
+                    isMyTurn={!gameState?.activePlayerId || gameState.activePlayerId === (activePlayer?.id || 'thread_king_ai')}
                 />
 
                 {/* Right: Toxic player portrait */}
@@ -816,7 +817,7 @@ export default function ArenaUIOverlay({
             </div>
 
             {/* ═══ BOTTOM HUD — Card hand + stat chips + action buttons ═══ */}
-            <div className="w-full flex flex-col items-center gap-2 pointer-events-auto pb-2">
+            <div className="w-full flex flex-col items-center gap-2 pointer-events-none [&>*]:pointer-events-auto pb-2">
                 {/* Compact stat chips */}
                 {activePlayer && (
                     <div className="flex flex-wrap gap-2 text-[9px] md:text-[10px] font-mono text-slate-400 justify-center items-center">
@@ -855,7 +856,7 @@ export default function ArenaUIOverlay({
                                 ? 'bg-red-950/40 border-red-500/30 text-red-400'
                                 : 'bg-green-950/40 border-green-500/30 text-green-400'
                         }`}>
-                            {activePlayer.freeMovementUsed ? '✗ USED' : '✓ FREE'}
+                            {activePlayer.freeMovementUsed ? '✗ USED' : '✓ FREE'} | 🧭 DIR [R]: {['N (0°)', 'NE (45°)', 'E (90°)', 'SE (135°)', 'S (180°)', 'SW (225°)', 'W (270°)', 'NW (315°)'][activePlayer.preferred8Direction ?? 0]}
                         </span>
                     </div>
                 )}

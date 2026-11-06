@@ -38,7 +38,7 @@ function PortalSwirl() {
             <bufferGeometry>
                 <bufferAttribute attach="attributes-position" args={[positions, 3]} />
             </bufferGeometry>
-            <pointsMaterial color={PALETTE.portal.mid} size={0.09} transparent opacity={0.85} depthWrite={false} />
+            <pointsMaterial color={PALETTE.portal.mid} size={0.09} transparent opacity={0.42} depthWrite={false} />
         </points>
     );
 }
@@ -58,19 +58,19 @@ export default function PortalVortex3D({ position }) {
         <group position={position}>
             <mesh ref={outerRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
                 <circleGeometry args={[1.7, 48]} />
-                <meshBasicMaterial color={PALETTE.portal.outer} transparent opacity={0.5} depthWrite={false} />
+                <meshBasicMaterial color={PALETTE.portal.outer} transparent opacity={0.25} depthWrite={false} />
             </mesh>
             <mesh ref={midRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
                 <circleGeometry args={[1.15, 48]} />
-                <meshBasicMaterial color={PALETTE.portal.mid} transparent opacity={0.7} depthWrite={false} />
+                <meshBasicMaterial color={PALETTE.portal.mid} transparent opacity={0.35} depthWrite={false} />
             </mesh>
             <mesh ref={coreRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
                 <circleGeometry args={[0.55, 32]} />
-                <meshBasicMaterial color={PALETTE.portal.core} transparent opacity={0.95} depthWrite={false} />
+                <meshBasicMaterial color={PALETTE.portal.core} transparent opacity={0.45} depthWrite={false} />
             </mesh>
             <pointLight
                 color={LIGHTING.portalLight.color}
-                intensity={LIGHTING.portalLight.intensity}
+                intensity={LIGHTING.portalLight.intensity * 0.4}
                 distance={LIGHTING.portalLight.distance}
                 position={[0, 1, 0]}
             />

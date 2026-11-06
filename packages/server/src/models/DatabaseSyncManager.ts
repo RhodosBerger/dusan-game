@@ -18,7 +18,7 @@ export class DatabaseSyncManager {
   private static instance: DatabaseSyncManager | null = null;
   private db: any;
 
-  private constructor(dbPath: string = './database.db') {
+  public constructor(dbPath: string = './database.db') {
     this.db = new DatabaseSync(dbPath);
     this.initSchema();
   }
@@ -38,6 +38,14 @@ export class DatabaseSyncManager {
    * Resets the singleton (for testing only).
    * Closes and re-creates the connection on next `getInstance()` call.
    */
+  public close(): void {
+    try {
+      this.db.close();
+    } catch {
+      // ignore if already closed
+    }
+  }
+
   public static resetInstance(): void {
     if (DatabaseSyncManager.instance) {
       try {
@@ -330,6 +338,7 @@ export class DatabaseSyncManager {
 
   public addPlayerItem(username: string, itemKey: string, category: string): void {
     try {
+      this.getOrCreatePlayer(username, 'crystal');
       const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
       const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
 
@@ -348,6 +357,7 @@ export class DatabaseSyncManager {
 
   public removePlayerItem(username: string, itemKey: string): boolean {
     try {
+      this.getOrCreatePlayer(username, 'crystal');
       const checkStmt = this.db.prepare('SELECT id, quantity FROM player_items WHERE player_username = ? AND item_key = ?');
       const existing = checkStmt.get(username, itemKey) as { id: string; quantity: number } | undefined;
 
@@ -410,6 +420,7 @@ export class DatabaseSyncManager {
   }
 
   public lockRegister(username: string, address: string, buffType: string, buffValue: number): void {
+    this.getOrCreatePlayer(username, 'crystal');
     try {
       const stmt = this.db.prepare(`
         INSERT OR REPLACE INTO locked_system_registers (id, player_username, register_address, buff_type, buff_value)

@@ -1369,7 +1369,7 @@ app.get('/api/system/statistics-report', (req, res) => {
   try {
     const stats = SovereignStatisticsReporter.generateStatisticsReport();
     const md = SovereignStatisticsReporter.compileMarkdownReport(stats);
-    const reportPath = '/home/rhoddos_berger/.gemini/antigravity-ide/brain/066f6b59-4305-46f4-ade5-f62df6b096b7/game_specs_statistics_report.md';
+    const reportPath = path.join(__dirname, '../game_specs_statistics_report.md');
     fs.writeFileSync(reportPath, md, 'utf8');
     res.json(stats);
   } catch (e: any) {

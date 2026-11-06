@@ -192,6 +192,7 @@ if __name__ == "__main__":
         
         state = generator.fetch_player_state(user_arg)
         quest = generator.generate_quest_word_problem(state, category_arg)
+        if not os.path.exists(output_file): generator.generate_all_quests(output_file, user_arg)
         print(json.dumps(quest))
     else:
         count = generator.generate_all_quests(output_file)

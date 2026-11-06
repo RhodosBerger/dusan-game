@@ -142,7 +142,7 @@ export class ConnectionEngine {
     } else if (this.fallbackEnabled) {
       this.executeLocalSandbox({
         sourceId: this.gameState?.activePlayerId || 'thread_king_ai',
-        targetId: 'thread_hacker_root',
+        targetId: (this.gameState?.activePlayerId || 'thread_king_ai') === 'thread_king_ai' ? 'thread_hacker_root' : 'thread_king_ai',
         instructionId: cardId
       });
     }
@@ -151,6 +151,22 @@ export class ConnectionEngine {
   /**
    * Spustenie inštrukcie (odoslanie akcie na server alebo lokálnu simuláciu)
    */
+  public moveCharacter(playerId: string, metaId: number, hexId: number): void {
+    if (this.state === 'CONNECTED' && this.socket) {
+      this.socket.emit('move_character', { playerId, targetHex: { meta: metaId, hex: hexId } });
+      this.log('ACTION', `Presun hrdinu "${playerId}" na chunk:${metaId} hex:${hexId}.`);
+    } else if (this.fallbackEnabled && this.gameState) {
+      const nextState = JSON.parse(JSON.stringify(this.gameState)) as GameState;
+      const thread = nextState.threads.find((t: ThreadState) => t.id === playerId);
+      if (thread) {
+        thread.position = { meta: metaId, hex: hexId };
+        this.gameState = nextState;
+        this.notifyState();
+        this.log('ACTION', `[Sandbox] Hrdina ${thread.name} sa presunul na M${metaId}_S${hexId}.`, 'SANDBOX');
+      }
+    }
+  }
+
   public executeInstruction(payload: {
     sourceId: string;
     targetId: string;

@@ -445,6 +445,7 @@ async function runTests() {
   console.log("\nTest 14: Database Persistence & Quest Progress Sync (node:sqlite)");
   
   const testDbPath = './test_database.db';
+
   if (fs.existsSync(testDbPath)) {
     fs.unlinkSync(testDbPath);
   }
@@ -489,7 +490,8 @@ async function runTests() {
   manager.logTelemetry("test_session_123", "COMBAT_ACTION", { dmg: 6, source: "thread_king_ai" });
   console.log("  [PASS] Telemetrická udalosť úspešne zalogovaná.");
 
-  // Vyčistenie testovacej databázy
+  manager.close();
+
   if (fs.existsSync(testDbPath)) {
     fs.unlinkSync(testDbPath);
   }
@@ -592,6 +594,7 @@ async function runTests() {
   
   // 2. Database Sync Manager - PlayerItem persistent operations
   const shopDbPath = './shop_test_database.db';
+
   if (fs.existsSync(shopDbPath)) {
     fs.unlinkSync(shopDbPath);
   }
@@ -625,7 +628,8 @@ async function runTests() {
   testerItems = shopManager.getPlayerItems("ShopTester");
   assert(testerItems.length === 0, "Po úplnom odstránení všetkých kusov zbrane by mal byť zoznam prázdny.");
   
-  // Cleanup test database file
+  shopManager.close();
+
   if (fs.existsSync(shopDbPath)) {
     fs.unlinkSync(shopDbPath);
   }
@@ -783,11 +787,13 @@ async function runTests() {
 
   // Test 23: ML Character Movement Predictor
   console.log("\nTest 23: ML Character Movement Predictor");
-  const { execSync } = require('child_process');
+  const { execSync, execFileSync } = require('child_process');
   const pathModule = require('path');
   
   const predictorScript = pathModule.join(process.cwd(), 'packages/server/src/ml/movement_predictor.py');
-  const venvPython = pathModule.join(process.cwd(), 'packages/server/.venv/bin/python3');
+  const venvUnix = pathModule.join(process.cwd(), 'packages/server/.venv/bin/python3');
+  const venvWin = pathModule.join(process.cwd(), 'packages/server/.venv/Scripts/python.exe');
+  const venvPython = fs.existsSync(venvWin) ? venvWin : (fs.existsSync(venvUnix) ? venvUnix : 'python');
   
   const mockPayload = JSON.stringify({
     turn: 4,
@@ -799,7 +805,7 @@ async function runTests() {
   });
 
   const runCommandStr = `"${venvPython}" "${predictorScript}" '${mockPayload}'`;
-  const mlOutputRaw = execSync(runCommandStr).toString().trim();
+  const mlOutputRaw = execFileSync(venvPython, [predictorScript, mockPayload]).toString().trim();
   const prediction = JSON.parse(mlOutputRaw);
   
   assert(prediction.status === 'SUCCESS', "Predikcia by mala prebehnúť úspešne.");
@@ -873,7 +879,7 @@ async function runTests() {
   });
 
   const cmdStr = `"${venvPython}" "${spawnerScript}" '${swampPayload}'`;
-  const outputRaw = execSync(cmdStr).toString().trim();
+  const outputRaw = execFileSync(venvPython, [spawnerScript, swampPayload]).toString().trim();
   const spawnPrediction = JSON.parse(outputRaw);
   
   assert(spawnPrediction.status === 'SUCCESS', "Predikcia spawneru by mala prebehnť úspešne.");

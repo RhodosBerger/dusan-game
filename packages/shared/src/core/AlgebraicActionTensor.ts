@@ -30,7 +30,7 @@ export interface ActionSource {
  * Properties of the target hex context needed by the tensor.
  */
 export interface TargetHexContext {
-    biome?: 'GLACIER' | 'TOXIC_SWAMP' | 'DESERT' | 'BARRENS' | 'LUSH_FOREST';
+    biome?: 'GLACIER' | 'TOXIC_SWAMP' | 'DESERT' | 'BARRENS' | 'LUSH_FOREST' | (string & {});
     friction?: number;
     hazardIndex?: number;
 }

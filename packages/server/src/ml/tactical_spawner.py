@@ -9,7 +9,7 @@ def main():
         return
 
     try:
-        payload = json.loads(sys.argv[1])
+        payload = json.loads(sys.argv[1].strip("'"))
         tactic_prompt = payload.get("tactic_prompt", "stealth").lower()
         player_lvl = payload.get("player_level", 1)
         player_hp = payload.get("player_health", 15)

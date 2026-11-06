@@ -166,7 +166,7 @@ function LightShafts() {
         
         groupRef.current.children.forEach((shaft, i) => {
             const offset = i * 1.2;
-            shaft.material.opacity = 0.04 + Math.sin(time * 0.3 + offset) * 0.02;
+            shaft.material.opacity = 0.018 + Math.sin(time * 0.3 + offset) * 0.008;
             shaft.rotation.y = time * 0.05 + (i * Math.PI / SHAFT_COUNT);
         });
     });
@@ -183,7 +183,7 @@ function LightShafts() {
                     <meshBasicMaterial
                         color="#fff4e0"
                         transparent
-                        opacity={0.05}
+                        opacity={0.022}
                         side={THREE.DoubleSide}
                         depthWrite={false}
                         blending={THREE.AdditiveBlending}

@@ -22,6 +22,8 @@ import BlossomTree3D from './world/BlossomTree3D';
 import AcidPool3D from './world/AcidPool3D';
 import RockSpikes3D from './world/RockSpikes3D';
 import DesertStones3D from './world/DesertStones3D';
+import PortalVortex3D from './world/PortalVortex3D';
+import { TownSanctuaryMonument3D, DirectionalCompassRose3D } from './world/ProceduralAssetTemplates3D';
 
 const PROP_COMPONENTS = {
     CRYSTAL_SPIRE: CrystalSpire3D,
@@ -130,7 +132,7 @@ function SunSphere({ sunRef }) {
             {/* Inner glow */}
             <pointLight
                 position={[0, 0, 0]}
-                intensity={2.0}
+                intensity={0.75}
                 color="#fff4e0"
                 distance={80}
                 decay={1.5}
@@ -203,8 +205,10 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
         }
 
         if (gameMode === 'SANDBOX' && !isUltimate) {
-            const time = state.clock.getElapsedTime();
-            desiredTarget.current.set(Math.sin(time * 0.25) * 1.5, 0, Math.cos(time * 0.25) * 1.5);
+            void state.clock.getElapsedTime();
+        if (gameMode === 'SANDBOX' && !isUltimate) {
+            desiredTarget.current.set(0, 0, 0);
+        }
         }
     });
 
@@ -236,6 +240,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     }, [gridData]);
 
     const portalNode = useMemo(() => gridData.find(n => n.id === PORTAL_NODE_ID), [gridData]);
+    const townNode = useMemo(() => gridData.find(n => n.id === 'M0_S0'), [gridData]);
     const propPlacements = useMemo(() => computePropPlacements(gridData), [gridData]);
 
     const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
@@ -264,15 +269,15 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     return (
         <div className="w-full h-full relative bg-[color:var(--space-bg)]">
             <Canvas 
-                shadows
+                shadows="percentage-closer"
                 gl={{ 
-                    antialias: false,
+                    antialias: true,
                     alpha: false,
                     powerPreference: 'high-performance',
                     toneMapping: THREE.NoToneMapping,
-                    toneMappingExposure: 1.0,
+                    toneMappingExposure: 0.82,
                 }}
-                dpr={[1, 2]}
+                dpr={[1, 1.25]}
             >
                 {/* ═══ Layer 1: Deep Space Background ═══ */}
                 <color attach="background" args={[PALETTE.space.background]} />
@@ -284,6 +289,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 {/* ═══ Layer 3: Camera + Controls ═══ */}
                 <PerspectiveCamera makeDefault position={cameraPosition} fov={cameraFov} near={0.1} far={1000} />
                 <OrbitControls 
+                    makeDefault
                     enableDamping 
                     maxPolarAngle={Math.PI / 2.5}
                     minDistance={2} 
@@ -306,9 +312,9 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 <directionalLight
                     castShadow
                     position={LIGHTING.key.position}
-                    intensity={LIGHTING.key.intensity * 1.2}
+                    intensity={LIGHTING.key.intensity * 0.65}
                     color={LIGHTING.key.color}
-                    shadow-mapSize={[4096, 4096]}
+                    shadow-mapSize={[1024, 1024]}
                     shadow-camera-near={0.5}
                     shadow-camera-far={100}
                     shadow-camera-left={-40}
@@ -322,23 +328,23 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 {/* Fill Light — cool blue */}
                 <directionalLight
                     position={LIGHTING.fill.position}
-                    intensity={LIGHTING.fill.intensity * 1.3}
+                    intensity={LIGHTING.fill.intensity * 0.75}
                     color={LIGHTING.fill.color}
                 />
                 
                 {/* Rim Light — cyan backlight */}
                 <directionalLight
                     position={LIGHTING.rim?.position || [0, 8, -15]}
-                    intensity={(LIGHTING.rim?.intensity || 0.6) * 1.5}
+                    intensity={(LIGHTING.rim?.intensity || 0.6) * 0.75}
                     color={LIGHTING.rim?.color || '#2dd3f1'}
                 />
                 
                 {/* Portal accent — central glow */}
                 <pointLight
                     position={[0, 2, 0]}
-                    intensity={LIGHTING.portal.intensity * 0.8}
-                    color={LIGHTING.portal.color}
-                    distance={LIGHTING.portal.distance * 2}
+                    intensity={LIGHTING.portalLight.intensity * 0.35}
+                    color={LIGHTING.portalLight.color}
+                    distance={LIGHTING.portalLight.distance * 2}
                     decay={2}
                 />
                 
@@ -396,6 +402,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
 
                     {/* ═══ Energy Shield Dome over arena ═══ */}
                     <EnergyShieldDome />
+                    {townNode && <TownSanctuaryMonument3D position={[townNode.position[0], 0.45, townNode.position[2]]} />}
+                    {selectedNode && <DirectionalCompassRose3D position={selectedNode.position} />}
 
                     {threads.map((thread) => (
                         <HeroAura
@@ -439,7 +447,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                         ref={compositorRef}
                         entropy={entropy} 
                         sunRef={sunRef}
-                        intensity={1.2}
+                        intensity={0.75}
                     />
                 </EffectComposer>
             </Canvas>

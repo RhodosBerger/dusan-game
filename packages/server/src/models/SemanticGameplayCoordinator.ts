@@ -4,7 +4,8 @@ import { Thread } from './Thread';
 declare var require: any;
 declare var process: any;
 declare var __dirname: string;
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 export interface SemanticSectorPayload {
@@ -56,10 +57,12 @@ export class SemanticGameplayCoordinator {
     const block = chunk?.blocks.find(b => b.id === pos.hex);
     if (!block) return null;
 
-    const venvPython = path.join(__dirname, '../../.venv/bin/python3');
+    const venvUnix = path.join(__dirname, '../../.venv/bin/python3');
+    const venvWin = path.join(__dirname, '../../.venv/Scripts/python.exe');
+    const venvPython = fs.existsSync(venvWin) ? venvWin : (fs.existsSync(venvUnix) ? venvUnix : 'python');
 
-    const safeExecSyncJson = (command: string): any => {
-      const raw = execSync(command).toString().trim();
+    const safeExecSyncJson = (script: string, args: string[]): any => {
+      const raw = execFileSync(venvPython, [script, ...args]).toString().trim();
       const jsonStart = raw.indexOf('{');
       const jsonEnd = raw.lastIndexOf('}');
       if (jsonStart === -1 || jsonEnd === -1) {
@@ -82,8 +85,7 @@ export class SemanticGameplayCoordinator {
         friction: block.friction,
         conductivity: block.conductivity
       });
-      const cmd = `"${venvPython}" "${spawnerScript}" '${spawnerPayload}'`;
-      const output = safeExecSyncJson(cmd);
+      const output = safeExecSyncJson(spawnerScript, [spawnerPayload]);
       if (output.status === 'SUCCESS') {
         spawnerPrediction = {
           predicted_hero_faction: output.predicted_hero_faction,
@@ -107,8 +109,7 @@ export class SemanticGameplayCoordinator {
     try {
       const dbQuestScript = path.join(__dirname, '../ml/db_quest_generator.py');
       const category = spawnerPrediction.predicted_hero_faction === 'toxic' ? 'toxic' : 'crystal';
-      const cmd = `"${venvPython}" "${dbQuestScript}" "${thread.name}" "${category}"`;
-      const output = safeExecSyncJson(cmd);
+      const output = safeExecSyncJson(dbQuestScript, [thread.name, category]);
       if (output.quest_id) {
         databaseQuest = {
           quest_id: output.quest_id,
@@ -133,7 +134,7 @@ export class SemanticGameplayCoordinator {
     };
     try {
       const dialogueScript = path.join(__dirname, '../ml/dialogue_generator.py');
-      
+
       let archetype = 'AETHER_SPELLWEAVER';
       if (spawnerPrediction.predicted_hero_faction === 'crystal') archetype = 'AETHER_SPELLWEAVER';
       else if (spawnerPrediction.predicted_hero_faction === 'toxic') archetype = 'VOID_WALKER';
@@ -143,8 +144,7 @@ export class SemanticGameplayCoordinator {
       const questType = 'FetchQuest';
       const stage = thread.quests.some(q => q.completed) ? 'COMPLETED' : 'INTRO';
 
-      const cmd = `"${venvPython}" "${dialogueScript}" "${archetype}" "${questType}" "${stage}"`;
-      const output = safeExecSyncJson(cmd);
+      const output = safeExecSyncJson(dialogueScript, [archetype, questType, stage]);
       if (output.status === 'SUCCESS') {
         dialogue = {
           archetype,

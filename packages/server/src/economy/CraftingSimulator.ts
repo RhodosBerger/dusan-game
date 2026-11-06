@@ -1,5 +1,6 @@
 // packages/server/src/economy/CraftingSimulator.ts
-import { PrismaClient } from '@prisma/client';
+import * as PrismaPkg from '@prisma/client';
+const PrismaClient = (PrismaPkg as any).PrismaClient;
 
 const prisma = new PrismaClient();
 
@@ -44,7 +45,7 @@ export class CraftingSimulator {
      * Uses transaction to prevent database race conditions.
      */
     static async burnCard(playerId: string, playerCardId: string): Promise<{ rewardedEssence: number }> {
-        return prisma.$transaction(async (tx) => {
+        return prisma.$transaction(async (tx: any) => {
             // 1. Fetch player card to confirm ownership and extract details
             const card = await tx.playerCard.findFirst({
                 where: { id: playerCardId, playerId }
@@ -83,13 +84,13 @@ export class CraftingSimulator {
             throw new Error('ERR_INVALID_RECIPE');
         }
 
-        return prisma.$transaction(async (tx) => {
+        return prisma.$transaction(async (tx: any) => {
             // 1. Fetch all inventory elements for player
             const inventory = await tx.inventory.findMany({
                 where: { playerId }
             });
 
-            const getAmount = (key: string) => inventory.find(i => i.materialKey === key)?.amount ?? 0;
+            const getAmount = (key: string) => inventory.find((i: any) => i.materialKey === key)?.amount ?? 0;
 
             const currentSpores  = getAmount('ToxicSpore');
             const currentShards  = getAmount('CrystalShard');

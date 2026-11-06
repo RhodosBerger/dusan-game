@@ -711,6 +711,7 @@ export class SovereignEngine {
       actionNetwork: this.actionNetwork,
       turnStateMachine: this.turnStateMachine.getState(),
       dungeonState: this.dungeonState,
+      traceLog: this.traceLog.slice(-50),
       map: this.getStaticMapState()
     };
   }
