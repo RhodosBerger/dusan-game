@@ -28,7 +28,7 @@ export default function AcidPool3D({ seed = 1 }) {
                 <meshStandardMaterial
                     color={BIOME_SPECS.TOXIC_SWAMP.accent}
                     emissive={BIOME_SPECS.TOXIC_SWAMP.accent}
-                    emissiveIntensity={0.85}
+                    emissiveIntensity={0.08}
                     roughness={0.4}
                     metalness={0}
                 />
@@ -45,7 +45,7 @@ export default function AcidPool3D({ seed = 1 }) {
                     />
                 </mesh>
             ))}
-            <pointLight color={BIOME_SPECS.TOXIC_SWAMP.accent} intensity={0.5} distance={3.5} position={[0, 0.5, 0]} />
+            {false && <pointLight color={BIOME_SPECS.TOXIC_SWAMP.accent} intensity={0.5} distance={3.5} position={[0, 0.5, 0]} />}
         </group>
     );
 }

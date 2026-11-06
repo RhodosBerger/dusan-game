@@ -28,7 +28,7 @@ export default function CrystalSpire3D({ seed = 1 }) {
                         <meshStandardMaterial
                             color={BIOME_SPECS.GLACIER.accent}
                             emissive={BIOME_SPECS.GLACIER.accent}
-                            emissiveIntensity={0.4}
+                            emissiveIntensity={0.05}
                             roughness={0.15}
                             metalness={0}
                             flatShading
@@ -36,7 +36,7 @@ export default function CrystalSpire3D({ seed = 1 }) {
                     </mesh>
                 </group>
             ))}
-            <pointLight color={BIOME_SPECS.GLACIER.accent} intensity={0.6} distance={4} position={[0, 1, 0]} />
+            {false && <pointLight color={BIOME_SPECS.GLACIER.accent} intensity={0.6} distance={4} position={[0, 1, 0]} />}
         </group>
     );
 }

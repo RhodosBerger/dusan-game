@@ -66,7 +66,7 @@ function SelectionRing({ color, radius, intensity = 1 }) {
                 />
             </mesh>
             {/* Point light for glow effect */}
-            <pointLight color={color} intensity={intensity * 2} distance={3} />
+            {false && <pointLight color={color} intensity={intensity * 2} distance={3} />}
         </group>
     );
 }
@@ -134,7 +134,7 @@ function LootChest3D() {
                 <sphereGeometry args={[0.07, 16, 16]} />
                 <meshBasicMaterial color={PALETTE.accent.magic} />
             </mesh>
-            <pointLight distance={2} intensity={1.2} color={PALETTE.accent.magic} />
+            {false && <pointLight distance={2} intensity={1.2} color={PALETTE.accent.magic} />}
         </group>
     );
 }
@@ -186,7 +186,7 @@ function Trap3D({ type }) {
                 <sphereGeometry args={[0.04, 8, 8]} />
                 <meshBasicMaterial color="#000000" />
             </mesh>
-            <pointLight distance={2} intensity={1.2} color={color} />
+            {false && <pointLight distance={2} intensity={1.2} color={color} />}
         </group>
     );
 }
@@ -247,7 +247,7 @@ function TownBuilding3D() {
                 <torusGeometry args={[0.45, 0.035, 8, 24]} />
                 <meshBasicMaterial color={PALETTE.accent.magic} />
             </mesh>
-            <pointLight distance={4} intensity={1.2} color={PALETTE.accent.magic} position={[0, 0, 1.2]} />
+            {false && <pointLight distance={4} intensity={1.2} color={PALETTE.accent.magic} position={[0, 0, 1.2]} />}
         </group>
     );
 }
@@ -354,7 +354,8 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
                 const waveFreq = 2.0 + entropy * 1.5;
                 const waveAmp = 0.02 + entropy * 0.06;
                 const idleOffset = Math.sin(time * waveFreq + (node.position[0] + node.position[2]) * 0.45) * waveAmp;
-                tileRef.current.position.y = baseHeight + idleOffset;
+                tileRef.current.position.y = 0;
+                tileRef.current.position.z = baseHeight + idleOffset * 0.25 + ((isHovered || isSelected) ? 0.28 : 0);
             }
         }
 
@@ -481,7 +482,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
     const undersideDepth = useMemo(() => {
         const dist = Math.hypot(node.position[0], node.position[2]) / 14;
         const jitter = ((node.macroIndex * 7 + node.subIndex) % 5) * 0.15;
-        return 1.6 + dist * 2.2 + jitter;
+        return 1.6 + dist * 2.2 + jitter + Math.max(0, (node.position[1] || 0) * 1.3);
     }, [node.position, node.macroIndex, node.subIndex]);
 
     return (
@@ -525,7 +526,7 @@ export default function HexagonNode3D({ node, isHovered, isSelected, onHover, on
 
                 {/* Skalná podsada — 6-boký zužujúci sa "stalaktit" pod dlaždicou */}
                 <mesh position={[0, 0, -undersideDepth / 2 + 0.02]} rotation={[Math.PI / 2, 0, 0]}>
-                    <cylinderGeometry args={[radius * 0.96, (node.elevationTier || 0) >= 1 ? radius * 0.82 : 0.28, undersideDepth + Math.max(0, (node.position[1] || 0) * 1.3), 6, 1, false, Math.PI / 6]} />
+                    <cylinderGeometry args={[radius * 0.96, (node.elevationTier || 0) >= 1 ? radius * 0.82 : 0.28, undersideDepth, 6, 1, false, Math.PI / 6]} />
                     <meshStandardMaterial
                         color={PALETTE.rock.underside}
                         roughness={1}

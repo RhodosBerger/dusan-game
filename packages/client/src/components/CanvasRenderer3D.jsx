@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, ContactShadows } from '@react-three/drei';
 import { EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { generate3DGrid } from '../utils/HexMath3D';
@@ -161,7 +161,8 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
     }, [map, threads]);
 
     useEffect(() => {
-        if (gameMode === 'SANDBOX') {
+        desiredTarget.current.set(0, 0, 0);
+        if (false && gameMode === 'SANDBOX') {
             desiredTarget.current.set(0, 0, 0);
         } else {
             const targetThread = threads.find(t => t.health > 0 && t.position && t.position.meta !== null);
@@ -184,8 +185,8 @@ function DynamicCameraController({ gameMode, threads, gridData, map, shakeIntens
             controls.update();
         }
 
-        let targetFov = isUltimate ? 34 : (gameMode === 'SANDBOX' ? 45 : 38);
-        if (gameMode !== 'SANDBOX' && !isUltimate) {
+        let targetFov = isUltimate ? 42 : 50;
+        if (false && gameMode !== 'SANDBOX' && !isUltimate) {
             if (activeBiome === 'TOXIC_SWAMP') {
                 targetFov = 34;
             } else if (activeBiome === 'GLACIER') {
@@ -244,8 +245,8 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
     const direNode = useMemo(() => gridData.find(n => n.id.toLowerCase() === 'm8_s0'), [gridData]);
     const propPlacements = useMemo(() => computePropPlacements(gridData), [gridData]);
 
-    const cameraPosition = isMobile ? [0, 20, 20] : [0, 15, 15];
-    const cameraFov = isMobile ? 55 : 45;
+    const cameraPosition = isMobile ? [0, 26, 24] : [0, 22, 22];
+    const cameraFov = isMobile ? 55 : 50;
 
     const currentHazardIndex = useMemo(() => {
         if (!map || map.length === 0) return 0.4;
@@ -276,7 +277,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     alpha: false,
                     powerPreference: 'high-performance',
                     toneMapping: THREE.NoToneMapping,
-                    toneMappingExposure: 0.82,
+                    toneMappingExposure: 1.15,
                 }}
                 dpr={[1, 1.25]}
             >
@@ -307,13 +308,13 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 />
 
                 {/* ═══ Layer 4: Dramatic HDR Lighting ═══ */}
-                <ambientLight intensity={LIGHTING.ambient.intensity * 0.8} color={LIGHTING.ambient.color} />
+                <ambientLight intensity={1.35} color={LIGHTING.ambient.color} />
                 
                 {/* Key Light — warm directional sun */}
                 <directionalLight
                     castShadow
                     position={[6, 42, 8]}
-                    intensity={LIGHTING.key.intensity * 0.65}
+                    intensity={2.2}
                     color={LIGHTING.key.color}
                     shadow-mapSize={[1024, 1024]}
                     shadow-camera-near={0.5}
@@ -350,13 +351,13 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                 />
                 
                 {/* Faction accent lights — colored fills from edges */}
-                <pointLight position={[-15, 5, -15]} intensity={0.5} color="#00eeff" distance={25} decay={2} />
-                <pointLight position={[15, 5, 15]} intensity={0.5} color="#39ff14" distance={25} decay={2} />
-                <pointLight position={[15, 5, -15]} intensity={0.3} color="#ffcc00" distance={20} decay={2} />
+                <pointLight position={[-15, 36, -15]} intensity={0.35} color="#2ec4b6" distance={65} decay={1.5} />
+                <pointLight position={[15, 36, 15]} intensity={0.35} color="#80ed99" distance={65} decay={1.5} />
+                <pointLight position={[0, 44, 0]} intensity={0.45} color="#f2dfbe" distance={80} decay={1.5} />
 
                 {/* ═══ Layer 5: Sun Sphere for GodRays ═══ */}
                 {false && <SunSphere sunRef={sunRef} />}
-                <hemisphereLight args={['#dce8f7', '#1a1d24', 0.65]} position={[0, 50, 0]} />
+                <hemisphereLight args={['#ffffff', '#5a6575', 1.4]} position={[0, 50, 0]} />
 
                 {/* ═══ Layer 6: 3D Scene — Hex Tiles + Props + Characters ═══ */}
                 <ArenaGroup shakeIntensity={shakeIntensity}>
@@ -406,6 +407,7 @@ export default function CanvasRenderer3D({ entropy = 0.4, selectedNode, onNodeCl
                     <EnergyShieldDome />
                     {townNode && <TownSanctuaryMonument3D position={[townNode.position[0], townNode.position[1] + 0.42, townNode.position[2]]} />}
                     {direNode && <TownSanctuaryMonument3D position={[direNode.position[0], direNode.position[1] + 0.42, direNode.position[2]]} />}
+                    <ContactShadows position={[0, -0.25, 0]} opacity={0.42} scale={42} blur={1.8} far={6} resolution={512} color="#1e293b" />
                     {selectedNode && <DirectionalCompassRose3D position={selectedNode.position} />}
 
                     {threads.map((thread) => (
