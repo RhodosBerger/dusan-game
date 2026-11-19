@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "sovereign-engine-stdio": {
+      "command": "npx.cmd",
+      "args": [
+        "ts-node",
+        "packages/server/src/mcp/SovereignMCPServerTemplate.ts",
+        "--stdio"
+      ],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "sovereign-engine-http": {
+      "url": "http://127.0.0.1:3001/mcp"
+    }
+  }
+}
