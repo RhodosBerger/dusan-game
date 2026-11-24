@@ -1,0 +1,20 @@
+[
+  {
+    "quest_id": "q_crystal_forge",
+    "title": "Aetheric Refinement",
+    "prompt": "Aetheric Blacksmith: I detected a custom 'aether_saber' in your vault. To charge its core energy to Level 5, we need to fuse 18 Crystal Shards. You currently possess 12 shards. You must acquire 6 more to complete the blueprint.",
+    "target_material": "CrystalShard",
+    "required_amount": 18,
+    "current_amount": 12,
+    "remaining_amount": 6
+  },
+  {
+    "quest_id": "q_toxic_cleanse",
+    "title": "Swamp Decontamination",
+    "prompt": "Alchemist Helix: Toxic levels in the swamp sector are rising. Gathering 12 Spores will allow us to synthesize a biome filter. Your inventory shows 4 Spores. Harvest 8 more.",
+    "target_material": "Spores",
+    "required_amount": 12,
+    "current_amount": 4,
+    "remaining_amount": 8
+  }
+]
